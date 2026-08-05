@@ -1,0 +1,74 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: motorsport19-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-motorsport19}
+      POSTGRES_USER: ${POSTGRES_USER:-taller}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+      TZ: ${TZ:-Europe/Madrid}
+      PGTZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # La API no arranca hasta que Postgres acepta conexiones de verdad.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taller} -d ${POSTGRES_DB:-motorsport19}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - motorsport19
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: motorsport19-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker,demo}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-motorsport19}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-taller}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/api/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks:
+      - motorsport19
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: motorsport19-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    networks:
+      - motorsport19
+
+volumes:
+  db_data:
+    name: motorsport19_db_data
+
+networks:
+  motorsport19:
+    name: motorsport19

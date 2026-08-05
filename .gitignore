@@ -1,0 +1,34 @@
+# ---------- Backend (Java / Maven) ----------
+backend/target/
+!backend/.mvn/wrapper/maven-wrapper.properties
+*.class
+*.jar
+*.war
+
+# ---------- Frontend (Angular / Node) ----------
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/tmp/
+npm-debug.log*
+
+# ---------- Entorno ----------
+.env
+*.local
+
+# ---------- IDEs ----------
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# ---------- Sistema operativo ----------
+.DS_Store
+Thumbs.db
+
+# ---------- Datos generados en ejecución ----------
+backend/facturas-pdf/
+backend/exportaciones/
+*.log

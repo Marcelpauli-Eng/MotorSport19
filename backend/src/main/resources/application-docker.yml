@@ -1,0 +1,10 @@
+# Perfil `docker`: la API se conecta al servicio `db` de docker-compose.
+# Las credenciales llegan por variables de entorno desde el .env.
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 15
+
+logging:
+  level:
+    root: INFO

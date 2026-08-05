@@ -1,0 +1,13 @@
+# Perfil `demo`: anade la migracion con datos de demostracion.
+#
+#   SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run
+#
+# NO usar en produccion: carga clientes, motos, ordenes y facturas ficticias,
+# ademas de usuarios con contrasenas conocidas.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/demo
+
+logging:
+  level:
+    com.motorsport19.taller: DEBUG
