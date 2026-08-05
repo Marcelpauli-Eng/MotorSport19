@@ -1,0 +1,50 @@
+# Despliegue contra una base de datos alojada en Supabase.
+#
+#   docker compose -f docker-compose.supabase.yml up --build
+#
+# Requiere un fichero .env con SUPABASE_DB_URL, SUPABASE_DB_USER y
+# SUPABASE_DB_PASSWORD. Ver .env.example para el formato exacto de la cadena
+# de conexion (importa cual de las tres que ofrece Supabase se usa).
+services:
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: motorsport19-api
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-supabase}
+      SPRING_DATASOURCE_URL: ${SUPABASE_DB_URL:?falta SUPABASE_DB_URL en el .env}
+      SPRING_DATASOURCE_USERNAME: ${SUPABASE_DB_USER:?falta SUPABASE_DB_USER en el .env}
+      SPRING_DATASOURCE_PASSWORD: ${SUPABASE_DB_PASSWORD:?falta SUPABASE_DB_PASSWORD en el .env}
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/api/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    networks:
+      - motorsport19
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: motorsport19-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    ports:
+      - "${WEB_PORT:-4200}:80"
+    networks:
+      - motorsport19
+
+networks:
+  motorsport19:
+    name: motorsport19

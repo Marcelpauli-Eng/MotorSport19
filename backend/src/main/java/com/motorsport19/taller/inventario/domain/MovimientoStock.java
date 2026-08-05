@@ -1,5 +1,6 @@
 package com.motorsport19.taller.inventario.domain;
 
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.orden.domain.LineaOT;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import com.motorsport19.taller.usuario.domain.Usuario;
@@ -32,6 +33,9 @@ import java.time.Instant;
  * <p><b>Inmutable.</b> Los triggers de la base de datos rechazan cualquier UPDATE
  * o DELETE. Un movimiento equivocado se corrige registrando un AJUSTE de signo
  * contrario, de forma que el libro conserva tanto el error como su correccion.
+ *
+ * <p>Solo se crea a traves de los metodos de fabrica, que se encargan de que el
+ * signo de la cantidad sea coherente con el tipo de movimiento.
  */
 @Entity
 @Table(name = "movimiento_stock")
@@ -94,4 +98,94 @@ public class MovimientoStock {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    // ------------------------------------------------------------------
+    // Fabricas
+    // ------------------------------------------------------------------
+
+    /** Compra a proveedor: suma existencias. */
+    public static MovimientoStock entrada(Pieza pieza, BigDecimal cantidad, Usuario usuario,
+                                          String documentoProveedor, BigDecimal precioCosteUnitario,
+                                          String motivo) {
+        MovimientoStock movimiento = base(pieza, TipoMovimiento.ENTRADA, exigirPositiva(cantidad, "entrada"),
+                usuario, motivo);
+        movimiento.documentoProveedor = textoONulo(documentoProveedor);
+        movimiento.precioCosteUnitario = precioCosteUnitario;
+        return movimiento;
+    }
+
+    /** Consumo en una orden de trabajo: resta existencias. */
+    public static MovimientoStock salida(Pieza pieza, BigDecimal cantidad, Usuario usuario,
+                                         OrdenTrabajo ordenTrabajo, LineaOT lineaOt, String motivo) {
+        BigDecimal positiva = exigirPositiva(cantidad, "salida");
+        if (ordenTrabajo == null && textoONulo(motivo) == null) {
+            throw new ReglaNegocioException(
+                    "Una salida de almacen sin orden de trabajo asociada necesita un motivo que la justifique.");
+        }
+        // El signo negativo lo pone el dominio, no quien llama: asi no hay forma
+        // de registrar una salida que sume stock por un descuido.
+        MovimientoStock movimiento = base(pieza, TipoMovimiento.SALIDA, positiva.negate(), usuario, motivo);
+        movimiento.ordenTrabajo = ordenTrabajo;
+        movimiento.lineaOt = lineaOt;
+        return movimiento;
+    }
+
+    /** Pieza que vuelve al almacen sin haberse usado: suma existencias. */
+    public static MovimientoStock devolucion(Pieza pieza, BigDecimal cantidad, Usuario usuario,
+                                             OrdenTrabajo ordenTrabajo, LineaOT lineaOt, String motivo) {
+        MovimientoStock movimiento = base(pieza, TipoMovimiento.DEVOLUCION,
+                exigirPositiva(cantidad, "devolucion"), usuario, motivo);
+        movimiento.ordenTrabajo = ordenTrabajo;
+        movimiento.lineaOt = lineaOt;
+        return movimiento;
+    }
+
+    /**
+     * Correccion tras inventario fisico. Admite ambos signos y exige motivo: un
+     * descuadre sin explicacion no vale de nada dentro de seis meses.
+     */
+    public static MovimientoStock ajuste(Pieza pieza, BigDecimal cantidadConSigno, Usuario usuario,
+                                         String motivo) {
+        if (cantidadConSigno == null || cantidadConSigno.signum() == 0) {
+            throw new ReglaNegocioException("La cantidad de un ajuste debe ser distinta de cero.");
+        }
+        if (textoONulo(motivo) == null) {
+            throw new ReglaNegocioException("Todo ajuste de inventario debe indicar el motivo.");
+        }
+        return base(pieza, TipoMovimiento.AJUSTE, cantidadConSigno, usuario, motivo);
+    }
+
+    // ------------------------------------------------------------------
+
+    private static MovimientoStock base(Pieza pieza, TipoMovimiento tipo, BigDecimal cantidadConSigno,
+                                        Usuario usuario, String motivo) {
+        if (pieza == null) {
+            throw new ReglaNegocioException("Todo movimiento de stock debe referirse a una pieza.");
+        }
+        MovimientoStock movimiento = new MovimientoStock();
+        movimiento.pieza = pieza;
+        movimiento.tipo = tipo;
+        movimiento.cantidad = cantidadConSigno;
+        movimiento.usuario = usuario;
+        movimiento.motivo = textoONulo(motivo);
+        movimiento.fecha = Instant.now();
+        movimiento.createdAt = movimiento.fecha;
+        return movimiento;
+    }
+
+    private static BigDecimal exigirPositiva(BigDecimal cantidad, String operacion) {
+        if (cantidad == null || cantidad.signum() <= 0) {
+            throw new ReglaNegocioException(
+                    "La cantidad de una %s debe ser mayor que cero.".formatted(operacion));
+        }
+        return cantidad;
+    }
+
+    private static String textoONulo(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String limpio = valor.trim();
+        return limpio.isEmpty() ? null : limpio;
+    }
 }

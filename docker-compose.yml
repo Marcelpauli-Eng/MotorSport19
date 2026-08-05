@@ -1,7 +1,11 @@
+# Pila completa en local (base de datos incluida).
+# Si la base de datos esta en Supabase, usa docker-compose.supabase.yml.
 services:
 
   db:
-    image: postgres:16-alpine
+    # Se fija la 17 para igualar la version que corre Supabase: probar contra
+    # una version distinta de la de produccion es pedir sorpresas.
+    image: postgres:17-alpine
     container_name: motorsport19-db
     restart: unless-stopped
     environment:

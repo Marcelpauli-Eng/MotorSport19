@@ -2,6 +2,9 @@ package com.motorsport19.taller.moto.domain;
 
 import com.motorsport19.taller.cliente.domain.Cliente;
 import com.motorsport19.taller.common.domain.EntidadAuditable;
+import com.motorsport19.taller.common.error.ConflictoException;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.common.util.Matriculas;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -16,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.Year;
 
 /**
  * Moto de un cliente.
@@ -29,6 +33,9 @@ import java.time.Instant;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Moto extends EntidadAuditable {
+
+    /** Primera motocicleta de la historia (Daimler Reitwagen). */
+    private static final int ANIO_MINIMO = 1885;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -72,4 +79,135 @@ public class Moto extends EntidadAuditable {
 
     @Column(name = "fecha_baja")
     private Instant fechaBaja;
+
+    // ------------------------------------------------------------------
+    // Creacion
+    // ------------------------------------------------------------------
+
+    public static Moto registrar(Cliente cliente, String matricula, String marca, String modelo,
+                                 Integer anio, Integer cilindrada, String color, String numeroBastidor,
+                                 Integer kmActual, String observaciones) {
+        if (cliente == null) {
+            throw new ReglaNegocioException("La moto debe pertenecer a un cliente.");
+        }
+        Moto moto = new Moto();
+        moto.cliente = cliente;
+        moto.aplicarDatos(matricula, marca, modelo, anio, cilindrada, color, numeroBastidor, observaciones);
+        moto.kmActual = validarKilometraje(kmActual == null ? 0 : kmActual);
+        moto.activo = true;
+        return moto;
+    }
+
+    // ------------------------------------------------------------------
+    // Modificacion
+    // ------------------------------------------------------------------
+
+    public void actualizarDatos(String matricula, String marca, String modelo, Integer anio,
+                                Integer cilindrada, String color, String numeroBastidor, String observaciones) {
+        comprobarActiva();
+        aplicarDatos(matricula, marca, modelo, anio, cilindrada, color, numeroBastidor, observaciones);
+    }
+
+    /**
+     * Actualiza el kilometraje conocido.
+     *
+     * <p>El cuentakilometros no retrocede. Si llega una lectura menor que la
+     * registrada, o es un error de tecleo o alguien ha manipulado el cuadro; en
+     * ambos casos hay que mirarlo, no guardarlo en silencio.
+     */
+    public void registrarKilometraje(int km) {
+        comprobarActiva();
+        validarKilometraje(km);
+        if (km < kmActual) {
+            throw new ReglaNegocioException(
+                    ("El kilometraje de la moto %s no puede disminuir: ya tenia registrados %d km "
+                     + "y se han indicado %d km.").formatted(matricula, kmActual, km));
+        }
+        this.kmActual = km;
+    }
+
+    public void cambiarPropietario(Cliente nuevoPropietario) {
+        comprobarActiva();
+        if (nuevoPropietario == null) {
+            throw new ReglaNegocioException("La moto debe pertenecer a un cliente.");
+        }
+        this.cliente = nuevoPropietario;
+    }
+
+    public void darDeBaja() {
+        if (!activo) {
+            throw new ConflictoException("La moto %s ya estaba dada de baja.".formatted(matricula));
+        }
+        this.activo = false;
+        this.fechaBaja = Instant.now();
+    }
+
+    public void reactivar() {
+        if (activo) {
+            throw new ConflictoException("La moto %s ya estaba activa.".formatted(matricula));
+        }
+        this.activo = true;
+        this.fechaBaja = null;
+    }
+
+    /** Descripcion para listados y facturas: "Yamaha MT-07". */
+    public String descripcion() {
+        return marca + " " + modelo;
+    }
+
+    // ------------------------------------------------------------------
+
+    private void aplicarDatos(String matricula, String marca, String modelo, Integer anio, Integer cilindrada,
+                              String color, String numeroBastidor, String observaciones) {
+        String matriculaNormalizada = Matriculas.normalizar(matricula);
+        if (matriculaNormalizada == null) {
+            throw new ReglaNegocioException("La matricula es obligatoria.");
+        }
+        if (textoONulo(marca) == null) {
+            throw new ReglaNegocioException("La marca es obligatoria.");
+        }
+        if (textoONulo(modelo) == null) {
+            throw new ReglaNegocioException("El modelo es obligatorio.");
+        }
+        if (anio != null && (anio < ANIO_MINIMO || anio > Year.now().getValue() + 1)) {
+            throw new ReglaNegocioException(
+                    "El ano %d no es valido para una motocicleta.".formatted(anio));
+        }
+        if (cilindrada != null && cilindrada <= 0) {
+            throw new ReglaNegocioException("La cilindrada debe ser mayor que cero.");
+        }
+
+        this.matricula = matriculaNormalizada;
+        this.marca = textoONulo(marca);
+        this.modelo = textoONulo(modelo);
+        this.anio = anio;
+        this.cilindrada = cilindrada;
+        this.color = textoONulo(color);
+        this.numeroBastidor = textoONulo(numeroBastidor) != null
+                ? textoONulo(numeroBastidor).toUpperCase()
+                : null;
+        this.observaciones = textoONulo(observaciones);
+    }
+
+    private void comprobarActiva() {
+        if (!activo) {
+            throw new ConflictoException(
+                    "La moto %s esta dada de baja: reactivela antes de modificarla.".formatted(matricula));
+        }
+    }
+
+    private static int validarKilometraje(int km) {
+        if (km < 0) {
+            throw new ReglaNegocioException("El kilometraje no puede ser negativo.");
+        }
+        return km;
+    }
+
+    private static String textoONulo(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String limpio = valor.trim();
+        return limpio.isEmpty() ? null : limpio;
+    }
 }

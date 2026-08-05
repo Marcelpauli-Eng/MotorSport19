@@ -3,10 +3,11 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: Fase 1 completada.** Estructura del proyecto, docker-compose, esquema
-> completo de base de datos (Flyway), entidades JPA y datos de demostración.
-> Todavía no hay lógica de negocio ni API REST: llegan en las fases siguientes.
-> El README definitivo de despliegue y operación se escribe en la fase 7.
+> **Estado: fases 1 y 2 completadas.** Esquema completo de base de datos,
+> entidades JPA, datos de demostración y el backend de clientes, motos e
+> inventario con sus tests. Órdenes de trabajo, facturación, seguridad y
+> frontend llegan en las fases siguientes. El README definitivo de despliegue y
+> operación se escribe en la fase 7.
 
 ---
 
@@ -15,14 +16,52 @@ taller de motocicletas en España.
 | Capa        | Tecnología                                              |
 |-------------|---------------------------------------------------------|
 | Backend     | Java 21, Spring Boot 3.5, Spring Data JPA               |
-| Base datos  | PostgreSQL 16, migraciones con Flyway                   |
+| Base datos  | PostgreSQL 17, migraciones con Flyway                   |
 | Frontend    | Angular 21 (standalone components + signals), SCSS      |
 | Build       | Maven (wrapper incluido) y npm                          |
 | Contenedores| docker-compose: `db`, `api`, `web`                      |
 
 ---
 
-## Arrancar con Docker
+## Arrancar con la base de datos en Supabase
+
+```bash
+cp .env.example .env      # rellena las tres variables SUPABASE_DB_*
+docker compose -f docker-compose.supabase.yml up --build
+```
+
+### Qué cadena de conexión usar
+
+Supabase ofrece tres y **solo una sirve**:
+
+| Conexión | Puerto | ¿Sirve? |
+|----------|--------|---------|
+| Directa `db.<ref>.supabase.co` | 5432 | Solo si tienes IPv6 o el complemento IPv4 |
+| **Pooler en modo session** `aws-0-<region>.pooler.supabase.com` | **5432** | **Sí — usa esta** |
+| Pooler en modo transaction | 6543 | No: Flyway no puede tomar su bloqueo de migración |
+
+El usuario del pooler tiene la forma `postgres.<ref>`. La cadena la encuentras en
+*Project Settings → Database → Connection string → Session pooler*.
+
+```
+SUPABASE_DB_URL=jdbc:postgresql://aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require
+SUPABASE_DB_USER=postgres.tuproyecto
+SUPABASE_DB_PASSWORD=...
+```
+
+### Seguridad: el acceso directo queda cerrado
+
+Supabase publica automáticamente toda tabla de `public` a través de PostgREST.
+Con la clave `anon` —que es pública por diseño y viaja en el navegador—
+cualquiera podría leer y escribir en las tablas saltándose la aplicación entera.
+
+La migración `V8` lo impide de dos formas independientes: activa RLS sin ninguna
+política (denegación por defecto) y revoca los permisos de `anon` y
+`authenticated` sobre tablas, secuencias y funciones. La aplicación no se ve
+afectada porque conecta por JDBC con el rol propietario. En un PostgreSQL normal
+la migración detecta que esos roles no existen y no hace nada.
+
+## Arrancar todo en local
 
 ```bash
 cp .env.example .env && docker compose up --build
@@ -36,12 +75,12 @@ cp .env.example .env && docker compose up --build
 | Postgres | localhost:5432                   |
 
 El perfil por defecto es `docker,demo`, así que la base de datos se levanta ya
-poblada con datos de demostración. Para arrancar vacío, edita `SPRING_PROFILES_ACTIVE`
-en tu `.env` y déjalo en `docker`.
+poblada con datos de demostración. Para arrancar vacío, deja
+`SPRING_PROFILES_ACTIVE=docker` en tu `.env`.
 
 ## Arrancar sin Docker
 
-Necesitas un PostgreSQL 16 accesible. Después:
+Necesitas un PostgreSQL 17 accesible. Después:
 
 ```bash
 cd backend && SPRING_PROFILES_ACTIVE=demo ./mvnw spring-boot:run
@@ -100,6 +139,7 @@ Las migraciones están en `backend/src/main/resources/db/migration`:
 | `V5` | Series, facturas, líneas, desglose de IVA y eventos |
 | `V6` | Funciones y triggers de integridad e inmutabilidad |
 | `V7` | Vistas de consulta |
+| `V8` | Blindaje del acceso directo a las tablas (Supabase) |
 
 ### Garantías que impone la base de datos
 
@@ -167,10 +207,68 @@ el perfil `demo` en producción.**
 
 ---
 
+## API (fase 2)
+
+Todas las rutas cuelgan de `/api`. Las respuestas de error comparten el mismo
+formato: `{ momento, estado, error, mensaje, ruta, detalles }`, con el mensaje
+siempre en español y listo para mostrar al usuario.
+
+### Clientes
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `GET` | `/clientes?texto=&soloActivos=` | Busca por nombre, apellidos, documento, teléfono o email |
+| `GET` | `/clientes/{id}` | Ficha completa, con el indicador `facturable` |
+| `GET` | `/clientes/{id}/motos` | Motos del cliente |
+| `POST` | `/clientes` | Alta (solo el nombre es obligatorio) |
+| `PUT` | `/clientes/{id}/contacto` | Actualiza nombre, teléfono, email |
+| `PUT` | `/clientes/{id}/datos-fiscales` | Completa o corrige los datos fiscales |
+| `POST` | `/clientes/{id}/baja` · `/reactivacion` | Baja lógica y reactivación |
+
+### Motos
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `GET` | `/motos?texto=&soloActivas=` | Busca por matrícula, marca, modelo o bastidor |
+| `GET` | `/motos/{id}` · `/motos/matricula/{matricula}` | Ficha |
+| `POST` | `/motos` | Alta |
+| `PUT` | `/motos/{id}` | Actualiza datos |
+| `PUT` | `/motos/{id}/kilometraje` | Registra kilometraje (solo puede aumentar) |
+| `PUT` | `/motos/{id}/propietario` | Cambio de propietario |
+| `POST` | `/motos/{id}/baja` · `/reactivacion` | Baja lógica y reactivación |
+
+### Inventario
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `GET` | `/piezas?texto=&proveedorId=&soloBajoMinimo=` | Catálogo |
+| `GET` | `/piezas/{id}` · `/piezas/sku/{sku}` | Ficha |
+| `POST` | `/piezas` | Alta (`stockInicial` genera un movimiento de entrada) |
+| `PUT` | `/piezas/{id}` · `/piezas/{id}/precios` | Actualiza catálogo y precios |
+| `GET` | `/inventario/alertas` | Piezas al mínimo o por debajo |
+| `GET` | `/inventario/movimientos` | Libro de movimientos, con filtros |
+| `GET` | `/inventario/piezas/{id}/movimientos` | Historial de una pieza |
+| `POST` | `/inventario/piezas/{id}/entradas` | Compra a proveedor |
+| `POST` | `/inventario/piezas/{id}/salidas` | Salida justificada (exige motivo) |
+| `POST` | `/inventario/piezas/{id}/ajustes` | Ajuste de inventario (con signo, exige motivo) |
+| `GET`/`POST`/`PUT` | `/proveedores` | Mantenimiento de proveedores |
+
+**No existe ningún endpoint para fijar el stock de una pieza**, y es deliberado:
+las existencias solo cambian registrando movimientos.
+
+### Validación de documentos fiscales
+
+Los NIF, NIE y CIF se validan con su dígito de control antes de guardarlos. Un
+documento mal tecleado no se detectaría hasta que Hacienda rechazase la factura,
+y para entonces la factura ya sería inmutable. Los documentos extranjeros se
+aceptan sin verificar, porque no llevan un control comprobable aquí.
+
+---
+
 ## Fases del proyecto
 
 - [x] **Fase 1** — Estructura, docker-compose, esquema, entidades JPA, datos demo
-- [ ] **Fase 2** — Backend de clientes, motos e inventario. Tests
+- [x] **Fase 2** — Backend de clientes, motos e inventario. Tests
 - [ ] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
 - [ ] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
 - [ ] **Fase 5** — Autenticación JWT, roles y seguridad

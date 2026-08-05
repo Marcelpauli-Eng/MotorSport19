@@ -1,0 +1,47 @@
+# Perfil `supabase`: la base de datos vive en Supabase (PostgreSQL 17).
+#
+# IMPORTANTE - que cadena de conexion usar. Supabase ofrece tres y solo una
+# sirve para esta aplicacion:
+#
+#   1. Conexion directa      db.<ref>.supabase.co:5432
+#      Solo IPv6 salvo que contrates el complemento IPv4. Si tu red o tu
+#      proveedor de hosting no tiene IPv6, no conectara.
+#
+#   2. Pooler en modo SESSION (Supavisor)   aws-0-<region>.pooler.supabase.com:5432
+#      >>> ESTA ES LA BUENA <<<
+#      Compatible con IPv4 y mantiene la sesion, que es lo que necesitan tanto
+#      los bloqueos consultivos de Flyway como los SELECT ... FOR UPDATE con los
+#      que se serializa la numeracion de facturas.
+#      El usuario tiene la forma postgres.<ref>
+#
+#   3. Pooler en modo TRANSACTION           ...pooler.supabase.com:6543
+#      NO USAR. Al no conservar la sesion, Flyway no puede tomar su bloqueo de
+#      migracion y las sentencias preparadas de Hibernate fallan.
+#
+# Ejemplo de SPRING_DATASOURCE_URL:
+#   jdbc:postgresql://aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require
+spring:
+  datasource:
+    hikari:
+      # El pooler de Supabase ya agrupa conexiones; abrir muchas desde aqui
+      # solo consume cupo del proyecto sin ganar nada.
+      maximum-pool-size: 8
+      minimum-idle: 1
+      # Supabase cierra las conexiones ociosas: reciclarlas antes evita
+      # encontrarse sockets muertos.
+      max-lifetime: 900000
+      idle-timeout: 300000
+      connection-timeout: 30000
+
+  jpa:
+    properties:
+      hibernate:
+        # Reduce el numero de viajes de ida y vuelta, que con la base de datos
+        # remota pesan mucho mas que en local.
+        jdbc:
+          batch_size: 50
+        default_batch_fetch_size: 32
+
+logging:
+  level:
+    root: INFO
