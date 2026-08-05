@@ -77,4 +77,20 @@ public interface MovimientoStockRepository extends JpaRepository<MovimientoStock
      */
     @Query("SELECT COALESCE(SUM(m.cantidad), 0) FROM MovimientoStock m WHERE m.pieza.id = :piezaId")
     BigDecimal sumarCantidades(@Param("piezaId") Long piezaId);
+
+    /**
+     * Unidades netas que una linea de OT ha sacado del almacen.
+     *
+     * <p>Se calcula sumando los movimientos de la linea y cambiando el signo: las
+     * salidas son negativas y las devoluciones positivas, asi que el resultado es
+     * lo que la linea tiene ahora mismo consumido. No se guarda en la linea a
+     * proposito, igual que el stock: se deriva del libro de movimientos, que es
+     * la unica fuente de verdad.
+     */
+    @Query("""
+            SELECT COALESCE(-SUM(m.cantidad), 0)
+              FROM MovimientoStock m
+             WHERE m.lineaOt.id = :lineaId
+            """)
+    BigDecimal consumoNetoDeLinea(@Param("lineaId") Long lineaId);
 }

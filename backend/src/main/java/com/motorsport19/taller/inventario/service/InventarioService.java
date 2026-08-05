@@ -88,23 +88,53 @@ public class InventarioService {
     }
 
     /**
-     * Salida por consumo en una orden de trabajo.
+     * Intenta servir material para una orden de trabajo <b>sin lanzar excepcion</b>
+     * cuando no hay existencias.
      *
-     * <p>La usara el servicio de ordenes de trabajo en la fase 3, al pasar una OT
-     * a {@code EN_REPARACION}. Lanza {@link StockInsuficienteException} con el
-     * detalle del descuadre para que quien llama pueda decidir mover la OT a
-     * {@code ESPERANDO_PIEZAS}.
+     * <p>Esta es la forma que usa el servicio de ordenes de trabajo, y la
+     * distincion no es cosmetica: si este metodo dejara escapar una excepcion,
+     * Spring marcaria la transaccion como rollback-only y el llamante no podria
+     * seguir sirviendo el resto de lineas ni registrar el cambio de estado,
+     * aunque capturase la excepcion. Al devolver la falta de stock como dato, la
+     * OT puede quedarse con lo que si habia y pasar a ESPERANDO_PIEZAS.
+     *
+     * <p>El bloqueo pesimista sobre la pieza se mantiene desde la comprobacion
+     * hasta el asiento, asi que no hay hueco entre comprobar y consumir.
      */
     @Transactional
-    public MovimientoStock registrarConsumoEnOrden(Long piezaId, BigDecimal cantidad, OrdenTrabajo orden,
-                                                   LineaOT linea, Long usuarioId) {
+    public IntentoConsumo intentarConsumoEnOrden(Long piezaId, BigDecimal cantidad, OrdenTrabajo orden,
+                                                 LineaOT linea, Long usuarioId) {
         Pieza pieza = cargarPiezaBloqueada(piezaId);
-        comprobarExistencias(pieza, cantidad);
+
+        if (cantidad == null || cantidad.signum() <= 0) {
+            throw new com.motorsport19.taller.common.error.ReglaNegocioException(
+                    "La cantidad a consumir debe ser mayor que cero.");
+        }
+        if (!pieza.hayExistenciasPara(cantidad)) {
+            return IntentoConsumo.sinExistencias(pieza.existencias(), cantidad);
+        }
 
         MovimientoStock movimiento = MovimientoStock.salida(
                 pieza, cantidad, cargarUsuario(usuarioId), orden, linea, null);
 
-        return registrar(movimiento, pieza);
+        return IntentoConsumo.servido(registrar(movimiento, pieza), pieza.existencias(), cantidad);
+    }
+
+    /**
+     * Salida por consumo en una orden de trabajo, fallando si no hay existencias.
+     *
+     * <p>Variante estricta de {@link #intentarConsumoEnOrden} para cuando quien
+     * llama quiere que la operacion entera se deshaga si falta material.
+     */
+    @Transactional
+    public MovimientoStock registrarConsumoEnOrden(Long piezaId, BigDecimal cantidad, OrdenTrabajo orden,
+                                                   LineaOT linea, Long usuarioId) {
+        IntentoConsumo intento = intentarConsumoEnOrden(piezaId, cantidad, orden, linea, usuarioId);
+        if (!intento.servido()) {
+            Pieza pieza = piezaRepository.findById(piezaId).orElseThrow();
+            throw new StockInsuficienteException(pieza.getSku(), intento.disponible(), cantidad);
+        }
+        return intento.movimiento();
     }
 
     /** Devolucion al almacen de una pieza que no llego a usarse. */

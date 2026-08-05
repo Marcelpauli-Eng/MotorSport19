@@ -3,11 +3,13 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: fases 1 y 2 completadas.** Esquema completo de base de datos,
-> entidades JPA, datos de demostración y el backend de clientes, motos e
-> inventario con sus tests. Órdenes de trabajo, facturación, seguridad y
-> frontend llegan en las fases siguientes. El README definitivo de despliegue y
-> operación se escribe en la fase 7.
+> **Estado: fases 1 a 3 completadas.** Esquema de base de datos, entidades JPA,
+> datos de demostración, backend de clientes, motos e inventario, y órdenes de
+> trabajo con máquina de estados y consumo de almacén. 157 tests en verde.
+>
+> **Todavía no hay autenticación** (fase 5): la API está abierta y no debe
+> exponerse en internet tal cual. Facturación, seguridad y frontend llegan en las
+> fases siguientes; el README definitivo de despliegue se escribe en la fase 7.
 
 ---
 
@@ -256,6 +258,58 @@ siempre en español y listo para mostrar al usuario.
 **No existe ningún endpoint para fijar el stock de una pieza**, y es deliberado:
 las existencias solo cambian registrando movimientos.
 
+### Órdenes de trabajo (fase 3)
+
+Cada transición tiene su propio endpoint con nombre de negocio, en vez de un
+genérico "cambiar estado": la API refleja la máquina de estados en lugar de dejar
+que el cliente proponga cualquier salto.
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `GET` | `/ordenes?estado=&tecnicoId=&soloAbiertas=` | Tablero del taller |
+| `GET` | `/ordenes/{id}` · `/ordenes/codigo/{codigo}` | Ficha con líneas, totales e historial |
+| `GET` | `/ordenes/moto/{motoId}/historial` | Historial de intervenciones de una moto |
+| `POST` | `/ordenes` | Abre una OT (numeración correlativa, tarifa congelada) |
+| `PUT` | `/ordenes/{id}/diagnostico` | Registra el diagnóstico del técnico |
+| `POST` | `/ordenes/{id}/lineas/mano-de-obra` · `/lineas/piezas` | Añade líneas |
+| `PUT` | `/ordenes/{id}/lineas/{lineaId}/cantidad` | Cambia la cantidad |
+| `DELETE` | `/ordenes/{id}/lineas/{lineaId}` | Quita una línea (si no consumió almacén) |
+| `POST` | `/ordenes/{id}/lineas/{lineaId}/devoluciones` | Devuelve piezas ya consumidas |
+
+Transiciones: `/diagnostico` · `/presupuesto` · `/aprobacion` · `/rechazo` ·
+`/reparacion` · `/reanudacion` · `/espera-piezas` · `/lista` · `/entrega`.
+
+Cada respuesta incluye `estadosPosibles`, para que el frontend pinte solo los
+botones que tienen sentido en vez de dejar al usuario probar y recibir un error.
+
+### La máquina de estados
+
+```
+RECIBIDA → EN_DIAGNOSTICO → PRESUPUESTADA → APROBADA → EN_REPARACION → LISTA → ENTREGADA
+                                  │                          ↕
+                                  └→ RECHAZADA        ESPERANDO_PIEZAS → LISTA
+```
+
+`ENTREGADA` y `RECHAZADA` son terminales. Las transiciones se declaran en el enum
+`EstadoOT` y cualquier otro salto se rechaza con un error que dice **a qué estados
+sí se puede ir** desde donde está.
+
+### Consumo de inventario
+
+Al entrar en reparación, la OT consume automáticamente las piezas de sus líneas:
+
+- El material disponible **se consume**; el que falta deja la OT en
+  `ESPERANDO_PIEZAS` con el detalle de cuántas unidades pedir al proveedor.
+  No es un error HTTP: es el resultado normal de que el almacén esté corto.
+- Al reanudar, **solo se sirve lo pendiente**. Lo ya consumido no se duplica,
+  porque las unidades consumidas se derivan del libro de movimientos y no se
+  guardan en la línea.
+- Una línea que ya sacó material del almacén **no se puede borrar**: el libro de
+  movimientos es inmutable y no se puede borrar el rastro de unas piezas que
+  salieron físicamente. Hay que devolverlas primero.
+- Añadir una pieza al presupuesto **no** toca el almacén; lo que sí hace es
+  congelar su precio de catálogo en la línea.
+
 ### Validación de documentos fiscales
 
 Los NIF, NIE y CIF se validan con su dígito de control antes de guardarlos. Un
@@ -269,7 +323,7 @@ aceptan sin verificar, porque no llevan un control comprobable aquí.
 
 - [x] **Fase 1** — Estructura, docker-compose, esquema, entidades JPA, datos demo
 - [x] **Fase 2** — Backend de clientes, motos e inventario. Tests
-- [ ] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
+- [x] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
 - [ ] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
 - [ ] **Fase 5** — Autenticación JWT, roles y seguridad
 - [ ] **Fase 6** — Frontend Angular

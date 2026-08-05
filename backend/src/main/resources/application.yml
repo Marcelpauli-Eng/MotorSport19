@@ -33,7 +33,9 @@ spring:
     ignore-migration-patterns: "*:missing"
 
   jackson:
-    default-property-inclusion: non_null
+    # Los campos vacios se envian como null en vez de omitirse: el frontend
+    # recibe siempre la misma forma de objeto, venga la ficha completa o a
+    # medias, y los formularios no necesitan tratar claves ausentes.
     serialization:
       write-dates-as-timestamps: false
 
