@@ -3,10 +3,11 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: fases 1 a 4 completadas.** Esquema de base de datos, entidades JPA,
+> **Estado: fases 1 a 4 y 6 completadas.** Esquema de base de datos, entidades JPA,
 > datos de demostración, backend de clientes, motos e inventario, órdenes de
 > trabajo con máquina de estados y consumo de almacén, y facturación con cadena
-> de huellas, PDF con QR y exportación. 197 tests en verde.
+> de huellas, PDF con QR y exportación, y el frontend Angular completo.
+> 197 tests en verde. Guía de despliegue en [DESPLIEGUE.md](DESPLIEGUE.md).
 >
 > **Todavía no hay autenticación** (fase 5): la API está abierta y no debe
 > exponerse en internet tal cual. Facturación, seguridad y frontend llegan en las
@@ -384,5 +385,5 @@ aceptan sin verificar, porque no llevan un control comprobable aquí.
 - [x] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
 - [x] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
 - [ ] **Fase 5** — Autenticación JWT, roles y seguridad
-- [ ] **Fase 6** — Frontend Angular
+- [x] **Fase 6** — Frontend Angular
 - [ ] **Fase 7** — README de despliegue, backup y documentación de inmutabilidad

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/frontend/browser",
+  "framework": null,
+
+  "rewrites": [
+    {
+      "comment": "Todo /api se reenvia al backend de Render. Con esto el navegador solo habla con el dominio de Vercel, asi que no hace falta configurar CORS ni exponer la URL del backend en el codigo. Sustituye motorsport19-api por el nombre real de tu servicio de Render.",
+      "source": "/api/:ruta*",
+      "destination": "https://motorsport19-api.onrender.com/api/:ruta*"
+    },
+    {
+      "comment": "Angular es una SPA: cualquier otra ruta devuelve el index y el enrutador se encarga.",
+      "source": "/((?!assets|favicon.ico).*)",
+      "destination": "/index.html"
+    }
+  ],
+
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    }
+  ]
+}

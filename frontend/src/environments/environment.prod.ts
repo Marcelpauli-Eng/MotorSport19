@@ -1,14 +1,15 @@
 /**
  * Configuracion de produccion.
  *
- * La API NO vive en Vercel: Vercel sirve estaticos y funciones serverless, y
- * Spring Boot necesita una JVM permanente. El backend se despliega aparte
- * (Render, Railway, Fly.io...) y aqui se apunta a su URL publica.
+ * La ruta es relativa a proposito. En Vercel, `vercel.json` reenvia todo lo que
+ * cuelga de /api al backend de Render, asi que el navegador solo habla con el
+ * dominio de Vercel: no hace falta configurar CORS ni publicar la URL del
+ * backend en el codigo del frontend.
  *
- * El valor se sustituye en el build a partir de la variable de entorno
- * NG_APP_URL_API (ver scripts/configurar-entorno.mjs).
+ * Si algun dia se llama a la API directamente, aqui iria su URL completa y
+ * habria que habilitar CORS en el backend.
  */
 export const environment = {
   produccion: true,
-  urlApi: 'URL_API_PLACEHOLDER',
+  urlApi: '/api',
 };

@@ -1,0 +1,40 @@
+# Despliegue del backend en Render.
+#
+# Render lee este fichero desde la raiz del repositorio (Blueprint) y crea el
+# servicio automaticamente. La base de datos NO se crea aqui: vive en Supabase.
+#
+# Ojo con el plan gratuito: el servicio se duerme tras 15 minutos sin trafico y
+# la siguiente peticion tarda ~50 segundos en despertarlo. Para un taller que lo
+# usa a diario conviene el plan de pago mas bajo; para ensenarlo, el gratuito
+# sobra.
+services:
+  - type: web
+    name: motorsport19-api
+    runtime: docker
+    region: frankfurt          # el mas cercano a Espana
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/actuator/health
+
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: supabase
+      - key: TZ
+        value: Europe/Madrid
+
+      # Estas tres se rellenan a mano en el panel de Render.
+      # Usa el POOLER EN MODO SESSION de Supabase (puerto 5432), no la conexion
+      # directa (solo IPv6) ni el modo transaction (rompe Flyway).
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+
+      # Origen permitido para CORS. Se deja preparado por si algun dia el
+      # frontend llama a la API directamente en vez de a traves del proxy de
+      # Vercel; con el proxy no hace falta.
+      - key: CORS_ORIGENES
+        sync: false
