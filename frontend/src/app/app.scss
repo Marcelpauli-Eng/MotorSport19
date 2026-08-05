@@ -1,22 +1,165 @@
-.contenedor {
-  max-width: 48rem;
-  margin: 0 auto;
-  padding: 3rem 1.5rem;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  line-height: 1.6;
+.armazon {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 60px 1fr;
+  grid-template-areas:
+    'cabecera cabecera'
+    'navegacion contenido';
+  min-height: 100vh;
 }
 
-h1 {
-  font-size: 1.75rem;
-  margin-bottom: 0.25rem;
+/* ---------- Cabecera ---------- */
+
+.cabecera {
+  grid-area: cabecera;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1rem;
+  background: var(--gris-900);
+  color: var(--blanco);
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
-.fase {
-  color: #555;
-  font-weight: 600;
-  margin-top: 0;
+.cabecera__marca {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--blanco);
+  text-decoration: none;
 }
 
-.aviso {
-  color: #666;
+.cabecera__sub {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--gris-300);
+}
+
+.cabecera__menu {
+  display: none;
+  width: 40px;
+  height: 40px;
+  font-size: 1.3rem;
+  color: var(--blanco);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.cabecera__usuario {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* ---------- Navegación ---------- */
+
+.navegacion {
+  grid-area: navegacion;
+  display: flex;
+  flex-direction: column;
+  background: var(--blanco);
+  border-right: 1px solid var(--gris-200);
+  padding: 1rem 0.75rem;
+  position: sticky;
+  top: 60px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.navegacion ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+}
+
+.navegacion a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: var(--alto-control);
+  padding: 0 0.8rem;
+  margin-bottom: 0.2rem;
+  border-radius: var(--radio);
+  color: var(--gris-700);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.navegacion a:hover { background: var(--gris-100); }
+
+.navegacion a.activo {
+  color: var(--azul-oscuro);
+  background: var(--azul-claro);
+}
+
+.navegacion__icono { font-size: 1.05rem; width: 1.3rem; text-align: center; }
+
+.navegacion__aviso {
+  margin: 1rem 0 0;
+  padding: 0.6rem 0.7rem;
+  color: var(--ambar);
+  background: var(--ambar-claro);
+  border-radius: var(--radio);
+  line-height: 1.35;
+}
+
+/* ---------- Contenido ---------- */
+
+.contenido {
+  grid-area: contenido;
+  padding: 1.5rem;
+  max-width: 1400px;
+  width: 100%;
+  /*
+    Igual que en las rejillas interiores: sin esto, cualquier contenido ancho
+    (el tablero de ordenes, una tabla larga) estira la pista del grid y saca la
+    pagina entera de la pantalla en tablet, en vez de desplazarse por dentro.
+  */
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.velo { display: none; }
+
+/* ---------- Tablet y móvil ---------- */
+
+@media (max-width: 900px) {
+  .armazon {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'cabecera'
+      'contenido';
+  }
+
+  .cabecera__menu { display: block; }
+
+  .navegacion {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 260px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 30;
+    box-shadow: var(--sombra-alta);
+  }
+
+  .armazon--menu-abierto .navegacion { transform: translateX(0); }
+
+  .armazon--menu-abierto .velo {
+    display: block;
+    position: fixed;
+    inset: 60px 0 0;
+    background: rgb(0 0 0 / 35%);
+    z-index: 25;
+  }
+
+  .contenido { padding: 1rem; }
 }

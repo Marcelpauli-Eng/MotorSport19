@@ -1,0 +1,33 @@
+.pestanas {
+  display: flex;
+  gap: 0.3rem;
+  border-bottom: 2px solid var(--gris-200);
+}
+
+.pestana {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--alto-control);
+  padding: 0 1rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--gris-500);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+}
+
+.pestana:hover { color: var(--gris-900); }
+
+.pestana--activa {
+  color: var(--azul);
+  border-bottom-color: var(--azul);
+}
+
+.fila--alerta { background: var(--ambar-claro); }
+.fila--alerta:hover { background: var(--ambar-claro); }
+
+.negativo { color: var(--rojo); }

@@ -1,0 +1,130 @@
+<div class="apilado">
+  <h1>Panel del taller</h1>
+
+  <!-- Lo que reclama accion -->
+  <div class="rejilla rejilla--resumen">
+    <a routerLink="/ordenes" class="tarjeta metrica">
+      <span class="metrica__valor">{{ totalAbiertas() }}</span>
+      <span class="metrica__texto">órdenes abiertas</span>
+    </a>
+    <a routerLink="/ordenes" class="tarjeta metrica" [class.metrica--aviso]="porEstado('LISTA').length">
+      <span class="metrica__valor">{{ porEstado('LISTA').length }}</span>
+      <span class="metrica__texto">listas para entregar</span>
+    </a>
+    <a
+      routerLink="/ordenes"
+      class="tarjeta metrica"
+      [class.metrica--alerta]="porEstado('ESPERANDO_PIEZAS').length"
+    >
+      <span class="metrica__valor">{{ porEstado('ESPERANDO_PIEZAS').length }}</span>
+      <span class="metrica__texto">esperando piezas</span>
+    </a>
+    <a routerLink="/inventario" class="tarjeta metrica" [class.metrica--alerta]="alertas().length">
+      <span class="metrica__valor">{{ alertas().length }}</span>
+      <span class="metrica__texto">piezas bajo mínimo</span>
+    </a>
+  </div>
+
+  <!-- Tablero por estados -->
+  <section class="tarjeta">
+    <div class="tarjeta__titulo">
+      <h2>Trabajo en curso</h2>
+      <a routerLink="/ordenes" class="pequeno">Ver todas →</a>
+    </div>
+
+    @if (!ordenesAbiertas().length) {
+      <p class="vacio">No hay ninguna orden de trabajo abierta.</p>
+    } @else {
+      <div class="tablero">
+        @for (col of columnas; track col.estado) {
+          @if (porEstado(col.estado).length) {
+            <div class="columna">
+              <h3 class="columna__titulo">
+                {{ col.titulo }}
+                <span class="etiqueta etiqueta--{{ col.estado | colorEstado }}">
+                  {{ porEstado(col.estado).length }}
+                </span>
+              </h3>
+              @for (o of porEstado(col.estado); track o.id) {
+                <a [routerLink]="['/ordenes', o.id]" class="ficha">
+                  <span class="ficha__codigo">{{ o.codigo }}</span>
+                  <span class="ficha__moto">{{ o.matricula }} · {{ o.descripcionMoto }}</span>
+                  <span class="ficha__cliente pequeno silenciado">{{ o.clienteNombre }}</span>
+                  @if (o.tecnicoNombre) {
+                    <span class="pequeno silenciado">👤 {{ o.tecnicoNombre }}</span>
+                  }
+                </a>
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+  </section>
+
+  <div class="rejilla rejilla--dos">
+    <!-- Reposicion -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Piezas por reponer</h2>
+        <a routerLink="/inventario" class="pequeno">Inventario →</a>
+      </div>
+      @if (!alertas().length) {
+        <p class="vacio pequeno">Todo el inventario está por encima del mínimo.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+        <table>
+          <tbody>
+            @for (a of alertas(); track a.piezaId) {
+              <tr>
+                <td>
+                  <div class="mono pequeno">{{ a.sku }}</div>
+                  <div class="pequeno silenciado">{{ a.descripcion }}</div>
+                </td>
+                <td class="num">
+                  @if (a.sinExistencias) {
+                    <span class="etiqueta etiqueta--rojo">Sin stock</span>
+                  } @else {
+                    <span class="etiqueta etiqueta--ambar">
+                      {{ a.stockActual | number: '1.0-2' : 'es' }} / {{ a.stockMinimo | number: '1.0-2' : 'es' }}
+                    </span>
+                  }
+                </td>
+                <td class="pequeno silenciado">{{ a.proveedorNombre || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        </div>
+      }
+    </section>
+
+    <!-- Ultimas facturas -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Últimas facturas</h2>
+        <a routerLink="/facturas" class="pequeno">Ver todas →</a>
+      </div>
+      @if (!ultimasFacturas().length) {
+        <p class="vacio pequeno">Todavía no se ha emitido ninguna factura.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+        <table>
+          <tbody>
+            @for (f of ultimasFacturas(); track f.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/facturas', f.id]" class="negrita">{{ f.numeroCompleto }}</a>
+                  <div class="pequeno silenciado">{{ f.receptorNombre }}</div>
+                </td>
+                <td class="pequeno">{{ f.fechaEmision | date: 'dd/MM/yy' }}</td>
+                <td class="num negrita">{{ f.total | number: '1.2-2' : 'es' }} €</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+        </div>
+      }
+    </section>
+  </div>
+</div>

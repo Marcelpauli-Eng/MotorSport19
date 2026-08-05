@@ -1,0 +1,187 @@
+@if (cargando()) {
+  <app-cargando mensaje="Cargando factura…" />
+} @else if (factura(); as f) {
+  <div class="apilado">
+    <div class="fila">
+      <a routerLink="/facturas" class="pequeno">← Facturas</a>
+    </div>
+
+    <div class="fila">
+      <div class="crece">
+        <h1>
+          {{ f.numeroCompleto }}
+          @if (f.tipo === 'RECTIFICATIVA') {
+            <span class="etiqueta etiqueta--ambar">Rectificativa</span>
+          }
+        </h1>
+        <p class="silenciado pequeno">
+          Emitida el {{ f.fechaEmision | date: 'dd/MM/yyyy' }} · posición
+          {{ f.numeroRegistro }} del registro
+        </p>
+      </div>
+      <a class="boton boton--principal" [href]="urlPdf()" target="_blank" rel="noopener">
+        📄 Ver PDF
+      </a>
+    </div>
+
+    <!-- El sello: lo que demuestra que la factura no se ha tocado -->
+    <section class="tarjeta sello" [class.sello--roto]="!f.huellaVerificada">
+      <div class="fila">
+        <span class="sello__icono">{{ f.huellaVerificada ? '🔒' : '⚠️' }}</span>
+        <div class="crece">
+          <p class="negrita">
+            {{ f.huellaVerificada
+              ? 'Huella verificada: la factura no se ha alterado desde que se emitió.'
+              : 'ATENCIÓN: la huella no corresponde al contenido de esta factura.' }}
+          </p>
+          <p class="pequeno silenciado">
+            Encadenada con la factura anterior mediante {{ f.algoritmoHuella }}.
+          </p>
+        </div>
+      </div>
+      <dl class="huellas">
+        <dt>Huella anterior</dt>
+        <dd class="mono">{{ f.huellaAnterior }}</dd>
+        <dt>Huella de esta factura</dt>
+        <dd class="mono">{{ f.huella }}</dd>
+      </dl>
+    </section>
+
+    @if (f.tipo === 'RECTIFICATIVA') {
+      <section class="tarjeta aviso-rectificativa">
+        <p>
+          <strong>Rectifica a
+            <a [routerLink]="['/facturas', f.facturaRectificadaId]">
+              {{ f.facturaRectificadaNumero }}</a></strong>
+          ({{ f.tipoRectificativa === 'POR_SUSTITUCION' ? 'por sustitución' : 'por diferencias' }})
+        </p>
+        <p class="pequeno">{{ f.motivoRectificacion }}</p>
+      </section>
+    }
+
+    @if (rectificativas().length) {
+      <section class="tarjeta aviso-rectificativa">
+        <p class="negrita">Esta factura ha sido rectificada</p>
+        <ul class="pequeno">
+          @for (r of rectificativas(); track r.id) {
+            <li>
+              <a [routerLink]="['/facturas', r.id]">{{ r.numeroCompleto }}</a>
+              del {{ r.fechaEmision | date: 'dd/MM/yyyy' }} por
+              {{ r.total | number: '1.2-2' : 'es' }} €
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- Partes -->
+    <div class="rejilla rejilla--partes">
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Emisor</h2></div>
+        <p class="negrita">{{ f.emisor.nombre }}</p>
+        <p class="pequeno silenciado">NIF {{ f.emisor.nif }}</p>
+        <p class="pequeno">{{ f.emisor.direccion }}</p>
+        <p class="pequeno">
+          {{ f.emisor.codigoPostal }} {{ f.emisor.ciudad }} ({{ f.emisor.provincia }})
+        </p>
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Cliente</h2></div>
+        <p class="negrita">{{ f.receptor.nombre }}</p>
+        <p class="pequeno silenciado">NIF/CIF {{ f.receptor.nif }}</p>
+        <p class="pequeno">{{ f.receptor.direccion }}</p>
+        <p class="pequeno">
+          {{ f.receptor.codigoPostal }} {{ f.receptor.ciudad }} ({{ f.receptor.provincia }})
+        </p>
+        <p class="pequeno silenciado datos-congelados">
+          Datos copiados al emitir: no cambian aunque el cliente actualice su ficha.
+        </p>
+      </section>
+    </div>
+
+    @if (f.matricula) {
+      <section class="tarjeta">
+        <p class="pequeno">
+          <strong>Vehículo:</strong> {{ f.descripcionVehiculo }} · {{ f.matricula }}
+          @if (f.codigoOt) {
+            · <strong>Orden:</strong> {{ f.codigoOt }}
+          }
+        </p>
+      </section>
+    }
+
+    <!-- Líneas -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo"><h2>Conceptos</h2></div>
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Descripción</th>
+              <th>Ref.</th>
+              <th class="num">Cant.</th>
+              <th class="num">Precio</th>
+              <th class="num">Dto.</th>
+              <th class="num">IVA</th>
+              <th class="num">Base</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of f.lineas; track l.numeroLinea) {
+              <tr>
+                <td>{{ l.numeroLinea }}</td>
+                <td>{{ l.descripcion }}</td>
+                <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
+                <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
+                <td class="num">{{ l.precioUnitario | number: '1.2-4' : 'es' }}</td>
+                <td class="num">{{ l.descuentoPct ? (l.descuentoPct | number: '1.0-2' : 'es') + '%' : '—' }}</td>
+                <td class="num">{{ l.porcentajeIva | number: '1.0-2' : 'es' }}%</td>
+                <td class="num negrita">{{ l.baseImponible | number: '1.2-2' : 'es' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="totales">
+        <div class="totales__fila">
+          <span>Base imponible</span>
+          <span class="num">{{ f.baseImponible | number: '1.2-2' : 'es' }} €</span>
+        </div>
+        @for (d of f.desgloseIva; track d.porcentajeIva) {
+          <div class="totales__fila silenciado pequeno">
+            <span>
+              IVA {{ d.porcentajeIva | number: '1.0-2' : 'es' }}% sobre
+              {{ d.baseImponible | number: '1.2-2' : 'es' }} €
+            </span>
+            <span class="num">{{ d.cuotaIva | number: '1.2-2' : 'es' }} €</span>
+          </div>
+        }
+        <div class="totales__fila totales__fila--total">
+          <span>TOTAL</span>
+          <span class="num">{{ f.total | number: '1.2-2' : 'es' }} €</span>
+        </div>
+      </div>
+    </section>
+
+    @if (eventos().length) {
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Registro de eventos</h2></div>
+        <ul class="eventos">
+          @for (e of eventos(); track e.id) {
+            <li>
+              <span class="etiqueta etiqueta--gris">{{ e.tipoDescripcion }}</span>
+              <span class="pequeno">{{ e.descripcion }}</span>
+              <span class="pequeno silenciado">
+                {{ e.fecha | date: 'dd/MM/yyyy HH:mm' }}
+                @if (e.usuarioNombre) { · {{ e.usuarioNombre }} }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+}

@@ -1,0 +1,39 @@
+.exportacion {
+  border-left: 4px solid var(--azul);
+}
+
+.separador {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid var(--gris-200);
+}
+
+.ayuda {
+  margin: 0.75rem 0 0;
+  line-height: 1.45;
+}
+
+.informe {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radio);
+  background: var(--verde-claro);
+  color: var(--verde);
+}
+
+.informe--error {
+  background: var(--rojo-claro);
+  color: var(--rojo);
+}
+
+.informe ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.85rem;
+}
+
+.informe p { margin: 0; }
+
+.negativo { color: var(--rojo); }
+
+.paginacion { margin-top: 1rem; }

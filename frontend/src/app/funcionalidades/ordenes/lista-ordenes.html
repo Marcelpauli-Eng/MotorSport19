@@ -1,0 +1,96 @@
+<div class="apilado">
+  <h1>Órdenes de trabajo</h1>
+
+  <section class="tarjeta">
+    <div class="fila">
+      <div class="campo crece" style="margin: 0; max-width: 260px">
+        <label for="estado">Estado</label>
+        <select id="estado" [ngModel]="estado()" (ngModelChange)="estado.set($event); cargar()">
+          <option value="">Todos</option>
+          @for (e of estados; track e) {
+            <option [value]="e">{{ e }}</option>
+          }
+        </select>
+      </div>
+      <label class="fila pequeno" style="gap: 0.4rem">
+        <input
+          type="checkbox"
+          style="width: auto; min-height: auto"
+          [ngModel]="soloAbiertas()"
+          (ngModelChange)="soloAbiertas.set($event); cargar()"
+        />
+        Solo las que siguen abiertas
+      </label>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <div class="tarjeta__titulo"><h2>{{ totalItems() }} orden(es)</h2></div>
+
+    @if (cargando()) {
+      <app-cargando mensaje="Cargando órdenes…" />
+    } @else if (!filas().length) {
+      <p class="vacio">No hay órdenes que cumplan el filtro.</p>
+    } @else {
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Estado</th>
+              <th>Moto</th>
+              <th>Cliente</th>
+              <th>Técnico</th>
+              <th>Entrada</th>
+              <th>Avería</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of filas(); track o.id) {
+              <tr>
+                <td><a [routerLink]="['/ordenes', o.id]" class="negrita">{{ o.codigo }}</a></td>
+                <td>
+                  <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">
+                    {{ o.estadoDescripcion }}
+                  </span>
+                </td>
+                <td>
+                  <div class="negrita">{{ o.matricula }}</div>
+                  <div class="pequeno silenciado">{{ o.descripcionMoto }}</div>
+                </td>
+                <td>{{ o.clienteNombre }}</td>
+                <td class="pequeno">{{ o.tecnicoNombre || '—' }}</td>
+                <td class="pequeno">{{ o.fechaEntrada | date: 'dd/MM/yy' }}</td>
+                <td class="pequeno silenciado" style="max-width: 260px">
+                  {{ o.problemaReportado }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="fila fila--fin" style="margin-top: 1rem">
+          <button
+            type="button"
+            class="boton boton--pequeno"
+            [disabled]="pagina() === 0"
+            (click)="cargar(pagina() - 1)"
+          >
+            ← Anterior
+          </button>
+          <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+          <button
+            type="button"
+            class="boton boton--pequeno"
+            [disabled]="pagina() + 1 >= totalPaginas()"
+            (click)="cargar(pagina() + 1)"
+          >
+            Siguiente →
+          </button>
+        </div>
+      }
+    }
+  </section>
+</div>

@@ -1,1 +1,266 @@
-/* You can add global styles to this file, and also import other style files */
+/* ==========================================================================
+   Estilos globales de MotorSport19
+
+   Pensado para dos sitios a la vez: el PC del mostrador y una tablet en el
+   taller. De ahi los objetivos tactiles grandes (44 px minimo) y el contraste
+   alto: en un taller hay grasa en los dedos y luz mala.
+   ========================================================================== */
+
+:root {
+  /* Paleta */
+  --azul: #1d4ed8;
+  --azul-oscuro: #1e3a8a;
+  --azul-claro: #eff6ff;
+  --gris-900: #111827;
+  --gris-700: #374151;
+  --gris-500: #6b7280;
+  --gris-300: #d1d5db;
+  --gris-200: #e5e7eb;
+  --gris-100: #f3f4f6;
+  --gris-50: #f9fafb;
+  --blanco: #ffffff;
+
+  --verde: #15803d;
+  --verde-claro: #dcfce7;
+  --ambar: #b45309;
+  --ambar-claro: #fef3c7;
+  --rojo: #b91c1c;
+  --rojo-claro: #fee2e2;
+  --morado: #6d28d9;
+  --morado-claro: #ede9fe;
+
+  --radio: 8px;
+  --sombra: 0 1px 3px rgb(0 0 0 / 8%), 0 1px 2px rgb(0 0 0 / 6%);
+  --sombra-alta: 0 10px 25px rgb(0 0 0 / 12%);
+
+  /* Objetivo tactil minimo comodo con guantes. */
+  --alto-control: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--gris-900);
+  background: var(--gris-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  margin: 0 0 0.5rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1.05rem; }
+
+a {
+  color: var(--azul);
+  text-decoration: none;
+}
+
+a:hover { text-decoration: underline; }
+
+/* ---------- Tarjetas ---------- */
+
+.tarjeta {
+  background: var(--blanco);
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 1.25rem;
+}
+
+.tarjeta__titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gris-200);
+}
+
+/* ---------- Botones ---------- */
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: var(--alto-control);
+  padding: 0 1.1rem;
+  font: inherit;
+  font-weight: 500;
+  color: var(--gris-900);
+  background: var(--blanco);
+  border: 1px solid var(--gris-300);
+  border-radius: var(--radio);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+
+.boton:hover:not(:disabled) { background: var(--gris-100); }
+.boton:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.boton--principal {
+  color: var(--blanco);
+  background: var(--azul);
+  border-color: var(--azul);
+}
+.boton--principal:hover:not(:disabled) { background: var(--azul-oscuro); }
+
+.boton--peligro {
+  color: var(--blanco);
+  background: var(--rojo);
+  border-color: var(--rojo);
+}
+
+.boton--pequeno {
+  min-height: 34px;
+  padding: 0 0.7rem;
+  font-size: 0.85rem;
+}
+
+/* ---------- Formularios ---------- */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 0.9rem;
+}
+
+.campo > label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--gris-700);
+}
+
+input, select, textarea {
+  min-height: var(--alto-control);
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+  color: var(--gris-900);
+  background: var(--blanco);
+  border: 1px solid var(--gris-300);
+  border-radius: var(--radio);
+  width: 100%;
+}
+
+textarea { min-height: 80px; resize: vertical; }
+
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--azul);
+  outline-offset: -1px;
+  border-color: var(--azul);
+}
+
+.rejilla {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/*
+  Sin esto, un hijo ancho (una tabla, por ejemplo) se niega a encogerse por
+  debajo de su contenido y ensancha toda la rejilla, sacando la pagina de la
+  pantalla. El minimo automatico de las pistas de grid es `auto`, no `0`.
+*/
+.rejilla > * {
+  min-width: 0;
+}
+
+/* ---------- Tablas ---------- */
+
+.tabla-envoltorio {
+  overflow-x: auto;
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radio);
+  background: var(--blanco);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+thead th {
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gris-500);
+  background: var(--gris-50);
+  border-bottom: 1px solid var(--gris-200);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--gris-100);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: var(--gris-50); }
+
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85em; }
+
+/* ---------- Etiquetas de estado ---------- */
+
+.etiqueta {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.etiqueta--gris   { color: var(--gris-700); background: var(--gris-200); }
+.etiqueta--azul   { color: var(--azul-oscuro); background: var(--azul-claro); }
+.etiqueta--verde  { color: var(--verde); background: var(--verde-claro); }
+.etiqueta--ambar  { color: var(--ambar); background: var(--ambar-claro); }
+.etiqueta--rojo   { color: var(--rojo); background: var(--rojo-claro); }
+.etiqueta--morado { color: var(--morado); background: var(--morado-claro); }
+
+/* ---------- Utilidades ---------- */
+
+.apilado { display: flex; flex-direction: column; gap: 1rem; }
+.fila { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+.fila--fin { justify-content: flex-end; }
+.crece { flex: 1; }
+.silenciado { color: var(--gris-500); }
+.pequeno { font-size: 0.85rem; }
+.negrita { font-weight: 600; }
+.centrado { text-align: center; }
+
+.vacio {
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--gris-500);
+}
+
+@media (max-width: 640px) {
+  .rejilla { grid-template-columns: 1fr; }
+}

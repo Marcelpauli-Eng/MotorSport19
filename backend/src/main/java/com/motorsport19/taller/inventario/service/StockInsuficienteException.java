@@ -21,8 +21,10 @@ public class StockInsuficienteException extends ReglaNegocioException {
     private final BigDecimal solicitado;
 
     public StockInsuficienteException(String sku, BigDecimal disponible, BigDecimal solicitado) {
+        // Sin ceros sobrantes: "1.000" unidades se lee como mil en espanol.
         super("Stock insuficiente de la pieza %s: hay %s unidades disponibles y se han solicitado %s."
-                .formatted(sku, disponible.toPlainString(), solicitado.toPlainString()));
+                .formatted(sku, disponible.stripTrailingZeros().toPlainString(),
+                        solicitado.stripTrailingZeros().toPlainString()));
         this.sku = sku;
         this.disponible = disponible;
         this.solicitado = solicitado;

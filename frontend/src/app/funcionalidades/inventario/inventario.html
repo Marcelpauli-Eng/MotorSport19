@@ -1,0 +1,225 @@
+<div class="apilado">
+  <h1>Inventario</h1>
+
+  <div class="pestanas">
+    <button
+      type="button"
+      class="pestana"
+      [class.pestana--activa]="pestana() === 'catalogo'"
+      (click)="cambiarPestana('catalogo')"
+    >
+      Catálogo
+    </button>
+    <button
+      type="button"
+      class="pestana"
+      [class.pestana--activa]="pestana() === 'alertas'"
+      (click)="cambiarPestana('alertas')"
+    >
+      Reposición
+      @if (alertas().length) {
+        <span class="etiqueta etiqueta--rojo">{{ alertas().length }}</span>
+      }
+    </button>
+    <button
+      type="button"
+      class="pestana"
+      [class.pestana--activa]="pestana() === 'movimientos'"
+      (click)="cambiarPestana('movimientos')"
+    >
+      Movimientos
+    </button>
+  </div>
+
+  @if (pestana() === 'catalogo') {
+    <section class="tarjeta">
+      <div class="fila">
+        <div class="campo crece" style="margin: 0">
+          <label for="buscar">Buscar pieza</label>
+          <input
+            id="buscar"
+            type="search"
+            placeholder="SKU, descripción o marca…"
+            [ngModel]="texto()"
+            (ngModelChange)="texto.set($event)"
+            (keyup.enter)="cargarCatalogo()"
+          />
+        </div>
+        <button
+          type="button"
+          class="boton boton--principal"
+          (click)="cargarCatalogo()"
+          style="margin-top: 1.2rem"
+        >
+          Buscar
+        </button>
+      </div>
+      <p class="pequeno silenciado" style="margin: 0.5rem 0 0">
+        El stock no se puede escribir a mano: cambia solo registrando entradas, salidas o ajustes.
+      </p>
+    </section>
+
+    <section class="tarjeta">
+      @if (cargando()) {
+        <app-cargando mensaje="Cargando catálogo…" />
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Descripción</th>
+                <th>Ubicación</th>
+                <th class="num">Stock</th>
+                <th class="num">Mínimo</th>
+                <th class="num">Venta</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of piezas(); track p.id) {
+                <tr [class.fila--alerta]="p.bajoMinimo">
+                  <td class="mono negrita">{{ p.sku }}</td>
+                  <td>
+                    {{ p.descripcion }}
+                    @if (p.marca) {
+                      <div class="pequeno silenciado">{{ p.marca }}</div>
+                    }
+                  </td>
+                  <td class="pequeno">{{ p.ubicacion || '—' }}</td>
+                  <td class="num">
+                    @if (p.sinExistencias) {
+                      <span class="etiqueta etiqueta--rojo">0</span>
+                    } @else if (p.bajoMinimo) {
+                      <span class="etiqueta etiqueta--ambar">
+                        {{ p.stockActual | number: '1.0-3' : 'es' }}
+                      </span>
+                    } @else {
+                      {{ p.stockActual | number: '1.0-3' : 'es' }}
+                    }
+                  </td>
+                  <td class="num silenciado">{{ p.stockMinimo | number: '1.0-3' : 'es' }}</td>
+                  <td class="num">{{ p.precioVenta | number: '1.2-2' : 'es' }} €</td>
+                  <td>
+                    <div class="fila" style="gap: 0.3rem; flex-wrap: nowrap">
+                      <button type="button" class="boton boton--pequeno" (click)="registrarEntrada(p)">
+                        + Entrada
+                      </button>
+                      <button type="button" class="boton boton--pequeno" (click)="registrarAjuste(p)">
+                        Ajuste
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (pestana() === 'alertas') {
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Piezas por reponer</h2>
+      </div>
+      @if (!alertas().length) {
+        <p class="vacio">Todo el inventario está por encima del mínimo.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Descripción</th>
+                <th class="num">Hay</th>
+                <th class="num">Mínimo</th>
+                <th class="num">Pedir</th>
+                <th>Proveedor</th>
+                <th class="num">Coste</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of alertas(); track a.piezaId) {
+                <tr>
+                  <td class="mono negrita">{{ a.sku }}</td>
+                  <td>{{ a.descripcion }}</td>
+                  <td class="num">
+                    @if (a.sinExistencias) {
+                      <span class="etiqueta etiqueta--rojo">Sin stock</span>
+                    } @else {
+                      {{ a.stockActual | number: '1.0-3' : 'es' }}
+                    }
+                  </td>
+                  <td class="num silenciado">{{ a.stockMinimo | number: '1.0-3' : 'es' }}</td>
+                  <td class="num negrita">{{ a.unidadesAReponer | number: '1.0-3' : 'es' }}</td>
+                  <td class="pequeno">{{ a.proveedorNombre || '—' }}</td>
+                  <td class="num pequeno">{{ a.precioCoste | number: '1.2-2' : 'es' }} €</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (pestana() === 'movimientos') {
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Libro de movimientos</h2>
+        <span class="pequeno silenciado">Registro inmutable: no se edita ni se borra</span>
+      </div>
+      @if (cargando()) {
+        <app-cargando mensaje="Cargando movimientos…" />
+      } @else if (!movimientos().length) {
+        <p class="vacio">Todavía no hay movimientos.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Pieza</th>
+                <th class="num">Cantidad</th>
+                <th class="num">Antes</th>
+                <th class="num">Después</th>
+                <th>Quién</th>
+                <th>Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of movimientos(); track m.id) {
+                <tr>
+                  <td class="pequeno">{{ m.fecha | date: 'dd/MM/yy HH:mm' }}</td>
+                  <td>
+                    <span
+                      class="etiqueta"
+                      [class.etiqueta--verde]="m.cantidad > 0"
+                      [class.etiqueta--ambar]="m.cantidad < 0"
+                    >
+                      {{ m.tipo }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="mono">{{ m.piezaSku }}</span>
+                    <div class="pequeno silenciado">{{ m.piezaDescripcion }}</div>
+                  </td>
+                  <td class="num negrita" [class.negativo]="m.cantidad < 0">
+                    {{ m.cantidad > 0 ? '+' : '' }}{{ m.cantidad | number: '1.0-3' : 'es' }}
+                  </td>
+                  <td class="num silenciado">{{ m.stockAnterior | number: '1.0-3' : 'es' }}</td>
+                  <td class="num">{{ m.stockResultante | number: '1.0-3' : 'es' }}</td>
+                  <td class="pequeno">{{ m.usuarioNombre || '—' }}</td>
+                  <td class="pequeno silenciado">{{ m.motivo || m.documentoProveedor || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+</div>

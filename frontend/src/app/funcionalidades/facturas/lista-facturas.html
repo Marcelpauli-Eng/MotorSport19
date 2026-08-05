@@ -1,0 +1,178 @@
+<div class="apilado">
+  <div class="fila">
+    <h1 class="crece">Facturas</h1>
+  </div>
+
+  <!-- Exportación para la gestoría: la acción principal de esta pantalla -->
+  <section class="tarjeta exportacion">
+    <div class="tarjeta__titulo">
+      <h2>Preparar facturas para la gestoría</h2>
+    </div>
+
+    <div class="rejilla">
+      <div class="campo">
+        <label for="desde">Desde</label>
+        <input id="desde" type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)" />
+      </div>
+      <div class="campo">
+        <label for="hasta">Hasta</label>
+        <input id="hasta" type="date" [ngModel]="hasta()" (ngModelChange)="hasta.set($event)" />
+      </div>
+      <div class="campo">
+        <label for="tipo">Tipo</label>
+        <select id="tipo" [ngModel]="tipo()" (ngModelChange)="tipo.set($event)">
+          <option value="">Todas</option>
+          <option value="ORDINARIA">Solo ordinarias</option>
+          <option value="RECTIFICATIVA">Solo rectificativas</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fila">
+      <button type="button" class="boton boton--pequeno" (click)="trimestreAnterior()">
+        Trimestre anterior
+      </button>
+      <button type="button" class="boton boton--pequeno" (click)="anioActual()">Año actual</button>
+      <button type="button" class="boton boton--pequeno" (click)="limpiarFiltros()">Todo</button>
+      <button type="button" class="boton boton--pequeno boton--principal" (click)="cargar()">
+        Aplicar
+      </button>
+    </div>
+
+    <hr class="separador" />
+
+    <div class="fila">
+      <button
+        type="button"
+        class="boton boton--principal"
+        (click)="exportar('csv')"
+        [disabled]="exportando() !== null"
+      >
+        ⬇ Descargar CSV para la gestoría
+      </button>
+      <button
+        type="button"
+        class="boton"
+        (click)="exportar('json')"
+        [disabled]="exportando() !== null"
+      >
+        ⬇ Descargar JSON completo
+      </button>
+      <button type="button" class="boton" (click)="verificarCadena()" [disabled]="verificando()">
+        🔒 Verificar integridad
+      </button>
+    </div>
+
+    <p class="pequeno silenciado ayuda">
+      El <strong>CSV</strong> es el que abre la gestoría en su hoja de cálculo: una fila por factura.
+      El <strong>JSON</strong> incluye las líneas y la cadena de huellas, con lo que la integridad
+      del libro se puede comprobar sin este programa.
+    </p>
+
+    @if (informe(); as inf) {
+      <div class="informe" [class.informe--error]="!inf.integra">
+        <p class="negrita">{{ inf.resumen }}</p>
+        @if (inf.anomalias.length) {
+          <ul>
+            @for (a of inf.anomalias; track a.numeroRegistro + a.tipo) {
+              <li><strong>{{ a.numeroFactura }}</strong> — {{ a.tipo }}: {{ a.detalle }}</li>
+            }
+          </ul>
+        } @else if (inf.ultimaHuella) {
+          <p class="pequeno mono">Sello del registro: {{ inf.ultimaHuella }}</p>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- Listado -->
+  <section class="tarjeta">
+    <div class="tarjeta__titulo">
+      <h2>{{ totalItems() }} factura(s)</h2>
+      @if (filas().length) {
+        <span class="pequeno silenciado">
+          Total en pantalla: <strong>{{ totalPeriodo() | currency: 'EUR' : 'symbol' : '1.2-2' : 'es' }}</strong>
+        </span>
+      }
+    </div>
+
+    @if (cargando()) {
+      <app-cargando mensaje="Cargando facturas…" />
+    } @else if (!filas().length) {
+      <p class="vacio">No hay facturas para los filtros indicados.</p>
+    } @else {
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Nº</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th>NIF</th>
+              <th class="num">Base</th>
+              <th class="num">IVA</th>
+              <th class="num">Total</th>
+              <th>OT</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of filas(); track f.id) {
+              <tr>
+                <td>
+                  <a [routerLink]="['/facturas', f.id]" class="negrita">{{ f.numeroCompleto }}</a>
+                  @if (f.tipo === 'RECTIFICATIVA') {
+                    <div class="etiqueta etiqueta--ambar">Rectificativa</div>
+                    @if (f.rectificaA) {
+                      <div class="pequeno silenciado">corrige a {{ f.rectificaA }}</div>
+                    }
+                  }
+                </td>
+                <td>{{ f.fechaEmision | date: 'dd/MM/yyyy' }}</td>
+                <td>{{ f.receptorNombre }}</td>
+                <td class="mono">{{ f.receptorNif }}</td>
+                <td class="num">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
+                <td class="num">{{ f.totalIva | number: '1.2-2' : 'es' }}</td>
+                <td class="num negrita" [class.negativo]="f.total < 0">
+                  {{ f.total | number: '1.2-2' : 'es' }}
+                </td>
+                <td class="pequeno">{{ f.codigoOt || '—' }}</td>
+                <td>
+                  <a
+                    class="boton boton--pequeno"
+                    [href]="'/api/facturas/' + f.id + '/pdf'"
+                    target="_blank"
+                    rel="noopener"
+                    >PDF</a
+                  >
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="fila fila--fin paginacion">
+          <button
+            type="button"
+            class="boton boton--pequeno"
+            [disabled]="pagina() === 0"
+            (click)="cargar(pagina() - 1)"
+          >
+            ← Anterior
+          </button>
+          <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+          <button
+            type="button"
+            class="boton boton--pequeno"
+            [disabled]="pagina() + 1 >= totalPaginas()"
+            (click)="cargar(pagina() + 1)"
+          >
+            Siguiente →
+          </button>
+        </div>
+      }
+    }
+  </section>
+</div>

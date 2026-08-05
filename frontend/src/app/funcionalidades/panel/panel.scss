@@ -1,0 +1,58 @@
+.rejilla--resumen { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+.rejilla--dos { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; }
+
+.metrica {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-decoration: none;
+  color: inherit;
+  border-left: 4px solid var(--gris-300);
+}
+
+.metrica:hover { text-decoration: none; box-shadow: var(--sombra-alta); }
+.metrica--aviso { border-left-color: var(--verde); }
+.metrica--alerta { border-left-color: var(--rojo); }
+
+.metrica__valor { font-size: 2rem; font-weight: 700; line-height: 1; }
+.metrica__texto { font-size: 0.85rem; color: var(--gris-500); }
+
+/* Tablero horizontal: en tablet se desplaza en lugar de comprimirse */
+.tablero {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.columna { flex: 0 0 230px; }
+
+.columna__titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--gris-500);
+  margin-bottom: 0.6rem;
+}
+
+.ficha {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.7rem 0.8rem;
+  margin-bottom: 0.5rem;
+  background: var(--gris-50);
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radio);
+  text-decoration: none;
+  color: inherit;
+}
+
+.ficha:hover { background: var(--azul-claro); border-color: var(--azul); text-decoration: none; }
+
+.ficha__codigo { font-weight: 600; font-size: 0.9rem; }
+.ficha__moto { font-size: 0.85rem; }

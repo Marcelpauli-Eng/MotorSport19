@@ -21,6 +21,17 @@ public record PiezaFaltante(
 ) {
 
     public String resumen() {
-        return "%s (faltan %s de %s)".formatted(sku, faltan.toPlainString(), necesarias.toPlainString());
+        return "%s (faltan %s de %s)".formatted(sku, cantidad(faltan), cantidad(necesarias));
+    }
+
+    /**
+     * Cantidad sin ceros decimales sobrantes.
+     *
+     * <p>Las cantidades se guardan con tres decimales, asi que una unidad sale
+     * como "1.000". En un texto en espanol eso se lee como MIL, que es
+     * exactamente lo contrario de lo que pasa. Aqui queda en "1".
+     */
+    private static String cantidad(BigDecimal valor) {
+        return valor.stripTrailingZeros().toPlainString();
     }
 }

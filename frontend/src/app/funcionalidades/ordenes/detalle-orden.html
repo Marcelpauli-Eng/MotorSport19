@@ -1,0 +1,207 @@
+@if (cargando()) {
+  <app-cargando mensaje="Cargando orden…" />
+} @else if (orden(); as o) {
+  <div class="apilado">
+    <a routerLink="/ordenes" class="pequeno">← Órdenes de trabajo</a>
+
+    <div class="fila">
+      <div class="crece">
+        <h1>
+          {{ o.codigo }}
+          <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
+        </h1>
+        <p class="silenciado pequeno">
+          {{ o.descripcionMoto }} · {{ o.matricula }} · {{ o.clienteNombre }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Acciones disponibles segun la maquina de estados -->
+    <section class="tarjeta acciones">
+      <div class="tarjeta__titulo">
+        <h2>¿Qué hacemos con esta orden?</h2>
+      </div>
+
+      @if (!acciones().length) {
+        <p class="pequeno silenciado">
+          Esta orden está {{ o.estadoDescripcion | lowercase }} y ya no admite más cambios de estado.
+        </p>
+      } @else {
+        <div class="fila">
+          @for (a of acciones(); track a.destino) {
+            <button
+              type="button"
+              class="boton"
+              [class.boton--principal]="a.principal"
+              [class.boton--peligro]="a.destino === 'RECHAZADA'"
+              [disabled]="trabajando()"
+              (click)="ejecutar(a.destino)"
+            >
+              {{ a.texto }}
+            </button>
+          }
+        </div>
+      }
+
+      @if (o.facturable) {
+        <div class="fila facturar">
+          <button
+            type="button"
+            class="boton boton--principal"
+            [disabled]="trabajando() || !serieOrdinaria()"
+            (click)="facturar()"
+          >
+            📄 Emitir factura
+          </button>
+          <span class="pequeno silenciado">
+            Total a facturar: <strong>{{ o.total | number: '1.2-2' : 'es' }} €</strong>
+          </span>
+        </div>
+      }
+
+      @if (resultadoConsumo(); as r) {
+        @if (!r.completo) {
+          <div class="faltantes">
+            <p class="negrita">{{ r.mensaje }}</p>
+            <table>
+              <thead>
+                <tr>
+                  <th>Pieza</th>
+                  <th class="num">Necesarias</th>
+                  <th class="num">Hay</th>
+                  <th class="num">Faltan</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (p of r.faltantes; track p.piezaId) {
+                  <tr>
+                    <td><span class="mono">{{ p.sku }}</span> — {{ p.descripcion }}</td>
+                    <td class="num">{{ p.necesarias | number: '1.0-3' : 'es' }}</td>
+                    <td class="num">{{ p.disponibles | number: '1.0-3' : 'es' }}</td>
+                    <td class="num negrita">{{ p.faltan | number: '1.0-3' : 'es' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            <p class="pequeno">
+              El material que sí había ya se ha apartado para esta moto. Cuando llegue el pedido,
+              vuelva a pulsar «Entrar en reparación» y solo se servirá lo que falta.
+            </p>
+          </div>
+        }
+      }
+    </section>
+
+    <div class="rejilla rejilla--dos">
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Entrada</h2></div>
+        <dl class="datos">
+          <dt>Fecha de entrada</dt>
+          <dd>{{ o.fechaEntrada | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          <dt>Kilometraje</dt>
+          <dd>{{ o.kmEntrada | number: '1.0-0' : 'es' }} km</dd>
+          <dt>Salida estimada</dt>
+          <dd>{{ o.fechaEstimadaSalida ? (o.fechaEstimadaSalida | date: 'dd/MM/yyyy') : '—' }}</dd>
+          <dt>Técnico</dt>
+          <dd>{{ o.tecnicoNombre || 'sin asignar' }}</dd>
+          <dt>Tarifa/hora</dt>
+          <dd>{{ o.tarifaHora | number: '1.2-2' : 'es' }} € <span class="pequeno silenciado">(congelada)</span></dd>
+        </dl>
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
+        <p class="pequeno negrita">Lo que cuenta el cliente</p>
+        <p class="pequeno">{{ o.problemaReportado }}</p>
+        <p class="pequeno negrita" style="margin-top: 0.8rem">Diagnóstico del técnico</p>
+        <p class="pequeno">{{ o.diagnostico || '(pendiente)' }}</p>
+        @if (o.motivoRechazo) {
+          <p class="pequeno negrita" style="margin-top: 0.8rem">Motivo del rechazo</p>
+          <p class="pequeno">{{ o.motivoRechazo }}</p>
+        }
+      </section>
+    </div>
+
+    <!-- Lineas -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Presupuesto</h2>
+        @if (!o.permiteEditarLineas) {
+          <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
+        }
+      </div>
+
+      @if (!o.lineas.length) {
+        <p class="vacio pequeno">Todavía no se ha añadido ningún concepto.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Concepto</th>
+                <th>Ref.</th>
+                <th class="num">Cant.</th>
+                <th class="num">Precio</th>
+                <th class="num">IVA</th>
+                <th class="num">Importe</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (l of o.lineas; track l.id) {
+                <tr>
+                  <td>{{ l.numeroLinea }}</td>
+                  <td>
+                    {{ l.descripcion }}
+                    <span class="etiqueta etiqueta--gris pequeno">{{ l.tipoDescripcion }}</span>
+                  </td>
+                  <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
+                  <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
+                  <td class="num">{{ l.precioUnitario | number: '1.2-4' : 'es' }}</td>
+                  <td class="num">{{ l.porcentajeIva | number: '1.0-2' : 'es' }}%</td>
+                  <td class="num negrita">{{ l.baseImponible | number: '1.2-2' : 'es' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <div class="totales">
+          <div class="totales__fila">
+            <span>Base imponible</span>
+            <span class="num">{{ o.baseImponible | number: '1.2-2' : 'es' }} €</span>
+          </div>
+          <div class="totales__fila silenciado pequeno">
+            <span>IVA</span>
+            <span class="num">{{ o.totalIva | number: '1.2-2' : 'es' }} €</span>
+          </div>
+          <div class="totales__fila totales__fila--total">
+            <span>TOTAL</span>
+            <span class="num">{{ o.total | number: '1.2-2' : 'es' }} €</span>
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- Historial -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo"><h2>Historial</h2></div>
+      <ol class="historial">
+        @for (h of o.historial; track h.id) {
+          <li>
+            <span class="etiqueta etiqueta--{{ h.estadoNuevo | colorEstado }}">
+              {{ h.estadoNuevoDescripcion }}
+            </span>
+            <span class="pequeno silenciado">
+              {{ h.fecha | date: 'dd/MM/yyyy HH:mm' }}
+              @if (h.usuarioNombre) { · {{ h.usuarioNombre }} }
+            </span>
+            @if (h.motivo) {
+              <div class="pequeno historial__motivo">{{ h.motivo }}</div>
+            }
+          </li>
+        }
+      </ol>
+    </section>
+  </div>
+}
