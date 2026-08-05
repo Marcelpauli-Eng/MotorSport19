@@ -3,9 +3,10 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: fases 1 a 3 completadas.** Esquema de base de datos, entidades JPA,
-> datos de demostración, backend de clientes, motos e inventario, y órdenes de
-> trabajo con máquina de estados y consumo de almacén. 157 tests en verde.
+> **Estado: fases 1 a 4 completadas.** Esquema de base de datos, entidades JPA,
+> datos de demostración, backend de clientes, motos e inventario, órdenes de
+> trabajo con máquina de estados y consumo de almacén, y facturación con cadena
+> de huellas, PDF con QR y exportación. 197 tests en verde.
 >
 > **Todavía no hay autenticación** (fase 5): la API está abierta y no debe
 > exponerse en internet tal cual. Facturación, seguridad y frontend llegan en las
@@ -310,6 +311,63 @@ Al entrar en reparación, la OT consume automáticamente las piezas de sus líne
 - Añadir una pieza al presupuesto **no** toca el almacén; lo que sí hace es
   congelar su precio de catálogo en la línea.
 
+### Facturación (fase 4)
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `GET` | `/facturas?tipo=&desde=&hasta=` | Libro de facturas |
+| `GET` | `/facturas/{id}` | Factura completa con líneas, desglose y huella |
+| `GET` | `/facturas/{id}/pdf` | PDF con QR y huella impresa |
+| `POST` | `/facturas` | Emite desde una OT `LISTA` o `ENTREGADA` |
+| `POST` | `/facturas/{id}/rectificativas` | Emite una rectificativa |
+| `POST` | `/facturas/verificacion` | Verifica la cadena de extremo a extremo |
+| `GET` | `/facturas/exportacion/csv` · `/json` | Exporta el libro registro |
+| `GET` | `/facturacion/eventos` | Registro de eventos |
+
+**No hay `PUT` ni `DELETE` en toda esta API.** Una factura emitida no se modifica
+ni se borra: lo único que se puede hacer con una equivocada es emitir una
+rectificativa que la corrija.
+
+### La cadena de huellas
+
+Cada factura incorpora a su huella la de la anterior, de modo que forman una
+cadena. La cadena canónica sigue el formato del registro de facturación español:
+
+```
+NIFEmisor=B87654323&NumSerieFactura=A/2026/000001&FechaExpedicion=15-05-2026
+&TipoFactura=ORDINARIA&CuotaTotal=42.48&ImporteTotal=244.68
+&Huella=<huella anterior>&FechaHoraHusoGenRegistro=2026-05-15T18:25:00+02
+```
+
+Ese texto exacto se guarda en la propia factura, así que la huella se puede
+reverificar dentro de años **sin este programa**: basta con pasar la cadena
+almacenada por SHA-256. La exportación JSON incluye esas cadenas justo para eso —
+un libro que solo se puede comprobar con el software que lo escribió no demuestra
+gran cosa.
+
+La verificación comprueba cinco cosas en cada factura:
+
+| Comprobación | Qué detecta |
+|--------------|-------------|
+| La huella corresponde a su cadena canónica | Manipulación de la huella |
+| **La cadena canónica describe los valores actuales de la fila** | **Alteración del importe, fecha o número tras sellar** |
+| Enlaza con la huella de la anterior | Sustitución de una factura |
+| No falta ninguna posición del registro | Borrado de una factura |
+| Los totales cuadran con las líneas | Descuadre interno |
+
+La segunda es la que cierra el círculo: sin ella, alguien podría cambiar el
+importe de una fila dejando intacta la cadena canónica, y la huella seguiría
+cuadrando consigo misma.
+
+### Cálculo de importes: doble red
+
+Los importes de línea se calculan **dos veces**, en Java y en PostgreSQL como
+columnas generadas. No es redundancia inútil: la huella se computa antes del
+`INSERT`, cuando las columnas generadas aún no existen, así que Java necesita sus
+propios números. Que ambos coincidan lo verifica un *constraint trigger* diferido
+al hacer commit — si el redondeo se separase un céntimo, la transacción fallaría
+en lugar de guardar una factura descuadrada.
+
 ### Validación de documentos fiscales
 
 Los NIF, NIE y CIF se validan con su dígito de control antes de guardarlos. Un
@@ -324,7 +382,7 @@ aceptan sin verificar, porque no llevan un control comprobable aquí.
 - [x] **Fase 1** — Estructura, docker-compose, esquema, entidades JPA, datos demo
 - [x] **Fase 2** — Backend de clientes, motos e inventario. Tests
 - [x] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
-- [ ] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
+- [x] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
 - [ ] **Fase 5** — Autenticación JWT, roles y seguridad
 - [ ] **Fase 6** — Frontend Angular
 - [ ] **Fase 7** — README de despliegue, backup y documentación de inmutabilidad

@@ -1,6 +1,7 @@
 package com.motorsport19.taller.factura.domain;
 
 import com.motorsport19.taller.cliente.domain.Cliente;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
@@ -30,7 +31,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Factura emitida.
@@ -41,12 +44,13 @@ import java.util.List;
  * factura rectificativa que apunta a la original mediante
  * {@link #facturaRectificada}.
  *
- * <p>Todos los campos de negocio se declaran no actualizables, de modo que
- * Hibernate tampoco intentaria modificarlos.
+ * <p>Esta clase refuerza lo mismo desde Java: se construye entera de una vez con
+ * {@link #emitir}, todos los campos son no actualizables y no existe ningun
+ * metodo que cambie su estado despues.
  *
- * <p>La factura se autocontiene: datos fiscales de emisor y receptor, matricula
- * y lineas se COPIAN en el momento de la emision. Se puede leer integra dentro
- * de veinte anos aunque el cliente, la moto o el catalogo ya no existan.
+ * <p>La factura se autocontiene: datos fiscales de emisor y receptor, matricula y
+ * lineas se COPIAN en el momento de la emision. Se puede leer integra dentro de
+ * veinte anos aunque el cliente, la moto o el catalogo ya no existan.
  */
 @Entity
 @Table(name = "factura")
@@ -55,7 +59,7 @@ import java.util.List;
 public class Factura {
 
     /** Huella de partida de la cadena: 64 ceros. */
-    public static final String HUELLA_GENESIS = "0".repeat(64);
+    public static final String HUELLA_GENESIS = CalculadoraHuella.HUELLA_GENESIS;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -218,11 +222,214 @@ public class Factura {
     @OrderBy("porcentajeIva ASC")
     private List<DesgloseIvaFactura> desgloseIva = new ArrayList<>();
 
+    // ==================================================================
+    // Emision
+    // ==================================================================
+
+    /**
+     * Construye la factura completa: cabecera, lineas copiadas, desglose de IVA y
+     * huella encadenada.
+     *
+     * <p>Se hace todo de una vez y no en pasos sucesivos porque la huella cubre
+     * los totales: si se pudiera anadir una linea despues, la huella dejaria de
+     * corresponder al contenido.
+     *
+     * @param huellaAnterior huella de la factura precedente en el registro, o
+     *                       {@link #HUELLA_GENESIS} si es la primera
+     */
+    public static Factura emitir(DatosEmision datos, List<LineaAFacturar> lineasAFacturar,
+                                 String huellaAnterior) {
+        validar(datos, lineasAFacturar, huellaAnterior);
+
+        Factura factura = new Factura();
+        factura.serie = datos.serie();
+        factura.serieCodigo = datos.serie().getCodigo();
+        factura.ejercicio = datos.serie().getEjercicio();
+        factura.numero = datos.numero();
+        factura.tipo = datos.tipo();
+
+        factura.ordenTrabajo = datos.ordenTrabajo();
+        factura.facturaRectificada = datos.facturaRectificada();
+        factura.tipoRectificativa = datos.tipoRectificativa();
+        factura.motivoRectificacion = datos.motivoRectificacion();
+
+        factura.fechaEmision = datos.fechaEmision();
+        factura.fechaOperacion = datos.fechaOperacion();
+        factura.timestampEmision = datos.timestampEmision();
+
+        factura.emisor = datos.emisor();
+        factura.receptor = datos.receptor();
+        factura.datosReceptor = datos.datosReceptor();
+
+        factura.matricula = datos.matricula();
+        factura.descripcionVehiculo = datos.descripcionVehiculo();
+        factura.codigoOt = datos.codigoOt();
+
+        factura.softwareNombre = datos.softwareNombre();
+        factura.softwareVersion = datos.softwareVersion();
+        factura.softwareNif = datos.softwareNif();
+
+        factura.numeroRegistro = datos.numeroRegistro();
+        factura.algoritmoHuella = CalculadoraHuella.ALGORITMO;
+        factura.createdAt = datos.timestampEmision();
+        factura.createdBy = datos.creadoPor();
+
+        factura.copiarLineas(lineasAFacturar);
+        factura.calcularTotalesYDesglose(lineasAFacturar);
+        factura.sellar(huellaAnterior, datos.urlVerificacionQr());
+
+        return factura;
+    }
+
+    // ==================================================================
+    // Consultas
+    // ==================================================================
+
     public List<LineaFactura> getLineas() {
         return Collections.unmodifiableList(lineas);
     }
 
     public List<DesgloseIvaFactura> getDesgloseIva() {
         return Collections.unmodifiableList(desgloseIva);
+    }
+
+    /** Numero visible; util antes de que la base de datos genere la columna. */
+    public String numeroVisible() {
+        return numeroCompleto != null
+                ? numeroCompleto
+                : "%s/%d/%06d".formatted(serieCodigo, ejercicio, numero);
+    }
+
+    public boolean esRectificativa() {
+        return tipo == TipoFactura.RECTIFICATIVA;
+    }
+
+    /** Recalcula la huella desde la cadena almacenada y la compara con la guardada. */
+    public boolean huellaEsCoherente() {
+        return CalculadoraHuella.huellaCoincide(cadenaHuella, huella);
+    }
+
+    /**
+     * Comprueba que los datos de la fila siguen siendo los que se sellaron.
+     *
+     * <p>Es la comprobacion que de verdad cierra el circulo. {@link #huellaEsCoherente()}
+     * solo dice que la huella corresponde a la cadena canonica guardada; si alguien
+     * modificase el total de la fila sin tocar esa cadena, la huella seguiria
+     * cuadrando consigo misma. Aqui se vuelve a componer la cadena canonica a
+     * partir de los valores ACTUALES y se compara con la que se sello: cualquier
+     * cambio en NIF, numero, fecha, tipo, cuota, total o enlace la delata.
+     */
+    public boolean contenidoCoincideConElSello() {
+        if (cadenaHuella == null) {
+            return false;
+        }
+        String recalculada = CalculadoraHuella.cadenaCanonica(
+                emisor.getNif(), numeroVisible(), fechaEmision, tipo, totalIva, total,
+                huellaAnterior, timestampEmision);
+        return recalculada.equals(cadenaHuella);
+    }
+
+    /** Comprueba que enlaza con la huella que se le pasa. */
+    public boolean enlazaCon(String huellaEsperada) {
+        return huellaAnterior != null && huellaAnterior.equalsIgnoreCase(huellaEsperada);
+    }
+
+    // ==================================================================
+
+    private void copiarLineas(List<LineaAFacturar> lineasAFacturar) {
+        int numeroLinea = 1;
+        for (LineaAFacturar linea : lineasAFacturar) {
+            lineas.add(LineaFactura.copiar(this, numeroLinea++, linea));
+        }
+    }
+
+    /**
+     * Calcula totales y desglose SUMANDO las lineas, nunca recalculando sobre el
+     * total.
+     *
+     * <p>De esta forma el desglose cuadra al centimo con las lineas y con la
+     * cabecera, que es exactamente lo que comprueba el trigger diferido de la
+     * base de datos al hacer commit.
+     */
+    private void calcularTotalesYDesglose(List<LineaAFacturar> lineasAFacturar) {
+        // LinkedHashMap para que el desglose salga en un orden estable.
+        Map<BigDecimal, ImporteLinea> porTipo = new LinkedHashMap<>();
+        Map<BigDecimal, String> codigoPorTipo = new LinkedHashMap<>();
+        ImporteLinea acumulado = ImporteLinea.cero();
+
+        for (LineaAFacturar linea : lineasAFacturar) {
+            ImporteLinea importe = linea.importes();
+            acumulado = acumulado.mas(importe);
+            porTipo.merge(linea.porcentajeIva(), importe, ImporteLinea::mas);
+            codigoPorTipo.putIfAbsent(linea.porcentajeIva(), linea.tipoIva());
+        }
+
+        this.baseImponible = acumulado.baseImponible();
+        this.totalIva = acumulado.cuotaIva();
+        this.total = acumulado.total();
+
+        porTipo.forEach((porcentaje, importe) -> desgloseIva.add(DesgloseIvaFactura.de(
+                this, codigoPorTipo.get(porcentaje), porcentaje,
+                importe.baseImponible(), importe.cuotaIva())));
+    }
+
+    /** Encadena la factura con la anterior y compone el contenido del QR. */
+    private void sellar(String huellaAnterior, String urlVerificacion) {
+        this.huellaAnterior = huellaAnterior;
+        this.cadenaHuella = CalculadoraHuella.cadenaCanonica(
+                emisor.getNif(), numeroVisible(), fechaEmision, tipo, totalIva, total,
+                huellaAnterior, timestampEmision);
+        this.huella = CalculadoraHuella.calcular(cadenaHuella);
+        this.qrContenido = componerQr(urlVerificacion);
+    }
+
+    private String componerQr(String urlVerificacion) {
+        if (urlVerificacion == null || urlVerificacion.isBlank()) {
+            return null;
+        }
+        return "%s?nif=%s&numserie=%s&fecha=%s&importe=%s".formatted(
+                urlVerificacion,
+                emisor.getNif(),
+                numeroVisible(),
+                fechaEmision.format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")),
+                total.toPlainString());
+    }
+
+    private static void validar(DatosEmision datos, List<LineaAFacturar> lineas, String huellaAnterior) {
+        if (lineas == null || lineas.isEmpty()) {
+            throw new ReglaNegocioException("No se puede emitir una factura sin lineas.");
+        }
+        if (huellaAnterior == null || !huellaAnterior.matches("[0-9a-fA-F]{64}")) {
+            throw new ReglaNegocioException(
+                    "La huella anterior debe ser un SHA-256 en hexadecimal de 64 caracteres.");
+        }
+        if (datos.numero() <= 0) {
+            throw new ReglaNegocioException("El numero de factura debe ser positivo.");
+        }
+        if (datos.numeroRegistro() <= 0) {
+            throw new ReglaNegocioException("La posicion en el registro debe ser positiva.");
+        }
+        if (datos.tipo() != datos.serie().getTipo()) {
+            throw new ReglaNegocioException(
+                    "Una factura de tipo %s no puede emitirse en la serie %s, que es de tipo %s."
+                            .formatted(datos.tipo(), datos.serie().getCodigo(), datos.serie().getTipo()));
+        }
+        if (datos.tipo() == TipoFactura.RECTIFICATIVA) {
+            if (datos.facturaRectificada() == null) {
+                throw new ReglaNegocioException(
+                        "Una factura rectificativa debe indicar a que factura rectifica.");
+            }
+            if (datos.tipoRectificativa() == null) {
+                throw new ReglaNegocioException(
+                        "Una factura rectificativa debe indicar si es por sustitucion o por diferencias.");
+            }
+            if (datos.motivoRectificacion() == null || datos.motivoRectificacion().isBlank()) {
+                throw new ReglaNegocioException(
+                        "Una factura rectificativa debe explicar el motivo de la rectificacion.");
+            }
+        } else if (datos.facturaRectificada() != null) {
+            throw new ReglaNegocioException(
+                    "Una factura ordinaria no puede rectificar a otra: emita una rectificativa.");
+        }
     }
 }

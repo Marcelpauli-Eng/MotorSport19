@@ -18,9 +18,9 @@ import java.math.BigDecimal;
 /**
  * Desglose de base imponible y cuota por tipo de IVA de una factura.
  *
- * <p>Cada fila es la SUMA de las lineas con ese porcentaje, no un recalculo:
- * asi el desglose siempre cuadra al centimo con las lineas y con la cabecera,
- * cosa que verifica un trigger diferido al hacer commit.
+ * <p>Cada fila es la SUMA de las lineas con ese porcentaje, no un recalculo sobre
+ * el total: asi el desglose cuadra siempre al centimo con las lineas y con la
+ * cabecera, cosa que verifica un trigger diferido al hacer commit.
  *
  * <p>Inmutable, como el resto de la factura.
  */
@@ -49,4 +49,15 @@ public class DesgloseIvaFactura {
 
     @Column(name = "cuota_iva", nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal cuotaIva;
+
+    static DesgloseIvaFactura de(Factura factura, String tipoIva, BigDecimal porcentajeIva,
+                                 BigDecimal baseImponible, BigDecimal cuotaIva) {
+        DesgloseIvaFactura desglose = new DesgloseIvaFactura();
+        desglose.factura = factura;
+        desglose.tipoIva = tipoIva;
+        desglose.porcentajeIva = porcentajeIva;
+        desglose.baseImponible = baseImponible;
+        desglose.cuotaIva = cuotaIva;
+        return desglose;
+    }
 }

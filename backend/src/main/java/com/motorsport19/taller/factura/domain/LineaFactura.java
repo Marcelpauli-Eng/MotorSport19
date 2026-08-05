@@ -73,6 +73,10 @@ public class LineaFactura {
     @Column(name = "porcentaje_iva", nullable = false, updatable = false, precision = 5, scale = 2)
     private BigDecimal porcentajeIva;
 
+    // Los tres importes los calcula PostgreSQL como columnas generadas. Java
+    // calcula los suyos por separado para la huella, y el trigger diferido
+    // comprueba al hacer commit que ambos coinciden.
+
     @Generated(event = EventType.INSERT)
     @Column(name = "base_imponible", insertable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal baseImponible;
@@ -84,4 +88,30 @@ public class LineaFactura {
     @Generated(event = EventType.INSERT)
     @Column(name = "total", insertable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal total;
+
+    static LineaFactura copiar(Factura factura, int numeroLinea, LineaAFacturar origen) {
+        LineaFactura linea = new LineaFactura();
+        linea.factura = factura;
+        linea.numeroLinea = numeroLinea;
+        linea.tipo = origen.tipo();
+        linea.descripcion = origen.descripcion();
+        linea.piezaSku = origen.piezaSku();
+        linea.cantidad = origen.cantidad();
+        linea.precioUnitario = origen.precioUnitario();
+        linea.descuentoPct = origen.descuentoPct();
+        linea.tipoIva = origen.tipoIva();
+        linea.porcentajeIva = origen.porcentajeIva();
+        return linea;
+    }
+
+    /**
+     * Importes calculados en Java.
+     *
+     * <p>Mientras la linea no se haya insertado, las columnas generadas por la
+     * base de datos estan vacias; este metodo da el mismo resultado en ambos
+     * momentos.
+     */
+    public ImporteLinea importes() {
+        return ImporteLinea.de(cantidad, precioUnitario, descuentoPct, porcentajeIva);
+    }
 }

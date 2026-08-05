@@ -64,4 +64,21 @@ public class EventoFactura {
 
     @Column(name = "ip_origen", updatable = false, length = 45)
     private String ipOrigen;
+
+    public static EventoFactura registrar(Factura factura, TipoEventoFactura tipo, Usuario usuario,
+                                          String descripcion, String detalleJson, String ipOrigen) {
+        EventoFactura evento = new EventoFactura();
+        evento.factura = factura;
+        evento.tipoEvento = tipo;
+        evento.usuario = usuario;
+        evento.fecha = Instant.now();
+        // La columna admite 500 caracteres; se recorta antes de llegar a la BD
+        // para que un detalle largo no tumbe la operacion que se esta anotando.
+        evento.descripcion = descripcion != null && descripcion.length() > 500
+                ? descripcion.substring(0, 497) + "..."
+                : descripcion;
+        evento.detalle = detalleJson;
+        evento.ipOrigen = ipOrigen;
+        return evento;
+    }
 }
