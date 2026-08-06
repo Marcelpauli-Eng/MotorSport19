@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { Icono } from '../../compartido/icono';
 import { EventoFactura, Factura, FacturaResumen } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 
@@ -13,7 +14,7 @@ import { FacturasService } from '../../nucleo/servicios/facturas.service';
  */
 @Component({
   selector: 'app-detalle-factura',
-  imports: [CommonModule, RouterLink, Cargando],
+  imports: [CommonModule, RouterLink, Cargando, Icono],
   templateUrl: './detalle-factura.html',
   styleUrl: './detalle-factura.scss',
 })

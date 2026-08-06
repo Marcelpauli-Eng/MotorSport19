@@ -1,6 +1,13 @@
-<div class="apilado">
-  <h1>Inventario</h1>
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Inventario</h1>
+    <p class="pagina-cabecera__sub">
+      El stock no se escribe a mano: cambia solo al registrar entradas, salidas o ajustes.
+    </p>
+  </div>
+</div>
 
+<div class="apilado">
   <div class="pestanas">
     <button
       type="button"
@@ -18,7 +25,7 @@
     >
       Reposición
       @if (alertas().length) {
-        <span class="etiqueta etiqueta--rojo">{{ alertas().length }}</span>
+        <span class="contador contador--alerta">{{ alertas().length }}</span>
       }
     </button>
     <button
@@ -32,34 +39,25 @@
   </div>
 
   @if (pestana() === 'catalogo') {
-    <section class="tarjeta">
-      <div class="fila">
-        <div class="campo crece" style="margin: 0">
-          <label for="buscar">Buscar pieza</label>
-          <input
-            id="buscar"
-            type="search"
-            placeholder="SKU, descripción o marca…"
-            [ngModel]="texto()"
-            (ngModelChange)="texto.set($event)"
-            (keyup.enter)="cargarCatalogo()"
-          />
-        </div>
-        <button
-          type="button"
-          class="boton boton--principal"
-          (click)="cargarCatalogo()"
-          style="margin-top: 1.2rem"
-        >
-          Buscar
-        </button>
+    <div class="filtros">
+      <div class="campo filtros__crece">
+        <label for="buscar">Buscar pieza</label>
+        <input
+          id="buscar"
+          type="search"
+          placeholder="SKU, descripción o marca…"
+          [ngModel]="texto()"
+          (ngModelChange)="texto.set($event)"
+          (keyup.enter)="cargarCatalogo()"
+        />
       </div>
-      <p class="pequeno silenciado" style="margin: 0.5rem 0 0">
-        El stock no se puede escribir a mano: cambia solo registrando entradas, salidas o ajustes.
-      </p>
-    </section>
+      <button type="button" class="boton" (click)="cargarCatalogo()">
+        <app-icono nombre="buscar" [tamano]="16" />
+        Buscar
+      </button>
+    </div>
 
-    <section class="tarjeta">
+    <section class="tarjeta tarjeta--ajustada">
       @if (cargando()) {
         <app-cargando mensaje="Cargando catálogo…" />
       } @else {
@@ -79,14 +77,16 @@
             <tbody>
               @for (p of piezas(); track p.id) {
                 <tr [class.fila--alerta]="p.bajoMinimo">
-                  <td class="mono negrita">{{ p.sku }}</td>
+                  <td class="mono">{{ p.sku }}</td>
                   <td>
-                    {{ p.descripcion }}
-                    @if (p.marca) {
-                      <div class="pequeno silenciado">{{ p.marca }}</div>
-                    }
+                    <div class="celda-doble">
+                      <span class="celda-doble__principal">{{ p.descripcion }}</span>
+                      @if (p.marca) {
+                        <span class="celda-doble__secundario">{{ p.marca }}</span>
+                      }
+                    </div>
                   </td>
-                  <td class="pequeno">{{ p.ubicacion || '—' }}</td>
+                  <td class="silenciado codigo">{{ p.ubicacion || '—' }}</td>
                   <td class="num">
                     @if (p.sinExistencias) {
                       <span class="etiqueta etiqueta--rojo">0</span>
@@ -99,14 +99,22 @@
                     }
                   </td>
                   <td class="num silenciado">{{ p.stockMinimo | number: '1.0-3' : 'es' }}</td>
-                  <td class="num">{{ p.precioVenta | number: '1.2-2' : 'es' }} €</td>
+                  <td class="num importe importe--fuerte">
+                    {{ p.precioVenta | number: '1.2-2' : 'es' }} €
+                  </td>
                   <td>
                     <!-- Mover el almacen es cosa de direccion: al resto no se le
                          ensena un boton que la API va a rechazar. -->
                     @if (gestionaAlmacen) {
-                      <div class="fila" style="gap: 0.3rem; flex-wrap: nowrap">
-                        <button type="button" class="boton boton--pequeno" (click)="registrarEntrada(p)">
-                          + Entrada
+                      <div class="fila" style="gap: 4px; flex-wrap: nowrap; justify-content: flex-end">
+                        <button
+                          type="button"
+                          class="boton boton--pequeno"
+                          (click)="registrarEntrada(p)"
+                          title="Registrar una entrada de almacén"
+                        >
+                          <app-icono nombre="mas" [tamano]="14" />
+                          Entrada
                         </button>
                         <button type="button" class="boton boton--pequeno" (click)="registrarAjuste(p)">
                           Ajuste
@@ -124,12 +132,16 @@
   }
 
   @if (pestana() === 'alertas') {
-    <section class="tarjeta">
+    <section class="tarjeta tarjeta--ajustada">
       <div class="tarjeta__titulo">
-        <h2>Piezas por reponer</h2>
+        <h2>Piezas por reponer <span class="contador">{{ alertas().length }}</span></h2>
       </div>
       @if (!alertas().length) {
-        <p class="vacio">Todo el inventario está por encima del mínimo.</p>
+        <div class="vacio">
+          <app-icono class="vacio__icono" nombre="correcto" [tamano]="30" />
+          <span class="vacio__titulo">Todo por encima del mínimo</span>
+          <span class="pequeno">No hay nada pendiente de pedir.</span>
+        </div>
       } @else {
         <div class="tabla-envoltorio">
           <table>
@@ -147,8 +159,8 @@
             <tbody>
               @for (a of alertas(); track a.piezaId) {
                 <tr>
-                  <td class="mono negrita">{{ a.sku }}</td>
-                  <td>{{ a.descripcion }}</td>
+                  <td class="mono">{{ a.sku }}</td>
+                  <td><span class="truncado" style="max-width: 280px">{{ a.descripcion }}</span></td>
                   <td class="num">
                     @if (a.sinExistencias) {
                       <span class="etiqueta etiqueta--rojo">Sin stock</span>
@@ -157,9 +169,11 @@
                     }
                   </td>
                   <td class="num silenciado">{{ a.stockMinimo | number: '1.0-3' : 'es' }}</td>
-                  <td class="num negrita">{{ a.unidadesAReponer | number: '1.0-3' : 'es' }}</td>
-                  <td class="pequeno">{{ a.proveedorNombre || '—' }}</td>
-                  <td class="num pequeno">{{ a.precioCoste | number: '1.2-2' : 'es' }} €</td>
+                  <td class="num importe--fuerte">{{ a.unidadesAReponer | number: '1.0-3' : 'es' }}</td>
+                  <td class="silenciado">
+                    <span class="truncado" style="max-width: 200px">{{ a.proveedorNombre || '—' }}</span>
+                  </td>
+                  <td class="num importe silenciado">{{ a.precioCoste | number: '1.2-2' : 'es' }} €</td>
                 </tr>
               }
             </tbody>
@@ -170,7 +184,7 @@
   }
 
   @if (pestana() === 'movimientos') {
-    <section class="tarjeta">
+    <section class="tarjeta tarjeta--ajustada">
       <div class="tarjeta__titulo">
         <h2>Libro de movimientos</h2>
         <span class="pequeno silenciado">Registro inmutable: no se edita ni se borra</span>
@@ -178,7 +192,10 @@
       @if (cargando()) {
         <app-cargando mensaje="Cargando movimientos…" />
       } @else if (!movimientos().length) {
-        <p class="vacio">Todavía no hay movimientos.</p>
+        <div class="vacio">
+          <app-icono class="vacio__icono" nombre="inventario" [tamano]="30" />
+          <span class="vacio__titulo">Todavía no hay movimientos</span>
+        </div>
       } @else {
         <div class="tabla-envoltorio">
           <table>
@@ -197,7 +214,9 @@
             <tbody>
               @for (m of movimientos(); track m.id) {
                 <tr>
-                  <td class="pequeno">{{ m.fecha | date: 'dd/MM/yy HH:mm' }}</td>
+                  <td class="silenciado sin-envolver">
+                    {{ m.fecha | date: 'd MMM · HH:mm' : undefined : 'es' }}
+                  </td>
                   <td>
                     <span
                       class="etiqueta"
@@ -208,10 +227,12 @@
                     </span>
                   </td>
                   <td>
-                    <span class="mono">{{ m.piezaSku }}</span>
-                    <div class="pequeno silenciado">{{ m.piezaDescripcion }}</div>
+                    <div class="celda-doble">
+                      <span class="celda-doble__principal mono">{{ m.piezaSku }}</span>
+                      <span class="celda-doble__secundario">{{ m.piezaDescripcion }}</span>
+                    </div>
                   </td>
-                  <td class="num negrita" [class.negativo]="m.cantidad < 0">
+                  <td class="num importe--fuerte" [class.negativo]="m.cantidad < 0">
                     {{ m.cantidad > 0 ? '+' : '' }}{{ m.cantidad | number: '1.0-3' : 'es' }}
                   </td>
                   <td class="num silenciado">{{ m.stockAnterior | number: '1.0-3' : 'es' }}</td>

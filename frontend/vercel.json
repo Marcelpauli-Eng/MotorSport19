@@ -6,7 +6,7 @@
 
   "rewrites": [
     {
-      "comment": "Todo /api se reenvia al backend de Render. Con esto el navegador solo habla con el dominio de Vercel, asi que no hace falta configurar CORS ni exponer la URL del backend en el codigo. Sustituye motorsport19-api por el nombre real de tu servicio de Render.",
+      "comment": "Todo /api se reenvia al backend de Render, asi que el navegador solo habla con el dominio de Vercel y la URL del backend no aparece en el codigo del frontend. Aun asi hay que declarar el origen en Render (MOTORSPORT19_SEGURIDAD_ORIGENES_CORS): el proxy reenvia la cabecera Origin del navegador y sin ese permiso la API responde 403. Sustituye motorsport19-api por el nombre real de tu servicio de Render.",
       "source": "/api/:ruta*",
       "destination": "https://motorsport19-api.onrender.com/api/:ruta*"
     },

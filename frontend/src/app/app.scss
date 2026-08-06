@@ -1,129 +1,251 @@
+/* ==========================================================================
+   Armazón de la aplicación.
+
+   Barra lateral oscura y contenido claro. La lateral oscura hace dos cosas: da
+   un ancla visual estable mientras el contenido cambia, y separa «dónde estoy»
+   de «qué estoy mirando» sin necesidad de líneas ni sombras.
+   ========================================================================== */
+
 .armazon {
   display: grid;
-  grid-template-columns: 240px 1fr;
-  grid-template-rows: 60px 1fr;
-  grid-template-areas:
-    'cabecera cabecera'
-    'navegacion contenido';
+  grid-template-columns: 232px 1fr;
   min-height: 100vh;
+  background: var(--gris-100);
 }
 
-/* ---------- Cabecera ---------- */
+/* ---------- Barra lateral ---------- */
 
-.cabecera {
-  grid-area: cabecera;
+.lateral {
+  display: flex;
+  flex-direction: column;
+  background: var(--gris-950);
+  color: var(--gris-300);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.lateral__marca {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1rem;
-  background: var(--gris-900);
+  gap: var(--e2);
+  padding: var(--e5) var(--e4) var(--e4);
+  color: var(--blanco);
+  text-decoration: none;
+}
+
+.lateral__marca:hover { text-decoration: none; }
+
+.lateral__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  color: var(--blanco);
+  background: var(--azul);
+  border-radius: var(--radio-s);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: -0.03em;
+}
+
+.lateral__nombre {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.lateral__nombre strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.011em;
+}
+
+.lateral__nombre span {
+  font-size: 0.6875rem;
+  color: var(--gris-500);
+}
+
+.lateral__seccion {
+  padding: var(--e4) var(--e4) 6px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gris-600);
+}
+
+.lateral nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--e2);
+}
+
+.lateral nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 var(--e2);
+  margin-bottom: 2px;
+  border-radius: var(--radio-s);
+  color: var(--gris-400);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.lateral nav a:hover {
+  color: var(--blanco);
+  background: rgb(255 255 255 / 7%);
+  text-decoration: none;
+}
+
+/*
+  El activo es la única superficie azul de la barra. Sin esto, con hover claro
+  y activo claro, no se distingue dónde estás de dónde tienes el ratón.
+*/
+.lateral nav a.activo {
+  color: var(--blanco);
+  background: var(--azul);
+}
+
+.lateral nav a.activo:hover { background: var(--azul-fuerte); }
+
+.lateral__pie {
+  margin-top: auto;
+  padding: var(--e3) var(--e2) var(--e3);
+  border-top: 1px solid rgb(255 255 255 / 8%);
+}
+
+/* Ficha del usuario, abajo del todo: es donde se busca en cualquier programa. */
+.usuario-menu {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  width: 100%;
+  padding: 6px var(--e2);
+  border-radius: var(--radio-s);
+  color: var(--gris-300);
+  text-decoration: none;
+  transition: background 0.12s;
+  min-width: 0;
+}
+
+.usuario-menu:hover { background: rgb(255 255 255 / 7%); text-decoration: none; }
+
+.usuario-menu__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--blanco);
+  background: var(--gris-700);
+  border-radius: 50%;
+}
+
+.usuario-menu__texto {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.usuario-menu__nombre {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--blanco);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usuario-menu__rol {
+  font-size: 0.6875rem;
+  color: var(--gris-500);
+}
+
+.lateral__salir {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gris-500);
+  background: none;
+  border: none;
+  border-radius: var(--radio-s);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.lateral__salir:hover { color: var(--blanco); background: rgb(255 255 255 / 10%); }
+
+/* ---------- Barra superior (solo en tablet y móvil) ---------- */
+
+.barra-movil {
+  display: none;
+  align-items: center;
+  gap: var(--e2);
+  height: 52px;
+  padding: 0 var(--e3);
+  background: var(--gris-950);
   color: var(--blanco);
   position: sticky;
   top: 0;
   z-index: 20;
 }
 
-.cabecera__marca {
+.barra-movil__menu {
   display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--blanco);
-  text-decoration: none;
-}
-
-.cabecera__sub {
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--gris-300);
-}
-
-.cabecera__menu {
-  display: none;
-  width: 40px;
-  height: 40px;
-  font-size: 1.3rem;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
   color: var(--blanco);
   background: none;
   border: none;
+  border-radius: var(--radio-s);
   cursor: pointer;
 }
 
-.cabecera__usuario {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.85rem;
-}
+.barra-movil__menu:hover { background: rgb(255 255 255 / 10%); }
 
-/* ---------- Navegación ---------- */
-
-.navegacion {
-  grid-area: navegacion;
-  display: flex;
-  flex-direction: column;
-  background: var(--blanco);
-  border-right: 1px solid var(--gris-200);
-  padding: 1rem 0.75rem;
-  position: sticky;
-  top: 60px;
-  height: calc(100vh - 60px);
-  overflow-y: auto;
-}
-
-.navegacion ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  flex: 1;
-}
-
-.navegacion a {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  min-height: var(--alto-control);
-  padding: 0 0.8rem;
-  margin-bottom: 0.2rem;
-  border-radius: var(--radio);
-  color: var(--gris-700);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.navegacion a:hover { background: var(--gris-100); }
-
-.navegacion a.activo {
-  color: var(--azul-oscuro);
-  background: var(--azul-claro);
-}
-
-.navegacion__icono { font-size: 1.05rem; width: 1.3rem; text-align: center; }
-
-.navegacion__aviso {
-  margin: 1rem 0 0;
-  padding: 0.6rem 0.7rem;
-  color: var(--ambar);
-  background: var(--ambar-claro);
-  border-radius: var(--radio);
-  line-height: 1.35;
+.barra-movil__titulo {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.011em;
 }
 
 /* ---------- Contenido ---------- */
 
+.principal {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .contenido {
-  grid-area: contenido;
-  padding: 1.5rem;
-  max-width: 1400px;
+  padding: var(--e6);
+  max-width: 1440px;
   width: 100%;
   /*
     Igual que en las rejillas interiores: sin esto, cualquier contenido ancho
-    (el tablero de ordenes, una tabla larga) estira la pista del grid y saca la
-    pagina entera de la pantalla en tablet, en vez de desplazarse por dentro.
+    (el tablero de órdenes, una tabla larga) estira la pista del grid y saca la
+    página entera de la pantalla en tablet, en vez de desplazarse por dentro.
   */
   min-width: 0;
-  overflow-x: hidden;
 }
 
 .velo { display: none; }
@@ -131,35 +253,30 @@
 /* ---------- Tablet y móvil ---------- */
 
 @media (max-width: 900px) {
-  .armazon {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      'cabecera'
-      'contenido';
-  }
+  .armazon { grid-template-columns: 1fr; }
 
-  .cabecera__menu { display: block; }
+  .barra-movil { display: flex; }
 
-  .navegacion {
+  .lateral {
     position: fixed;
-    top: 60px;
-    left: 0;
-    width: 260px;
+    inset: 0 auto 0 0;
+    width: 252px;
+    height: 100vh;
     transform: translateX(-100%);
-    transition: transform 0.2s ease;
+    transition: transform 0.22s ease;
     z-index: 30;
-    box-shadow: var(--sombra-alta);
+    box-shadow: var(--sombra-g);
   }
 
-  .armazon--menu-abierto .navegacion { transform: translateX(0); }
+  .armazon--menu-abierto .lateral { transform: translateX(0); }
 
   .armazon--menu-abierto .velo {
     display: block;
     position: fixed;
-    inset: 60px 0 0;
-    background: rgb(0 0 0 / 35%);
+    inset: 0;
+    background: rgb(11 17 32 / 45%);
     z-index: 25;
   }
 
-  .contenido { padding: 1rem; }
+  .contenido { padding: var(--e4); }
 }

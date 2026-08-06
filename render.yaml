@@ -37,10 +37,15 @@ services:
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
 
-      # Origen permitido para CORS. Se deja preparado por si algun dia el
-      # frontend llama a la API directamente en vez de a traves del proxy de
-      # Vercel; con el proxy no hace falta, porque la peticion sale del servidor
-      # de Vercel y no lleva cabecera Origin.
+      # Origen permitido para CORS: pon aqui la URL de tu frontend en Vercel,
+      # por ejemplo https://motorsport19.vercel.app
+      #
+      # No lo dejes vacio dando por hecho que el proxy de Vercel basta. Un proxy
+      # inverso reenvia la cabecera Origin del navegador salvo que se le diga lo
+      # contrario, y entonces la API responde 403 a todo, login incluido. Le
+      # paso exactamente eso al nginx del taller hasta que se le anadio
+      # `proxy_set_header Origin ""`. Sobre Vercel no se puede hacer lo mismo,
+      # asi que aqui se declara el origen y se acaba la duda.
       - key: MOTORSPORT19_SEGURIDAD_ORIGENES_CORS
         sync: false
 

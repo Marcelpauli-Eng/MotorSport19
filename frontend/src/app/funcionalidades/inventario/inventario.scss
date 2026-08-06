@@ -1,23 +1,27 @@
+/* ---------- Pestañas ---------- */
+
 .pestanas {
   display: flex;
-  gap: 0.3rem;
-  border-bottom: 2px solid var(--gris-200);
+  gap: var(--e1);
+  border-bottom: var(--borde);
 }
 
 .pestana {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  min-height: var(--alto-control);
-  padding: 0 1rem;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 var(--e3);
   font: inherit;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--gris-500);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
+  margin-bottom: -1px;
   cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
 }
 
 .pestana:hover { color: var(--gris-900); }
@@ -27,7 +31,20 @@
   border-bottom-color: var(--azul);
 }
 
-.fila--alerta { background: var(--ambar-claro); }
-.fila--alerta:hover { background: var(--ambar-claro); }
+/* El contador de reposición avisa sin gritar: en rojo pleno competía con las
+   propias filas en alerta de la tabla de abajo. */
+.contador--alerta {
+  color: var(--rojo);
+  background: var(--rojo-suave);
+}
+
+/*
+  Fila bajo mínimo. Antes llevaba el ámbar de fondo a plena intensidad y, con
+  tres o cuatro seguidas, la tabla se volvía ilegible. Basta con teñirla apenas
+  y marcar el borde de la izquierda.
+*/
+.fila--alerta { background: var(--ambar-suave); }
+.fila--alerta:hover { background: #fdf3dd; }
+.fila--alerta > td:first-child { box-shadow: inset 3px 0 0 var(--ambar-borde); }
 
 .negativo { color: var(--rojo); }

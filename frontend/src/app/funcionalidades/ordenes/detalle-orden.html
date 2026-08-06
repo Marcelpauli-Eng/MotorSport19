@@ -1,20 +1,24 @@
 @if (cargando()) {
   <app-cargando mensaje="Cargando orden…" />
 } @else if (orden(); as o) {
-  <div class="apilado">
-    <a routerLink="/ordenes" class="pequeno">← Órdenes de trabajo</a>
+  <a routerLink="/ordenes" class="volver">
+    <app-icono nombre="flecha-izquierda" [tamano]="14" />
+    Órdenes de trabajo
+  </a>
 
-    <div class="fila">
-      <div class="crece">
-        <h1>
-          {{ o.codigo }}
-          <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
-        </h1>
-        <p class="silenciado pequeno">
-          {{ o.descripcionMoto }} · {{ o.matricula }} · {{ o.clienteNombre }}
-        </p>
-      </div>
+  <div class="pagina-cabecera">
+    <div class="pagina-cabecera__texto">
+      <h1 class="titulo-orden">
+        <span class="codigo">{{ o.codigo }}</span>
+        <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
+      </h1>
+      <p class="pagina-cabecera__sub">
+        {{ o.descripcionMoto }}<span class="punto"></span>{{ o.matricula }}<span class="punto"></span>{{ o.clienteNombre }}
+      </p>
     </div>
+  </div>
+
+  <div class="apilado">
 
     <!-- Acciones disponibles segun la maquina de estados -->
     <section class="tarjeta acciones">
@@ -60,7 +64,8 @@
             [disabled]="trabajando() || !serieOrdinaria()"
             (click)="facturar()"
           >
-            📄 Emitir factura
+            <app-icono nombre="facturas" [tamano]="16" />
+          Emitir factura
           </button>
           <span class="pequeno silenciado">
             Total a facturar: <strong>{{ o.total | number: '1.2-2' : 'es' }} €</strong>
@@ -106,13 +111,13 @@
         <div class="tarjeta__titulo"><h2>Entrada</h2></div>
         <dl class="datos">
           <dt>Fecha de entrada</dt>
-          <dd>{{ o.fechaEntrada | date: 'dd/MM/yyyy HH:mm' }}</dd>
+          <dd>{{ o.fechaEntrada | date: "d 'de' MMMM, HH:mm" : undefined : 'es' }}</dd>
           <dt>Kilometraje</dt>
           <dd>{{ o.kmEntrada | number: '1.0-0' : 'es' }} km</dd>
           <dt>Salida estimada</dt>
-          <dd>{{ o.fechaEstimadaSalida ? (o.fechaEstimadaSalida | date: 'dd/MM/yyyy') : '—' }}</dd>
+          <dd>{{ o.fechaEstimadaSalida ? (o.fechaEstimadaSalida | date: "d 'de' MMMM" : undefined : 'es') : '—' }}</dd>
           <dt>Técnico</dt>
-          <dd>{{ o.tecnicoNombre || 'sin asignar' }}</dd>
+          <dd [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</dd>
           <dt>Tarifa/hora</dt>
           <dd>{{ o.tarifaHora | number: '1.2-2' : 'es' }} € <span class="pequeno silenciado">(congelada)</span></dd>
         </dl>
@@ -120,13 +125,15 @@
 
       <section class="tarjeta">
         <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
-        <p class="pequeno negrita">Lo que cuenta el cliente</p>
-        <p class="pequeno">{{ o.problemaReportado }}</p>
-        <p class="pequeno negrita" style="margin-top: 0.8rem">Diagnóstico del técnico</p>
-        <p class="pequeno">{{ o.diagnostico || '(pendiente)' }}</p>
+        <p class="etiqueta-campo">Lo que cuenta el cliente</p>
+        <p class="prosa">{{ o.problemaReportado }}</p>
+        <p class="etiqueta-campo prosa__titulo">Diagnóstico del técnico</p>
+        <p class="prosa" [class.silenciado]="!o.diagnostico">
+          {{ o.diagnostico || 'Pendiente de diagnosticar.' }}
+        </p>
         @if (o.motivoRechazo) {
-          <p class="pequeno negrita" style="margin-top: 0.8rem">Motivo del rechazo</p>
-          <p class="pequeno">{{ o.motivoRechazo }}</p>
+          <p class="etiqueta-campo prosa__titulo">Motivo del rechazo</p>
+          <p class="prosa">{{ o.motivoRechazo }}</p>
         }
       </section>
     </div>

@@ -42,6 +42,18 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-motorsport19}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-taller}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-taller}
+
+      # Clave de firma de las sesiones. Aqui lleva un valor por defecto, igual
+      # que la contrasena de la base: esta pila es para tu maquina. Fuera de
+      # local hay que darla de verdad, y la API se niega a arrancar sin ella.
+      MOTORSPORT19_SEGURIDAD_CLAVE_JWT: ${CLAVE_JWT:-clave-solo-para-desarrollo-local-no-usar-fuera-1234}
+
+      # Se permite el `ng serve` de Angular. Al servir el frontend desde el
+      # contenedor `web` esto no hace falta, porque su nginx borra la cabecera
+      # Origin; pero desarrollando con `npm start` la peticion sale del 4200 y
+      # llega con Origin, y sin este permiso la API responde 403 hasta al login.
+      MOTORSPORT19_SEGURIDAD_ORIGENES_CORS: ${CORS_ORIGENES:-http://localhost:4200,http://127.0.0.1:4200}
+
       TZ: ${TZ:-Europe/Madrid}
     ports:
       - "${API_PORT:-8080}:8080"

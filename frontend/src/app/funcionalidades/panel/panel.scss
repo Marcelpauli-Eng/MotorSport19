@@ -1,58 +1,191 @@
-.rejilla--resumen { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
-.rejilla--dos { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1rem; }
+/* ---------- Las cuatro cifras de arriba ----------
+   Sin franja de color a un lado: era un recurso que envejece mal y que aquí no
+   añadía información. Lo que importa es la cifra, así que se le da tamaño y el
+   resto se deja en gris. */
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--e3);
+}
 
 .metrica {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  text-decoration: none;
+  gap: 2px;
+  padding: var(--e4) var(--e5);
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-s);
   color: inherit;
-  border-left: 4px solid var(--gris-300);
+  text-decoration: none;
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-.metrica:hover { text-decoration: none; box-shadow: var(--sombra-alta); }
-.metrica--aviso { border-left-color: var(--verde); }
-.metrica--alerta { border-left-color: var(--rojo); }
+.metrica:hover {
+  text-decoration: none;
+  border-color: var(--gris-300);
+  box-shadow: var(--sombra);
+}
 
-.metrica__valor { font-size: 2rem; font-weight: 700; line-height: 1; }
-.metrica__texto { font-size: 0.85rem; color: var(--gris-500); }
+.metrica__valor {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  color: var(--gris-900);
+}
 
-/* Tablero horizontal: en tablet se desplaza en lugar de comprimirse */
+.metrica__texto {
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
+
+/* Solo cuando hay algo que atender. Un cero en piezas pendientes es una buena
+   noticia y no se pinta de color. */
+.metrica--atencion .metrica__valor { color: var(--ambar); }
+
+/* ---------- Tablero por estados ---------- */
+
 .tablero {
   display: flex;
-  gap: 1rem;
+  gap: var(--e4);
+  padding: var(--e4) var(--e5) var(--e5);
   overflow-x: auto;
-  padding-bottom: 0.5rem;
+  /* Sin esto, en tablet el tablero estira la página entera en vez de
+     desplazarse por dentro. */
+  min-width: 0;
 }
 
-.columna { flex: 0 0 230px; }
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+  flex: 0 0 216px;
+  min-width: 0;
+}
 
 .columna__titulo {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.8rem;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   color: var(--gris-500);
-  margin-bottom: 0.6rem;
 }
+
+.columna__cuenta {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gris-400);
+  letter-spacing: 0;
+}
+
+/* Punto de color del estado en lugar de una pastilla entera: en una fila de
+   siete columnas, siete pastillas de colores no dejan leer nada. */
+.punto-estado {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--gris-400);
+}
+
+.punto-estado--azul { background: var(--azul); }
+.punto-estado--verde { background: var(--verde); }
+.punto-estado--ambar { background: #d97706; }
+.punto-estado--rojo { background: var(--rojo); }
+.punto-estado--morado { background: var(--morado); }
+.punto-estado--gris { background: var(--gris-400); }
+
+/* ---------- Ficha de orden ---------- */
 
 .ficha {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.7rem 0.8rem;
-  margin-bottom: 0.5rem;
-  background: var(--gris-50);
-  border: 1px solid var(--gris-200);
+  gap: 1px;
+  padding: 10px var(--e3) var(--e2);
+  background: var(--blanco);
+  border: var(--borde);
   border-radius: var(--radio);
-  text-decoration: none;
+  box-shadow: var(--sombra-s);
   color: inherit;
+  text-decoration: none;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.1s;
 }
 
-.ficha:hover { background: var(--azul-claro); border-color: var(--azul); text-decoration: none; }
+.ficha:hover {
+  text-decoration: none;
+  border-color: var(--azul-borde);
+  box-shadow: var(--sombra);
+}
 
-.ficha__codigo { font-weight: 600; font-size: 0.9rem; }
-.ficha__moto { font-size: 0.85rem; }
+.ficha:active { transform: translateY(1px); }
+
+.ficha__codigo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--azul);
+}
+
+.ficha__moto {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gris-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ficha__matricula {
+  font-size: 0.75rem;
+  color: var(--gris-500);
+}
+
+.ficha__pie {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--gris-150);
+  font-size: 0.75rem;
+  color: var(--gris-500);
+  min-width: 0;
+}
+
+.ficha__pie > .truncado { flex: 1; }
+
+/* Iniciales del técnico en un círculo: ocupan una fracción de lo que ocupaba el
+   nombre completo, y en un tablero el espacio horizontal es lo escaso. */
+.ficha__tecnico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--gris-600);
+  background: var(--gris-150);
+  border: 1px solid var(--gris-200);
+  border-radius: 50%;
+}
+
+/* ---------- Rejilla inferior ---------- */
+
+.rejilla--dos {
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .rejilla--dos { grid-template-columns: 1fr; }
+  .tablero { padding: var(--e3) var(--e4) var(--e4); }
+}

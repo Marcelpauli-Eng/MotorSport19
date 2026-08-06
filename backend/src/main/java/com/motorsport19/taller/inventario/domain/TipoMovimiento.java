@@ -18,7 +18,7 @@ public enum TipoMovimiento {
     AJUSTE("Ajuste de inventario"),
 
     /** Pieza que vuelve al almacen sin haberse usado: suma existencias. */
-    DEVOLUCION("Devolucion a almacen");
+    DEVOLUCION("Devolución a almacén");
 
     private final String descripcion;
 

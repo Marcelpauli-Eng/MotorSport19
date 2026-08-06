@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
+import { Icono } from '../../compartido/icono';
 import { AlertaStock, EstadoOT, OrdenTrabajoResumen } from '../../nucleo/modelos/taller';
 import { FacturaResumen } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
@@ -17,7 +18,7 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
  */
 @Component({
   selector: 'app-panel',
-  imports: [CommonModule, RouterLink, ColorEstadoPipe],
+  imports: [CommonModule, RouterLink, ColorEstadoPipe, Icono],
   templateUrl: './panel.html',
   styleUrl: './panel.scss',
 })
@@ -46,6 +47,55 @@ export class Panel {
     if (this.veFacturacion) {
       this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
     }
+  }
+
+  /** Fecha de hoy escrita como se lee: «miércoles, 6 de agosto». */
+  protected readonly hoy = computed(() => {
+    const texto = new Intl.DateTimeFormat('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }).format(new Date());
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+  });
+
+  /**
+   * Las cuatro cifras de arriba.
+   *
+   * Se marcan como «atención» solo cuando hay algo que hacer: un cero en piezas
+   * pendientes es una buena noticia y no debe pintarse de rojo.
+   */
+  protected readonly metricas = computed(() => [
+    {
+      valor: this.totalAbiertas(),
+      texto: 'órdenes abiertas',
+      ruta: '/ordenes',
+      atencion: false,
+    },
+    {
+      valor: this.porEstado('LISTA').length,
+      texto: 'listas para entregar',
+      ruta: '/ordenes',
+      atencion: false,
+    },
+    {
+      valor: this.porEstado('ESPERANDO_PIEZAS').length,
+      texto: 'esperando piezas',
+      ruta: '/ordenes',
+      atencion: this.porEstado('ESPERANDO_PIEZAS').length > 0,
+    },
+    {
+      valor: this.alertas().length,
+      texto: 'piezas bajo mínimo',
+      ruta: '/inventario',
+      atencion: this.alertas().length > 0,
+    },
+  ]);
+
+  /** «Nuria Sanz Belmonte» → «NS», para la ficha del tablero. */
+  protected inicialesDe(nombre: string): string {
+    const partes = nombre.trim().split(/\s+/).filter(Boolean);
+    return (partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? '');
   }
 
   /** Órdenes agrupadas por estado, para el tablero. */

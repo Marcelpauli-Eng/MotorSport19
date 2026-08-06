@@ -1,48 +1,65 @@
 @if (sesion.autenticado()) {
   <div class="armazon" [class.armazon--menu-abierto]="menuAbierto()">
-    <header class="cabecera">
-      <button
-        type="button"
-        class="cabecera__menu"
-        (click)="alternarMenu()"
-        aria-label="Abrir menú de navegación"
-      >
-        ☰
-      </button>
-      <a routerLink="/panel" class="cabecera__marca">
-        MotorSport19
-        <span class="cabecera__sub">Gestión del taller</span>
+    <aside class="lateral">
+      <a routerLink="/panel" class="lateral__marca" (click)="cerrarMenu()">
+        <span class="lateral__logo" aria-hidden="true">M19</span>
+        <span class="lateral__nombre">
+          <strong>MotorSport19</strong>
+          <span>Gestión del taller</span>
+        </span>
       </a>
-      <div class="crece"></div>
-      @if (sesion.usuario(); as usuario) {
-        <a routerLink="/mi-cuenta" class="cabecera__usuario">
-          <span class="negrita">{{ usuario.nombreCompleto }}</span>
-          <span class="etiqueta etiqueta--azul">{{ usuario.rol }}</span>
-        </a>
-        <button type="button" class="boton boton--pequeno" (click)="salir()">Salir</button>
-      }
-    </header>
 
-    <nav class="navegacion" (click)="cerrarMenu()">
-      <ul>
-        @for (enlace of enlaces(); track enlace.ruta) {
-          <li>
-            <a
-              [routerLink]="enlace.ruta"
-              routerLinkActive="activo"
-              [routerLinkActiveOptions]="{ exact: false }"
-            >
-              <span class="navegacion__icono" aria-hidden="true">{{ enlace.icono }}</span>
-              {{ enlace.texto }}
-            </a>
-          </li>
+      <nav (click)="cerrarMenu()">
+        @for (grupo of grupos(); track grupo.titulo) {
+          <p class="lateral__seccion">{{ grupo.titulo }}</p>
+          <ul>
+            @for (enlace of grupo.enlaces; track enlace.ruta) {
+              <li>
+                <a [routerLink]="enlace.ruta" routerLinkActive="activo">
+                  <app-icono [nombre]="enlace.icono" [tamano]="17" />
+                  {{ enlace.texto }}
+                </a>
+              </li>
+            }
+          </ul>
         }
-      </ul>
-    </nav>
+      </nav>
 
-    <main class="contenido">
-      <router-outlet />
-    </main>
+      @if (sesion.usuario(); as usuario) {
+        <div class="lateral__pie">
+          <div class="fila" style="gap: 4px; flex-wrap: nowrap">
+            <a routerLink="/mi-cuenta" class="usuario-menu" (click)="cerrarMenu()">
+              <span class="usuario-menu__avatar" aria-hidden="true">{{ iniciales() }}</span>
+              <span class="usuario-menu__texto">
+                <span class="usuario-menu__nombre">{{ usuario.nombreCompleto }}</span>
+                <span class="usuario-menu__rol">{{ rolLegible() }}</span>
+              </span>
+            </a>
+            <button type="button" class="lateral__salir" (click)="salir()" title="Cerrar sesión">
+              <app-icono nombre="salir" [tamano]="17" />
+            </button>
+          </div>
+        </div>
+      }
+    </aside>
+
+    <div class="principal">
+      <header class="barra-movil">
+        <button
+          type="button"
+          class="barra-movil__menu"
+          (click)="alternarMenu()"
+          aria-label="Abrir menú de navegación"
+        >
+          <app-icono nombre="menu" [tamano]="20" />
+        </button>
+        <span class="barra-movil__titulo">MotorSport19</span>
+      </header>
+
+      <main class="contenido">
+        <router-outlet />
+      </main>
+    </div>
 
     <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
   </div>

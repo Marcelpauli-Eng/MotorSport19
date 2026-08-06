@@ -1,97 +1,207 @@
 /* ==========================================================================
-   Estilos globales de MotorSport19
+   Sistema de diseño de MotorSport19
 
    Pensado para dos sitios a la vez: el PC del mostrador y una tablet en el
-   taller. De ahi los objetivos tactiles grandes (44 px minimo) y el contraste
-   alto: en un taller hay grasa en los dedos y luz mala.
+   taller. De ahi los objetivos tactiles de 40 px minimo y el contraste alto:
+   en un taller hay grasa en los dedos y luz mala.
+
+   Tres reglas que sostienen todo lo demas:
+
+   1. Una sola tinta de marca. El azul significa «esto se pulsa» o «esto esta
+      activo», nunca decoracion. Si todo es azul, el azul deja de decir nada.
+   2. El color de estado va en el texto y en un punto, no en un fondo saturado.
+      Un tablero con siete pastillas de colores compite consigo mismo.
+   3. Numeros, codigos, matriculas y fechas con cifras tabulares. En una tabla
+      de importes, que las cifras no bailen de fila en fila es la diferencia
+      entre parecer un programa de gestion y parecer una pagina web.
    ========================================================================== */
 
 :root {
-  /* Paleta */
-  --azul: #1d4ed8;
-  --azul-oscuro: #1e3a8a;
-  --azul-claro: #eff6ff;
+  /* ---------- Escala de grises ----------
+     Ligeramente frias: sobre un monitor barato de mostrador, los grises
+     neutros puros tiran a amarillo. */
+  --gris-950: #0b1120;
   --gris-900: #111827;
+  --gris-800: #1f2937;
   --gris-700: #374151;
+  --gris-600: #4b5563;
   --gris-500: #6b7280;
+  --gris-400: #9ca3af;
   --gris-300: #d1d5db;
   --gris-200: #e5e7eb;
+  --gris-150: #edf0f4;
   --gris-100: #f3f4f6;
-  --gris-50: #f9fafb;
+  --gris-50: #f8fafc;
   --blanco: #ffffff;
 
+  /* ---------- Tinta de marca ---------- */
+  --azul: #2563eb;
+  --azul-fuerte: #1d4ed8;
+  --azul-oscuro: #1e3a8a;
+  --azul-suave: #eff6ff;
+  --azul-borde: #bfdbfe;
+
+  /* ---------- Colores con significado ----------
+     Cada uno con su version de texto y su version de fondo suave. */
   --verde: #15803d;
-  --verde-claro: #dcfce7;
+  --verde-suave: #ecfdf5;
+  --verde-borde: #a7f3d0;
   --ambar: #b45309;
-  --ambar-claro: #fef3c7;
+  --ambar-suave: #fffbeb;
+  --ambar-borde: #fde68a;
   --rojo: #b91c1c;
-  --rojo-claro: #fee2e2;
+  --rojo-suave: #fef2f2;
+  --rojo-borde: #fecaca;
   --morado: #6d28d9;
-  --morado-claro: #ede9fe;
+  --morado-suave: #f5f3ff;
+  --morado-borde: #ddd6fe;
 
-  --radio: 8px;
-  --sombra: 0 1px 3px rgb(0 0 0 / 8%), 0 1px 2px rgb(0 0 0 / 6%);
-  --sombra-alta: 0 10px 25px rgb(0 0 0 / 12%);
+  /* ---------- Espaciado, base 4 ---------- */
+  --e1: 4px;
+  --e2: 8px;
+  --e3: 12px;
+  --e4: 16px;
+  --e5: 20px;
+  --e6: 24px;
+  --e8: 32px;
+  --e10: 40px;
 
-  /* Objetivo tactil minimo comodo con guantes. */
-  --alto-control: 44px;
+  /* ---------- Radios ---------- */
+  --radio-s: 5px;
+  --radio: 7px;
+  --radio-g: 10px;
+
+  /* ---------- Elevacion ----------
+     Muy contenida. Las sombras marcadas envejecen mal y en una tablet con
+     reflejos solo ensucian. El borde hace casi todo el trabajo. */
+  --sombra-s: 0 1px 2px rgb(16 24 40 / 5%);
+  --sombra: 0 1px 3px rgb(16 24 40 / 8%), 0 1px 2px -1px rgb(16 24 40 / 6%);
+  --sombra-g: 0 12px 32px -8px rgb(16 24 40 / 18%);
+
+  --borde: 1px solid var(--gris-200);
+
+  /* Objetivo tactil comodo con guantes. */
+  --alto-control: 40px;
+  --alto-control-g: 44px;
+
+  --anillo-foco: 0 0 0 3px rgb(37 99 235 / 25%);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html,
+html, body { margin: 0; padding: 0; height: 100%; }
+
 body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-
-body {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  font-size: 15px;
+  font-family: 'Inter var', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', sans-serif;
+  font-size: 14px;
   line-height: 1.5;
-  color: var(--gris-900);
+  color: var(--gris-800);
   background: var(--gris-100);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Cifras tabulares en toda la aplicacion: es un programa de gestion, y aqui
+     las columnas de numeros se leen mas que las frases. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'cv05' 1, 'ss01' 1;
 }
+
+/* ---------- Tipografia ----------
+   Escala corta y con proposito. Los titulos llevan tracking negativo: a partir
+   de 18px el espaciado por defecto se ve suelto. */
 
 h1, h2, h3, h4 {
-  margin: 0 0 0.5rem;
+  margin: 0;
   line-height: 1.25;
   font-weight: 600;
+  color: var(--gris-900);
+  letter-spacing: -0.011em;
 }
 
-h1 { font-size: 1.5rem; }
-h2 { font-size: 1.2rem; }
-h3 { font-size: 1.05rem; }
+h1 { font-size: 1.375rem; letter-spacing: -0.019em; }
+h2 { font-size: 1rem; }
+h3 { font-size: 0.9375rem; }
+
+p { margin: 0 0 var(--e3); }
+p:last-child { margin-bottom: 0; }
 
 a {
   color: var(--azul);
   text-decoration: none;
+  transition: color 0.12s;
+}
+a:hover { color: var(--azul-fuerte); text-decoration: underline; }
+
+:focus-visible {
+  outline: 2px solid var(--azul);
+  outline-offset: 2px;
+  border-radius: var(--radio-s);
 }
 
-a:hover { text-decoration: underline; }
+/* ---------- Encabezado de pagina ---------- */
+
+.pagina-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
+  margin-bottom: var(--e5);
+}
+
+.pagina-cabecera__texto { min-width: 0; }
+
+.pagina-cabecera h1 { margin-bottom: 2px; }
+
+.pagina-cabecera__sub {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
 
 /* ---------- Tarjetas ---------- */
 
 .tarjeta {
   background: var(--blanco);
-  border: 1px solid var(--gris-200);
-  border-radius: var(--radio);
-  box-shadow: var(--sombra);
-  padding: 1.25rem;
+  border: var(--borde);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-s);
 }
+
+/* Relleno por defecto; las tarjetas que llevan tabla lo quitan. */
+.tarjeta { padding: var(--e5); }
+.tarjeta--ajustada { padding: 0; }
 
 .tarjeta__titulo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--gris-200);
+  gap: var(--e4);
+  margin: 0 0 var(--e4);
+  padding-bottom: var(--e3);
+  border-bottom: var(--borde);
+}
+
+.tarjeta--ajustada .tarjeta__titulo {
+  margin: 0;
+  padding: var(--e4) var(--e5);
+}
+
+.tarjeta__titulo h2 { display: flex; align-items: center; gap: var(--e2); }
+
+/* Contador junto a un titulo: «Órdenes de trabajo · 7» */
+.contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gris-600);
+  background: var(--gris-150);
+  border-radius: 999px;
 }
 
 /* ---------- Botones ---------- */
@@ -100,80 +210,162 @@ a:hover { text-decoration: underline; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 6px;
   min-height: var(--alto-control);
-  padding: 0 1.1rem;
+  padding: 0 var(--e3);
   font: inherit;
+  font-size: 0.875rem;
   font-weight: 500;
-  color: var(--gris-900);
+  color: var(--gris-700);
   background: var(--blanco);
   border: 1px solid var(--gris-300);
   border-radius: var(--radio);
+  box-shadow: var(--sombra-s);
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
   white-space: nowrap;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s;
 }
 
-.boton:hover:not(:disabled) { background: var(--gris-100); }
-.boton:disabled { opacity: 0.5; cursor: not-allowed; }
+.boton:hover:not(:disabled) { background: var(--gris-50); border-color: var(--gris-400); }
+.boton:active:not(:disabled) { background: var(--gris-100); box-shadow: none; }
+.boton:focus-visible { outline: none; box-shadow: var(--anillo-foco); }
+.boton:disabled { opacity: 0.55; cursor: not-allowed; box-shadow: none; }
+
+.boton__icono { flex: none; }
 
 .boton--principal {
   color: var(--blanco);
   background: var(--azul);
   border-color: var(--azul);
 }
-.boton--principal:hover:not(:disabled) { background: var(--azul-oscuro); }
+.boton--principal:hover:not(:disabled) { background: var(--azul-fuerte); border-color: var(--azul-fuerte); }
+.boton--principal:active:not(:disabled) { background: var(--azul-oscuro); }
 
 .boton--peligro {
-  color: var(--blanco);
-  background: var(--rojo);
-  border-color: var(--rojo);
+  color: var(--rojo);
+  background: var(--blanco);
+  border-color: var(--rojo-borde);
 }
+.boton--peligro:hover:not(:disabled) { background: var(--rojo-suave); border-color: var(--rojo); }
+
+/* Sin marco: para acciones secundarias dentro de una fila de tabla. */
+.boton--plano {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--gris-600);
+}
+.boton--plano:hover:not(:disabled) { background: var(--gris-100); border-color: transparent; }
 
 .boton--pequeno {
-  min-height: 34px;
-  padding: 0 0.7rem;
-  font-size: 0.85rem;
+  min-height: 30px;
+  padding: 0 var(--e2);
+  font-size: 0.8125rem;
+  gap: 4px;
 }
+
+.boton--grande { min-height: var(--alto-control-g); padding: 0 var(--e4); }
+
+.boton--icono { padding: 0; width: var(--alto-control); }
+.boton--icono.boton--pequeno { width: 30px; }
 
 /* ---------- Formularios ---------- */
 
 .campo {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  margin-bottom: 0.9rem;
+  gap: 5px;
+  margin-bottom: var(--e4);
 }
 
-.campo > label {
-  font-size: 0.85rem;
+.campo:last-child { margin-bottom: 0; }
+
+.campo > label,
+.etiqueta-campo {
+  font-size: 0.8125rem;
   font-weight: 500;
   color: var(--gris-700);
 }
 
 input, select, textarea {
   min-height: var(--alto-control);
-  padding: 0.5rem 0.7rem;
+  width: 100%;
+  padding: 0 var(--e3);
   font: inherit;
+  font-size: 0.875rem;
   color: var(--gris-900);
   background: var(--blanco);
   border: 1px solid var(--gris-300);
   border-radius: var(--radio);
-  width: 100%;
+  box-shadow: var(--sombra-s);
+  transition: border-color 0.12s, box-shadow 0.12s;
 }
 
-textarea { min-height: 80px; resize: vertical; }
+textarea { min-height: 84px; padding: var(--e2) var(--e3); resize: vertical; line-height: 1.5; }
+
+input::placeholder, textarea::placeholder { color: var(--gris-400); }
+
+input:hover:not(:disabled), select:hover:not(:disabled) { border-color: var(--gris-400); }
 
 input:focus, select:focus, textarea:focus {
-  outline: 2px solid var(--azul);
-  outline-offset: -1px;
+  outline: none;
   border-color: var(--azul);
+  box-shadow: var(--anillo-foco);
 }
+
+input:disabled, select:disabled, textarea:disabled {
+  background: var(--gris-50);
+  color: var(--gris-500);
+  cursor: not-allowed;
+}
+
+/* El select nativo con su propia flecha, para que no dependa del sistema. */
+select {
+  appearance: none;
+  padding-right: var(--e8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--e3) center;
+}
+
+/* Casilla con area de pulsacion generosa, pensada para dedos con guante. */
+.casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  min-height: var(--alto-control);
+  font-size: 0.875rem;
+  color: var(--gris-700);
+  cursor: pointer;
+  user-select: none;
+}
+
+.casilla input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--azul);
+  cursor: pointer;
+  box-shadow: none;
+}
+
+/* Barra de filtros: no merece una tarjeta entera, solo separacion. */
+.filtros {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e3);
+  flex-wrap: wrap;
+  margin-bottom: var(--e4);
+}
+
+.filtros .campo { margin-bottom: 0; }
+.filtros__crece { flex: 1 1 240px; min-width: 0; }
 
 .rejilla {
   display: grid;
-  gap: 0 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--e4);
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 /*
@@ -181,86 +373,213 @@ input:focus, select:focus, textarea:focus {
   debajo de su contenido y ensancha toda la rejilla, sacando la pagina de la
   pantalla. El minimo automatico de las pistas de grid es `auto`, no `0`.
 */
-.rejilla > * {
-  min-width: 0;
-}
+.rejilla > * { min-width: 0; }
 
 /* ---------- Tablas ---------- */
 
 .tabla-envoltorio {
   overflow-x: auto;
-  border: 1px solid var(--gris-200);
-  border-radius: var(--radio);
-  background: var(--blanco);
+  border-top: var(--borde);
+}
+
+.tarjeta:not(.tarjeta--ajustada) > .tabla-envoltorio {
+  margin: 0 calc(var(--e5) * -1) calc(var(--e5) * -1);
+  border-radius: 0 0 var(--radio-g) var(--radio-g);
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
 thead th {
-  padding: 0.7rem 0.85rem;
+  padding: var(--e2) var(--e4);
   text-align: left;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   color: var(--gris-500);
   background: var(--gris-50);
-  border-bottom: 1px solid var(--gris-200);
+  border-bottom: var(--borde);
   white-space: nowrap;
 }
 
 tbody td {
-  padding: 0.7rem 0.85rem;
-  border-bottom: 1px solid var(--gris-100);
+  padding: var(--e3) var(--e4);
+  border-bottom: 1px solid var(--gris-150);
   vertical-align: middle;
+  color: var(--gris-700);
 }
 
 tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background 0.1s; }
 tbody tr:hover { background: var(--gris-50); }
 
-.num { text-align: right; font-variant-numeric: tabular-nums; }
-.mono { font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 0.85em; }
+/* Fila que lleva a un detalle: toda la fila responde al puntero. */
+tbody tr.pulsable { cursor: pointer; }
 
-/* ---------- Etiquetas de estado ---------- */
+th.num, td.num { text-align: right; }
+
+/* Cifras alineadas sin peso extra: telefonos, contadores, cantidades sueltas. */
+.tabular { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Codigos, matriculas y referencias: nunca parten en dos lineas, y si destacan
+   porque son lo que se busca con la vista al recorrer una tabla. */
+.codigo {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.006em;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-size: 0.8125em;
+  letter-spacing: -0.02em;
+}
+
+/* Importe: la unidad no compite con la cifra. */
+.importe { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.importe--fuerte { font-weight: 600; color: var(--gris-900); }
+
+/* Celda de dos pisos: dato principal y contexto debajo.
+   Ninguno de los dos parte de linea: «Yamaha MT-07» roto en dos renglones deja
+   la fila con el doble de alto y se lee peor que truncado. */
+.celda-doble { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.celda-doble__principal,
+.celda-doble__secundario {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.celda-doble__principal { font-weight: 500; color: var(--gris-900); }
+.celda-doble__secundario { font-size: 0.8125rem; color: var(--gris-500); }
+
+.truncado {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Pie de tabla con la paginación, pegado al borde inferior de la tarjeta. */
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  flex-wrap: wrap;
+  padding: var(--e3) var(--e4);
+  border-top: var(--borde);
+}
+
+/* ---------- Etiquetas de estado ----------
+   Punto de color + texto sobre fondo casi neutro. Se distinguen entre si sin
+   convertir la tabla en un semaforo. */
 
 .etiqueta {
   display: inline-flex;
   align-items: center;
-  padding: 0.2rem 0.6rem;
+  gap: 5px;
+  padding: 2px var(--e2) 2px 7px;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gris-700);
+  background: var(--blanco);
+  border: 1px solid var(--gris-200);
   border-radius: 999px;
   white-space: nowrap;
 }
 
-.etiqueta--gris   { color: var(--gris-700); background: var(--gris-200); }
-.etiqueta--azul   { color: var(--azul-oscuro); background: var(--azul-claro); }
-.etiqueta--verde  { color: var(--verde); background: var(--verde-claro); }
-.etiqueta--ambar  { color: var(--ambar); background: var(--ambar-claro); }
-.etiqueta--rojo   { color: var(--rojo); background: var(--rojo-claro); }
-.etiqueta--morado { color: var(--morado); background: var(--morado-claro); }
+.etiqueta::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentcolor;
+}
 
-/* ---------- Utilidades ---------- */
+/* Sin punto, para etiquetas que solo clasifican (roles, tipos). */
+.etiqueta--simple { padding-left: var(--e2); }
+.etiqueta--simple::before { display: none; }
 
-.apilado { display: flex; flex-direction: column; gap: 1rem; }
-.fila { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
-.fila--fin { justify-content: flex-end; }
-.crece { flex: 1; }
-.silenciado { color: var(--gris-500); }
-.pequeno { font-size: 0.85rem; }
-.negrita { font-weight: 600; }
-.centrado { text-align: center; }
+.etiqueta--gris   { color: var(--gris-600); background: var(--gris-50);     border-color: var(--gris-200); }
+.etiqueta--azul   { color: var(--azul-fuerte); background: var(--azul-suave); border-color: var(--azul-borde); }
+.etiqueta--verde  { color: var(--verde);  background: var(--verde-suave);  border-color: var(--verde-borde); }
+.etiqueta--ambar  { color: var(--ambar);  background: var(--ambar-suave);  border-color: var(--ambar-borde); }
+.etiqueta--rojo   { color: var(--rojo);   background: var(--rojo-suave);   border-color: var(--rojo-borde); }
+.etiqueta--morado { color: var(--morado); background: var(--morado-suave); border-color: var(--morado-borde); }
+
+/* ---------- Avisos en linea ---------- */
+
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e2);
+  padding: var(--e3);
+  font-size: 0.875rem;
+  border: 1px solid;
+  border-radius: var(--radio);
+}
+
+.aviso__icono { flex: none; margin-top: 1px; }
+.aviso--info   { color: var(--azul-oscuro); background: var(--azul-suave);  border-color: var(--azul-borde); }
+.aviso--exito  { color: var(--verde); background: var(--verde-suave); border-color: var(--verde-borde); }
+.aviso--ambar  { color: var(--ambar); background: var(--ambar-suave); border-color: var(--ambar-borde); }
+.aviso--error  { color: var(--rojo);  background: var(--rojo-suave);  border-color: var(--rojo-borde); }
+
+/* ---------- Estado vacio ---------- */
 
 .vacio {
-  padding: 3rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e10) var(--e4);
   text-align: center;
   color: var(--gris-500);
 }
 
+.vacio__icono { color: var(--gris-300); }
+.vacio__titulo { font-weight: 500; color: var(--gris-700); }
+
+/* ---------- Listas de datos ---------- */
+
+.datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--e2) var(--e4);
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.datos dt { color: var(--gris-500); white-space: nowrap; }
+.datos dd { margin: 0; color: var(--gris-900); font-weight: 500; }
+
+/* ---------- Utilidades ---------- */
+
+.apilado { display: flex; flex-direction: column; gap: var(--e4); }
+.apilado--junto { gap: var(--e2); }
+.fila { display: flex; align-items: center; gap: var(--e2); flex-wrap: wrap; }
+.fila--fin { justify-content: flex-end; }
+.crece { flex: 1; }
+.silenciado { color: var(--gris-500); }
+.pequeno { font-size: 0.8125rem; }
+.diminuto { font-size: 0.75rem; }
+.negrita { font-weight: 600; }
+.centrado { text-align: center; }
+.sin-envolver { white-space: nowrap; }
+
+/* Separador de texto: «Yamaha MT-07 · 1234 JKL» */
+.punto::before { content: '·'; margin: 0 6px; color: var(--gris-300); }
+
 @media (max-width: 640px) {
   .rejilla { grid-template-columns: 1fr; }
+  .filtros__crece { flex-basis: 100%; }
 }

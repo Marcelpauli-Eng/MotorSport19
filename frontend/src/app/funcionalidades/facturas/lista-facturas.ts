@@ -3,6 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { Icono } from '../../compartido/icono';
 import { FacturaResumen, InformeVerificacion } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
@@ -15,7 +16,7 @@ import { NotificacionesService } from '../../nucleo/servicios/notificaciones.ser
  */
 @Component({
   selector: 'app-lista-facturas',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono],
   templateUrl: './lista-facturas.html',
   styleUrl: './lista-facturas.scss',
 })

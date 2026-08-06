@@ -1,58 +1,59 @@
-<div class="apilado">
-  <h1>Panel del taller</h1>
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Panel del taller</h1>
+    <p class="pagina-cabecera__sub">{{ hoy() }}</p>
+  </div>
+</div>
 
-  <!-- Lo que reclama accion -->
-  <div class="rejilla rejilla--resumen">
-    <a routerLink="/ordenes" class="tarjeta metrica">
-      <span class="metrica__valor">{{ totalAbiertas() }}</span>
-      <span class="metrica__texto">órdenes abiertas</span>
-    </a>
-    <a routerLink="/ordenes" class="tarjeta metrica" [class.metrica--aviso]="porEstado('LISTA').length">
-      <span class="metrica__valor">{{ porEstado('LISTA').length }}</span>
-      <span class="metrica__texto">listas para entregar</span>
-    </a>
-    <a
-      routerLink="/ordenes"
-      class="tarjeta metrica"
-      [class.metrica--alerta]="porEstado('ESPERANDO_PIEZAS').length"
-    >
-      <span class="metrica__valor">{{ porEstado('ESPERANDO_PIEZAS').length }}</span>
-      <span class="metrica__texto">esperando piezas</span>
-    </a>
-    <a routerLink="/inventario" class="tarjeta metrica" [class.metrica--alerta]="alertas().length">
-      <span class="metrica__valor">{{ alertas().length }}</span>
-      <span class="metrica__texto">piezas bajo mínimo</span>
-    </a>
+<div class="apilado">
+  <!-- Lo que reclama acción -->
+  <div class="metricas">
+    @for (m of metricas(); track m.texto) {
+      <a [routerLink]="m.ruta" class="metrica" [class.metrica--atencion]="m.atencion">
+        <span class="metrica__valor">{{ m.valor }}</span>
+        <span class="metrica__texto">{{ m.texto }}</span>
+      </a>
+    }
   </div>
 
   <!-- Tablero por estados -->
-  <section class="tarjeta">
+  <section class="tarjeta tarjeta--ajustada">
     <div class="tarjeta__titulo">
-      <h2>Trabajo en curso</h2>
-      <a routerLink="/ordenes" class="pequeno">Ver todas →</a>
+      <h2>Trabajo en curso <span class="contador">{{ totalAbiertas() }}</span></h2>
+      <a routerLink="/ordenes" class="pequeno fila" style="gap: 4px">
+        Ver todas <app-icono nombre="flecha-derecha" [tamano]="14" />
+      </a>
     </div>
 
     @if (!ordenesAbiertas().length) {
-      <p class="vacio">No hay ninguna orden de trabajo abierta.</p>
+      <div class="vacio">
+        <app-icono class="vacio__icono" nombre="ordenes" [tamano]="30" />
+        <span class="vacio__titulo">No hay trabajo abierto</span>
+        <span class="pequeno">Las órdenes nuevas aparecerán aquí.</span>
+      </div>
     } @else {
       <div class="tablero">
         @for (col of columnas; track col.estado) {
           @if (porEstado(col.estado).length) {
             <div class="columna">
               <h3 class="columna__titulo">
+                <span class="punto-estado punto-estado--{{ col.estado | colorEstado }}"></span>
                 {{ col.titulo }}
-                <span class="etiqueta etiqueta--{{ col.estado | colorEstado }}">
-                  {{ porEstado(col.estado).length }}
-                </span>
+                <span class="columna__cuenta">{{ porEstado(col.estado).length }}</span>
               </h3>
               @for (o of porEstado(col.estado); track o.id) {
                 <a [routerLink]="['/ordenes', o.id]" class="ficha">
-                  <span class="ficha__codigo">{{ o.codigo }}</span>
-                  <span class="ficha__moto">{{ o.matricula }} · {{ o.descripcionMoto }}</span>
-                  <span class="ficha__cliente pequeno silenciado">{{ o.clienteNombre }}</span>
-                  @if (o.tecnicoNombre) {
-                    <span class="pequeno silenciado">👤 {{ o.tecnicoNombre }}</span>
-                  }
+                  <span class="ficha__codigo codigo">{{ o.codigo }}</span>
+                  <span class="ficha__moto">{{ o.descripcionMoto }}</span>
+                  <span class="ficha__matricula codigo">{{ o.matricula }}</span>
+                  <span class="ficha__pie">
+                    <span class="truncado">{{ o.clienteNombre }}</span>
+                    @if (o.tecnicoNombre) {
+                      <span class="ficha__tecnico" [title]="o.tecnicoNombre">
+                        {{ inicialesDe(o.tecnicoNombre) }}
+                      </span>
+                    }
+                  </span>
                 </a>
               }
             </div>
@@ -63,70 +64,93 @@
   </section>
 
   <div class="rejilla rejilla--dos">
-    <!-- Reposicion -->
-    <section class="tarjeta">
+    <!-- Reposición -->
+    <section class="tarjeta tarjeta--ajustada">
       <div class="tarjeta__titulo">
-        <h2>Piezas por reponer</h2>
-        <a routerLink="/inventario" class="pequeno">Inventario →</a>
+        <h2>Piezas por reponer <span class="contador">{{ alertas().length }}</span></h2>
+        <a routerLink="/inventario" class="pequeno fila" style="gap: 4px">
+          Inventario <app-icono nombre="flecha-derecha" [tamano]="14" />
+        </a>
       </div>
       @if (!alertas().length) {
-        <p class="vacio pequeno">Todo el inventario está por encima del mínimo.</p>
+        <div class="vacio">
+          <app-icono class="vacio__icono" nombre="inventario" [tamano]="28" />
+          <span class="vacio__titulo">Todo por encima del mínimo</span>
+        </div>
       } @else {
         <div class="tabla-envoltorio">
-        <table>
-          <tbody>
-            @for (a of alertas(); track a.piezaId) {
-              <tr>
-                <td>
-                  <div class="mono pequeno">{{ a.sku }}</div>
-                  <div class="pequeno silenciado">{{ a.descripcion }}</div>
-                </td>
-                <td class="num">
-                  @if (a.sinExistencias) {
-                    <span class="etiqueta etiqueta--rojo">Sin stock</span>
-                  } @else {
-                    <span class="etiqueta etiqueta--ambar">
-                      {{ a.stockActual | number: '1.0-2' : 'es' }} / {{ a.stockMinimo | number: '1.0-2' : 'es' }}
-                    </span>
-                  }
-                </td>
-                <td class="pequeno silenciado">{{ a.proveedorNombre || '—' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+          <table>
+            <tbody>
+              @for (a of alertas(); track a.piezaId) {
+                <tr>
+                  <td>
+                    <div class="celda-doble">
+                      <span class="celda-doble__principal mono">{{ a.sku }}</span>
+                      <span class="celda-doble__secundario truncado">{{ a.descripcion }}</span>
+                    </div>
+                  </td>
+                  <td class="num sin-envolver">
+                    @if (a.sinExistencias) {
+                      <span class="etiqueta etiqueta--rojo">Sin stock</span>
+                    } @else {
+                      <span class="etiqueta etiqueta--ambar">
+                        {{ a.stockActual | number: '1.0-2' : 'es' }} de
+                        {{ a.stockMinimo | number: '1.0-2' : 'es' }}
+                      </span>
+                    }
+                  </td>
+                  <td class="pequeno silenciado">
+                    <span class="truncado">{{ a.proveedorNombre || '—' }}</span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       }
     </section>
 
-    <!-- Ultimas facturas: solo para quien puede facturar -->
+    <!-- Últimas facturas: solo para quien puede facturar -->
     @if (veFacturacion) {
-    <section class="tarjeta">
-      <div class="tarjeta__titulo">
-        <h2>Últimas facturas</h2>
-        <a routerLink="/facturas" class="pequeno">Ver todas →</a>
-      </div>
-      @if (!ultimasFacturas().length) {
-        <p class="vacio pequeno">Todavía no se ha emitido ninguna factura.</p>
-      } @else {
-        <div class="tabla-envoltorio">
-        <table>
-          <tbody>
-            @for (f of ultimasFacturas(); track f.id) {
-              <tr>
-                <td>
-                  <a [routerLink]="['/facturas', f.id]" class="negrita">{{ f.numeroCompleto }}</a>
-                  <div class="pequeno silenciado">{{ f.receptorNombre }}</div>
-                </td>
-                <td class="pequeno">{{ f.fechaEmision | date: 'dd/MM/yy' }}</td>
-                <td class="num negrita">{{ f.total | number: '1.2-2' : 'es' }} €</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+      <section class="tarjeta tarjeta--ajustada">
+        <div class="tarjeta__titulo">
+          <h2>Últimas facturas</h2>
+          <a routerLink="/facturas" class="pequeno fila" style="gap: 4px">
+            Ver todas <app-icono nombre="flecha-derecha" [tamano]="14" />
+          </a>
         </div>
-      }
-    </section>
+        @if (!ultimasFacturas().length) {
+          <div class="vacio">
+            <app-icono class="vacio__icono" nombre="facturas" [tamano]="28" />
+            <span class="vacio__titulo">Todavía no hay facturas</span>
+          </div>
+        } @else {
+          <div class="tabla-envoltorio">
+            <table>
+              <tbody>
+                @for (f of ultimasFacturas(); track f.id) {
+                  <tr>
+                    <td>
+                      <div class="celda-doble">
+                        <a [routerLink]="['/facturas', f.id]" class="codigo">
+                          {{ f.numeroCompleto }}
+                        </a>
+                        <span class="celda-doble__secundario truncado">{{ f.receptorNombre }}</span>
+                      </div>
+                    </td>
+                    <td class="pequeno silenciado sin-envolver">
+                      {{ f.fechaEmision | date: 'd MMM yy' : undefined : 'es' }}
+                    </td>
+                    <td class="num importe importe--fuerte">
+                      {{ f.total | number: '1.2-2' : 'es' }} €
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
     }
   </div>
 </div>

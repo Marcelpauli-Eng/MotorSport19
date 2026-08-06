@@ -3,7 +3,7 @@
 } @else if (factura(); as f) {
   <div class="apilado">
     <div class="fila">
-      <a routerLink="/facturas" class="pequeno">← Facturas</a>
+      <a routerLink="/facturas" class="pequeno"><app-icono nombre="flecha-izquierda" [tamano]="14" /> Facturas</a>
     </div>
 
     <div class="fila">
@@ -19,13 +19,18 @@
           {{ f.numeroRegistro }} del registro
         </p>
       </div>
-      <button type="button" class="boton boton--principal" (click)="verPdf()">📄 Ver PDF</button>
+      <button type="button" class="boton boton--principal" (click)="verPdf()">
+        <app-icono nombre="documento" [tamano]="16" />
+        Ver PDF
+      </button>
     </div>
 
     <!-- El sello: lo que demuestra que la factura no se ha tocado -->
     <section class="tarjeta sello" [class.sello--roto]="!f.huellaVerificada">
       <div class="fila">
-        <span class="sello__icono">{{ f.huellaVerificada ? '🔒' : '⚠️' }}</span>
+        <span class="sello__icono">
+          <app-icono [nombre]="f.huellaVerificada ? 'sello' : 'alerta'" [tamano]="20" />
+        </span>
         <div class="crece">
           <p class="negrita">
             {{ f.huellaVerificada

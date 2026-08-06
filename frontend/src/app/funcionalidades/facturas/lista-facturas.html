@@ -1,8 +1,11 @@
-<div class="apilado">
-  <div class="fila">
-    <h1 class="crece">Facturas</h1>
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Facturas</h1>
+    <p class="pagina-cabecera__sub">Registro de facturación y entrega a la gestoría</p>
   </div>
+</div>
 
+<div class="apilado">
   <!-- Exportación para la gestoría: la acción principal de esta pantalla -->
   <section class="tarjeta exportacion">
     <div class="tarjeta__titulo">
@@ -48,7 +51,8 @@
         (click)="exportar('csv')"
         [disabled]="exportando() !== null"
       >
-        ⬇ Descargar CSV para la gestoría
+        <app-icono nombre="descargar" [tamano]="16" />
+        Descargar CSV para la gestoría
       </button>
       <button
         type="button"
@@ -56,10 +60,12 @@
         (click)="exportar('json')"
         [disabled]="exportando() !== null"
       >
-        ⬇ Descargar JSON completo
+        <app-icono nombre="descargar" [tamano]="16" />
+        Descargar JSON completo
       </button>
       <button type="button" class="boton" (click)="verificarCadena()" [disabled]="verificando()">
-        🔒 Verificar integridad
+        <app-icono nombre="sello" [tamano]="16" />
+        Verificar integridad
       </button>
     </div>
 
@@ -86,9 +92,9 @@
   </section>
 
   <!-- Listado -->
-  <section class="tarjeta">
+  <section class="tarjeta tarjeta--ajustada">
     <div class="tarjeta__titulo">
-      <h2>{{ totalItems() }} factura(s)</h2>
+      <h2>Emitidas <span class="contador">{{ totalItems() }}</span></h2>
       @if (filas().length) {
         <span class="pequeno silenciado">
           Total en pantalla: <strong>{{ totalPeriodo() | currency: 'EUR' : 'symbol' : '1.2-2' : 'es' }}</strong>
@@ -99,20 +105,24 @@
     @if (cargando()) {
       <app-cargando mensaje="Cargando facturas…" />
     } @else if (!filas().length) {
-      <p class="vacio">No hay facturas para los filtros indicados.</p>
+      <div class="vacio">
+        <app-icono class="vacio__icono" nombre="facturas" [tamano]="30" />
+        <span class="vacio__titulo">Ninguna factura en este periodo</span>
+        <span class="pequeno">Cambia las fechas o pulsa «Todo».</span>
+      </div>
     } @else {
       <div class="tabla-envoltorio">
         <table>
           <thead>
             <tr>
-              <th>Nº</th>
+              <th>Número</th>
+              <th>Tipo</th>
               <th>Fecha</th>
               <th>Cliente</th>
-              <th>NIF</th>
               <th class="num">Base</th>
               <th class="num">IVA</th>
               <th class="num">Total</th>
-              <th>OT</th>
+              <th class="col-opcional">Orden</th>
               <th></th>
             </tr>
           </thead>
@@ -120,25 +130,43 @@
             @for (f of filas(); track f.id) {
               <tr>
                 <td>
-                  <a [routerLink]="['/facturas', f.id]" class="negrita">{{ f.numeroCompleto }}</a>
-                  @if (f.tipo === 'RECTIFICATIVA') {
-                    <div class="etiqueta etiqueta--ambar">Rectificativa</div>
-                    @if (f.rectificaA) {
-                      <div class="pequeno silenciado">corrige a {{ f.rectificaA }}</div>
+                  <div class="celda-doble">
+                    <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
+                    @if (f.tipo === 'RECTIFICATIVA' && f.rectificaA) {
+                      <span class="celda-doble__secundario">corrige a {{ f.rectificaA }}</span>
                     }
+                  </div>
+                </td>
+                <td class="sin-envolver">
+                  @if (f.tipo === 'RECTIFICATIVA') {
+                    <span class="etiqueta etiqueta--ambar">Rectificativa</span>
+                  } @else {
+                    <span class="etiqueta etiqueta--gris">Ordinaria</span>
                   }
                 </td>
-                <td>{{ f.fechaEmision | date: 'dd/MM/yyyy' }}</td>
-                <td>{{ f.receptorNombre }}</td>
-                <td class="mono">{{ f.receptorNif }}</td>
-                <td class="num">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
-                <td class="num">{{ f.totalIva | number: '1.2-2' : 'es' }}</td>
-                <td class="num negrita" [class.negativo]="f.total < 0">
-                  {{ f.total | number: '1.2-2' : 'es' }}
+                <td class="silenciado sin-envolver">
+                  {{ f.fechaEmision | date: 'd MMM yyyy' : undefined : 'es' }}
                 </td>
-                <td class="pequeno">{{ f.codigoOt || '—' }}</td>
                 <td>
-                  <button type="button" class="boton boton--pequeno" (click)="verPdf(f.id)">
+                  <div class="celda-doble">
+                    <span class="celda-doble__principal">{{ f.receptorNombre }}</span>
+                    <span class="celda-doble__secundario mono">{{ f.receptorNif }}</span>
+                  </div>
+                </td>
+                <td class="num importe silenciado">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
+                <td class="num importe silenciado">{{ f.totalIva | number: '1.2-2' : 'es' }}</td>
+                <td class="num importe importe--fuerte" [class.negativo]="f.total < 0">
+                  {{ f.total | number: '1.2-2' : 'es' }} €
+                </td>
+                <td class="silenciado codigo col-opcional">{{ f.codigoOt || '—' }}</td>
+                <td class="num">
+                  <button
+                    type="button"
+                    class="boton boton--pequeno"
+                    (click)="verPdf(f.id)"
+                    title="Ver el PDF de la factura"
+                  >
+                    <app-icono nombre="documento" [tamano]="14" />
                     PDF
                   </button>
                 </td>
@@ -149,24 +177,26 @@
       </div>
 
       @if (totalPaginas() > 1) {
-        <div class="fila fila--fin paginacion">
-          <button
-            type="button"
-            class="boton boton--pequeno"
-            [disabled]="pagina() === 0"
-            (click)="cargar(pagina() - 1)"
-          >
-            ← Anterior
-          </button>
+        <div class="paginacion">
           <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
-          <button
-            type="button"
-            class="boton boton--pequeno"
-            [disabled]="pagina() + 1 >= totalPaginas()"
-            (click)="cargar(pagina() + 1)"
-          >
-            Siguiente →
-          </button>
+          <div class="fila">
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              [disabled]="pagina() === 0"
+              (click)="cargar(pagina() - 1)"
+            >
+              <app-icono nombre="flecha-izquierda" [tamano]="14" /> Anterior
+            </button>
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              [disabled]="pagina() + 1 >= totalPaginas()"
+              (click)="cargar(pagina() + 1)"
+            >
+              Siguiente <app-icono nombre="flecha-derecha" [tamano]="14" />
+            </button>
+          </div>
         </div>
       }
     }

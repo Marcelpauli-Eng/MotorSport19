@@ -51,7 +51,7 @@ services:
 
       # Clave de firma de los tokens de sesion. Sin ella la API no arranca; es
       # deliberado, para que nadie deje el taller con una clave por defecto.
-      MOTORSPORT19_SEGURIDAD_CLAVE_JWT: ${CLAVE_JWT:?Falta CLAVE_JWT en .env. Generala con: openssl rand -base64 48}
+      MOTORSPORT19_SEGURIDAD_CLAVE_JWT: "${CLAVE_JWT:?Falta CLAVE_JWT en el .env. Generala con openssl rand -base64 48}"
 
       TZ: ${TZ:-Europe/Madrid}
     healthcheck:

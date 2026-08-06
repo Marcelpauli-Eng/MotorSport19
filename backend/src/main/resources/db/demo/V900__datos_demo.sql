@@ -26,9 +26,9 @@
 -- Usuarios
 -- ---------------------------------------------------------------------
 INSERT INTO usuario (id, username, password_hash, nombre_completo, email, telefono, rol, activo) VALUES
- (1, 'admin',     '$2a$10$iLxAMJPHQbpQkykVuxLKoO037g7b/CIDVP4WgmYKrZtQm3e3mBY4G', 'Direccion del taller', 'admin@motorsport19.example',     '910000001', 'ADMIN',     TRUE),
+ (1, 'admin',     '$2a$10$iLxAMJPHQbpQkykVuxLKoO037g7b/CIDVP4WgmYKrZtQm3e3mBY4G', 'Dirección del taller', 'admin@motorsport19.example',     '910000001', 'ADMIN',     TRUE),
  (2, 'mostrador', '$2a$10$fTIS2QNdy.lMlKK5iM.59.x69E9ek.7Rddxdf8Aa5GohC4bNNSJVe', 'Laura Vidal Requena',  'mostrador@motorsport19.example', '910000002', 'MOSTRADOR', TRUE),
- (3, 'jortega',   '$2a$10$mrVPaQYZvzCbseG6LJTtIeJVhUUK.eoGChZU0kLB8HN7.naFJmqqS', 'Javier Ortega Marin',  'jortega@motorsport19.example',   '910000003', 'TECNICO',   TRUE),
+ (3, 'jortega',   '$2a$10$mrVPaQYZvzCbseG6LJTtIeJVhUUK.eoGChZU0kLB8HN7.naFJmqqS', 'Javier Ortega Marín',  'jortega@motorsport19.example',   '910000003', 'TECNICO',   TRUE),
  (4, 'nsanz',     '$2a$10$UtP8C..J4SAtqM/agJ7fe.AqtyTOo3BuKPdu34EMCHmnvGbaiRt3G', 'Nuria Sanz Belmonte',  'nsanz@motorsport19.example',     '910000004', 'TECNICO',   TRUE);
 
 
@@ -63,24 +63,24 @@ INSERT INTO proveedor (id, nombre, nif, direccion, codigo_postal, ciudad, provin
 -- iniciales se cargan mas abajo con movimientos de ENTRADA, de forma que el
 -- libro de movimientos explica cada unidad del almacen.
 INSERT INTO pieza (id, sku, descripcion, marca, ubicacion, stock_minimo, precio_coste, precio_venta, tipo_iva, proveedor_id, unidad_medida, activo, created_by) VALUES
- ( 1, 'ACE-10W40-1L',      'Aceite motor 10W-40 semisintetico 1 L',        'Motul',       'A1-01',  12,   6.2000,  12.9000, 'GENERAL', 1, 'L',  TRUE, 1),
+ ( 1, 'ACE-10W40-1L',      'Aceite motor 10W-40 semisintético 1 L',        'Motul',       'A1-01',  12,   6.2000,  12.9000, 'GENERAL', 1, 'L',  TRUE, 1),
  ( 2, 'FIL-ACE-HF204',     'Filtro de aceite HF204',                       'Hiflofiltro', 'A1-02',   6,   4.1000,   9.5000, 'GENERAL', 1, 'UD', TRUE, 1),
  ( 3, 'FIL-AIR-HFA1618',   'Filtro de aire HFA1618',                       'Hiflofiltro', 'A1-03',   4,  11.3000,  24.0000, 'GENERAL', 1, 'UD', TRUE, 1),
  ( 4, 'BUJ-CR8E',          'Bujia NGK CR8E',                               'NGK',         'A2-01',   8,   3.9000,   8.7500, 'GENERAL', 1, 'UD', TRUE, 1),
  ( 5, 'PAS-FRE-DEL-SBS',   'Pastillas de freno delanteras sinterizadas',   'SBS',         'B1-01',   4,  18.4000,  39.9000, 'GENERAL', 2, 'JGO',TRUE, 1),
  ( 6, 'PAS-FRE-TRA-SBS',   'Pastillas de freno traseras sinterizadas',     'SBS',         'B1-02',   4,  15.2000,  33.5000, 'GENERAL', 2, 'JGO',TRUE, 1),
  ( 7, 'DIS-FRE-DEL-320',   'Disco de freno delantero 320 mm',              'Brembo',      'B2-01',   2,  78.0000, 149.0000, 'GENERAL', 2, 'UD', TRUE, 1),
- ( 8, 'KIT-TRA-525',       'Kit de transmision 525 (cadena y pinones)',    'DID',         'C1-01',   2,  92.0000, 168.0000, 'GENERAL', 2, 'KIT',TRUE, 1),
+ ( 8, 'KIT-TRA-525',       'Kit de transmisión 525 (cadena y pinones)',    'DID',         'C1-01',   2,  92.0000, 168.0000, 'GENERAL', 2, 'KIT',TRUE, 1),
  ( 9, 'NEU-DEL-120-70-17', 'Neumatico delantero 120/70 ZR17',              'Michelin',    'D1-01',   2,  96.5000, 159.0000, 'GENERAL', 3, 'UD', TRUE, 1),
  (10, 'NEU-TRA-180-55-17', 'Neumatico trasero 180/55 ZR17',                'Michelin',    'D1-02',   2, 132.0000, 209.0000, 'GENERAL', 3, 'UD', TRUE, 1),
- (11, 'BAT-YTX12',         'Bateria YTX12-BS 12V 10Ah',                    'Yuasa',       'A3-01',   3,  48.0000,  89.9000, 'GENERAL', 1, 'UD', TRUE, 1),
+ (11, 'BAT-YTX12',         'Batería YTX12-BS 12V 10Ah',                    'Yuasa',       'A3-01',   3,  48.0000,  89.9000, 'GENERAL', 1, 'UD', TRUE, 1),
  (12, 'LIQ-REF-1L',        'Liquido refrigerante 1 L',                     'Motul',       'A1-04',   6,   5.1000,  11.5000, 'GENERAL', 1, 'L',  TRUE, 1),
  (13, 'LIQ-FRE-DOT4',      'Liquido de frenos DOT 4 500 ml',               'Motul',       'A1-05',   5,   6.8000,  14.9000, 'GENERAL', 1, 'UD', TRUE, 1),
  (14, 'JUN-CUL',           'Junta de culata',                              'Athena',      'C2-01',   2,  24.0000,  52.0000, 'GENERAL', 2, 'UD', TRUE, 1),
  (15, 'CAB-EMB',           'Cable de embrague',                            'Domino',      'C2-02',   3,   9.4000,  21.0000, 'GENERAL', 2, 'UD', TRUE, 1),
  (16, 'ESP-RET-DER',       'Espejo retrovisor derecho universal',          'Puig',        'E1-01',   2,  12.5000,  27.5000, 'GENERAL', 2, 'UD', TRUE, 1),
  (17, 'LAM-H4',            'Lampara faro H4 12V 60/55W',                   'Philips',     'A2-02',   6,   4.2000,  10.9000, 'GENERAL', 1, 'UD', TRUE, 1),
- (18, 'KIT-REV-10000',     'Kit revision 10.000 km (aceite, filtros, bujias)', 'Varios',  'A1-06',   2,  42.0000,  89.0000, 'GENERAL', 1, 'KIT',TRUE, 1);
+ (18, 'KIT-REV-10000',     'Kit revisión 10.000 km (aceite, filtros, bujias)', 'Varios',  'A1-06',   2,  42.0000,  89.0000, 'GENERAL', 1, 'KIT',TRUE, 1);
 
 
 -- ---------------------------------------------------------------------
@@ -116,16 +116,16 @@ INSERT INTO movimiento_stock (pieza_id, tipo, cantidad, fecha, usuario_id, motiv
 -- Clientes
 -- ---------------------------------------------------------------------
 INSERT INTO cliente (id, nombre, apellidos, tipo_documento, documento, direccion, codigo_postal, ciudad, provincia, email, telefono, observaciones, activo, fecha_baja, created_by) VALUES
- (1, 'Carlos',  'Nunez Prieto',   'NIF', '12345678Z', 'Calle de Alcala 145',                    '28009', 'Madrid', 'Madrid', 'carlos.nunez@correo.example',  '600100101', NULL, TRUE, NULL, 2),
+ (1, 'Carlos',  'Núñez Prieto',   'NIF', '12345678Z', 'Calle de Alcala 145',                    '28009', 'Madrid', 'Madrid', 'carlos.nunez@correo.example',  '600100101', NULL, TRUE, NULL, 2),
  (2, 'Marta',   'Iglesias Rubio', 'NIF', '45678912S', 'Avenida de America 22, 4B',              '28002', 'Madrid', 'Madrid', 'marta.iglesias@correo.example','600100102', NULL, TRUE, NULL, 2),
  (3, 'Talleres y Flotas Delta S.L.', NULL, 'CIF', 'B86543212', 'Poligono Las Mercedes, nave 7', '28022', 'Madrid', 'Madrid', 'flotas@delta.example',        '913000303', 'Cliente de flota: facturacion mensual agrupada.', TRUE, NULL, 2),
- (4, 'Andres',  'Colomer Ruiz',   'NIF', '23456789D', 'Calle Bravo Murillo 88',                 '28003', 'Madrid', 'Madrid', 'andres.colomer@correo.example','600100104', NULL, TRUE, NULL, 2),
+ (4, 'Andrés',  'Colomer Ruiz',   'NIF', '23456789D', 'Calle Bravo Murillo 88',                 '28003', 'Madrid', 'Madrid', 'andres.colomer@correo.example','600100104', NULL, TRUE, NULL, 2),
  (5, 'Silvia',  'Barea Lozano',   'NIF', '34567890V', 'Calle Serrano 210',                      '28016', 'Madrid', 'Madrid', 'silvia.barea@correo.example',  '600100105', NULL, TRUE, NULL, 2),
- (6, 'Ivan',    'Pelaez Mora',    'NIF', '11223344B', 'Calle Embajadores 45',                   '28012', 'Madrid', 'Madrid', 'ivan.pelaez@correo.example',   '600100106', NULL, TRUE, NULL, 2),
+ (6, 'Iván',    'Peláez Mora',    'NIF', '11223344B', 'Calle Embajadores 45',                   '28012', 'Madrid', 'Madrid', 'ivan.pelaez@correo.example',   '600100106', NULL, TRUE, NULL, 2),
  -- Ficha incompleta a proposito: entro con una averia y dejo solo el telefono.
  -- Se le puede abrir una OT, pero NO se le puede facturar hasta completar los
  -- datos fiscales.
- (7, 'Rocio',   'Almansa Gil',    NULL,  NULL,        NULL,                                     NULL,    NULL,     NULL,     'rocio.almansa@correo.example', '600100107', 'Pendiente de completar datos fiscales antes de facturar.', TRUE, NULL, 2),
+ (7, 'Rocío',   'Almansa Gil',    NULL,  NULL,        NULL,                                     NULL,    NULL,     NULL,     'rocio.almansa@correo.example', '600100107', 'Pendiente de completar datos fiscales antes de facturar.', TRUE, NULL, 2),
  -- Cliente dado de baja: sigue existiendo porque conserva historial y facturas.
  (8, 'Ernesto', 'Vidal Cano',     'NIF', '87654321X', 'Calle de Toledo 3',                      '28005', 'Madrid', 'Madrid', 'ernesto.vidal@correo.example', '600100108', 'Baja: traslado fuera de la comunidad.', FALSE, TIMESTAMPTZ '2026-03-18 12:00:00+01', 2);
 
@@ -158,14 +158,14 @@ INSERT INTO orden_trabajo (id, ejercicio, numero, moto_id, cliente_id, fecha_ent
                            fecha_presupuesto, fecha_aprobacion, aprobado_por, motivo_rechazo, observaciones, created_by) VALUES
 
  (1, 2026,  1,  1, 1, TIMESTAMPTZ '2026-05-12 09:10:00+02', DATE '2026-05-15', NULL, 20120,
-  'Toca la revision de los 20.000 km. Nota la moto algo perezosa al arrancar en frio.',
-  'Revision programada completa. Bujias muy desgastadas y filtro de aire saturado, lo que explica el arranque en frio.',
-  3, 'LISTA', 45.00, TIMESTAMPTZ '2026-05-12 12:30:00+02', TIMESTAMPTZ '2026-05-12 17:45:00+02', 'Carlos Nunez Prieto', NULL, NULL, 2),
+  'Toca la revisión de los 20.000 km. Nota la moto algo perezosa al arrancar en frio.',
+  'Revisión programada completa. Bujias muy desgastadas y filtro de aire saturado, lo que explica el arranque en frio.',
+  3, 'LISTA', 45.00, TIMESTAMPTZ '2026-05-12 12:30:00+02', TIMESTAMPTZ '2026-05-12 17:45:00+02', 'Carlos Núñez Prieto', NULL, NULL, 2),
 
  (2, 2026,  2,  6, 4, TIMESTAMPTZ '2026-06-02 08:40:00+02', DATE '2026-06-05', NULL, 62150,
   'Neumaticos al limite y freno delantero con poco tacto. Quiere dejarla lista antes de un viaje largo.',
   'Ambos neumaticos por debajo del limite legal. Pastillas delanteras al minimo y liquido de frenos degradado.',
-  4, 'LISTA', 45.00, TIMESTAMPTZ '2026-06-02 11:15:00+02', TIMESTAMPTZ '2026-06-02 13:00:00+02', 'Andres Colomer Ruiz', NULL, 'Cliente avisa de viaje: prioridad alta.', 2),
+  4, 'LISTA', 45.00, TIMESTAMPTZ '2026-06-02 11:15:00+02', TIMESTAMPTZ '2026-06-02 13:00:00+02', 'Andrés Colomer Ruiz', NULL, 'Cliente avisa de viaje: prioridad alta.', 2),
 
  (3, 2026,  3,  4, 3, TIMESTAMPTZ '2026-06-20 08:00:00+02', DATE '2026-06-23', NULL,  9650,
   'Mantenimiento periodico de flota. Ademas, la luz de cruce no funciona.',
@@ -181,27 +181,27 @@ INSERT INTO orden_trabajo (id, ejercicio, numero, moto_id, cliente_id, fecha_ent
 
  -- Reparada y pendiente de que el cliente la recoja.
  (5, 2026,  5,  7, 5, TIMESTAMPTZ '2026-07-22 09:00:00+02', DATE '2026-07-25', NULL, 33840,
-  'Ruido metalico en la transmision y cadena muy estirada.',
-  'Kit de transmision al final de su vida util. Sustituido el conjunto completo.',
+  'Ruido metalico en la transmisión y cadena muy estirada.',
+  'Kit de transmisión al final de su vida util. Sustituido el conjunto completo.',
   3, 'LISTA', 45.00, TIMESTAMPTZ '2026-07-22 11:30:00+02', TIMESTAMPTZ '2026-07-22 12:10:00+02', 'Silvia Barea Lozano', NULL, 'Avisado por telefono el 24/07, pendiente de recogida.', 2),
 
  -- En el puente, con las piezas ya consumidas.
  (6, 2026,  6,  8, 6, TIMESTAMPTZ '2026-07-28 09:30:00+02', DATE '2026-08-06', NULL, 48650,
   'Freno trasero que no responde bien y la moto no arranca si esta dos dias parada.',
-  'Pastillas traseras agotadas y bateria sin capacidad de retencion. Se sustituyen ambas.',
-  4, 'EN_REPARACION', 45.00, TIMESTAMPTZ '2026-07-28 12:00:00+02', TIMESTAMPTZ '2026-07-28 15:20:00+02', 'Ivan Pelaez Mora', NULL, NULL, 2),
+  'Pastillas traseras agotadas y batería sin capacidad de retencion. Se sustituyen ambas.',
+  4, 'EN_REPARACION', 45.00, TIMESTAMPTZ '2026-07-28 12:00:00+02', TIMESTAMPTZ '2026-07-28 15:20:00+02', 'Iván Peláez Mora', NULL, NULL, 2),
 
  -- Bloqueada por falta de stock: el espejo no esta disponible en almacen.
  (7, 2026,  7,  5, 3, TIMESTAMPTZ '2026-07-30 08:15:00+02', DATE '2026-08-07', NULL, 11380,
-  'Caida sin consecuencias: espejo derecho roto y embrague duro.',
+  'Caída sin consecuencias: espejo derecho roto y embrague duro.',
   'Espejo derecho a sustituir. Cable de embrague en buen estado, solo necesitaba ajuste.',
   3, 'ESPERANDO_PIEZAS', 45.00, TIMESTAMPTZ '2026-07-30 10:45:00+02', TIMESTAMPTZ '2026-07-30 11:30:00+02', 'Talleres y Flotas Delta S.L.', NULL,
   'Sin existencias de ESP-RET-DER. Pedido al proveedor el 30/07.', 2),
 
  -- Presupuesto enviado, esperando respuesta del cliente.
  (8, 2026,  8,  2, 1, TIMESTAMPTZ '2026-08-01 09:45:00+02', DATE '2026-08-08', NULL, 41180,
-  'Revision general antes de las vacaciones.',
-  'Revision de mantenimiento: cambio de aceite y filtro. Resto de elementos en buen estado.',
+  'Revisión general antes de las vacaciones.',
+  'Revisión de mantenimiento: cambio de aceite y filtro. Resto de elementos en buen estado.',
   3, 'PRESUPUESTADA', 45.00, TIMESTAMPTZ '2026-08-01 12:20:00+02', NULL, NULL, NULL, NULL, 2),
 
  -- El tecnico esta valorando la averia.
@@ -212,13 +212,13 @@ INSERT INTO orden_trabajo (id, ejercicio, numero, moto_id, cliente_id, fecha_ent
 
  -- Presupuesto aprobado, todavia sin entrar en taller.
  (10, 2026, 10,  3, 2, TIMESTAMPTZ '2026-08-04 09:20:00+02', DATE '2026-08-11', NULL, 15790,
-  'Revision de los 15.000 km.',
-  'Revision programada: aceite, filtro y bujias.',
+  'Revisión de los 15.000 km.',
+  'Revisión programada: aceite, filtro y bujias.',
   4, 'APROBADA', 45.00, TIMESTAMPTZ '2026-08-04 11:00:00+02', TIMESTAMPTZ '2026-08-04 16:30:00+02', 'Marta Iglesias Rubio', NULL, NULL, 2),
 
  -- Recien entrada hoy: aun sin diagnostico.
  (11, 2026, 11,  1, 1, TIMESTAMPTZ '2026-08-05 09:05:00+02', DATE '2026-08-12', NULL, 24500,
-  'Ruido en la transmision a partir de 4000 rpm.',
+  'Ruido en la transmisión a partir de 4000 rpm.',
   NULL,
   NULL, 'RECIBIDA', 45.00, NULL, NULL, NULL, NULL, NULL, 2);
 
@@ -230,42 +230,42 @@ INSERT INTO orden_trabajo (id, ejercicio, numero, moto_id, cliente_id, fecha_ent
 -- manana sube el precio de una pieza, estas lineas no se moveran.
 INSERT INTO linea_ot (id, orden_trabajo_id, numero_linea, tipo, descripcion, pieza_id, cantidad, precio_unitario, descuento_pct, tipo_iva, porcentaje_iva, created_by) VALUES
  -- OT-2026-00001
- ( 1,  1, 1, 'MANO_DE_OBRA', 'Revision programada 20.000 km',                 NULL,  2.500,  45.0000, 0, 'GENERAL', 21.00, 3),
- ( 2,  1, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 3),
+ ( 1,  1, 1, 'MANO_DE_OBRA', 'Revisión programada 20.000 km',                 NULL,  2.500,  45.0000, 0, 'GENERAL', 21.00, 3),
+ ( 2,  1, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 3),
  ( 3,  1, 3, 'PIEZA',        'Filtro de aceite HF204',                           2,  1.000,   9.5000, 0, 'GENERAL', 21.00, 3),
  ( 4,  1, 4, 'PIEZA',        'Bujia NGK CR8E',                                   4,  2.000,   8.7500, 0, 'GENERAL', 21.00, 3),
  ( 5,  1, 5, 'PIEZA',        'Filtro de aire HFA1618',                           3,  1.000,  24.0000, 0, 'GENERAL', 21.00, 3),
  -- OT-2026-00002
- ( 6,  2, 1, 'MANO_DE_OBRA', 'Sustitucion de neumaticos y pastillas de freno', NULL,  3.000,  45.0000, 0, 'GENERAL', 21.00, 4),
+ ( 6,  2, 1, 'MANO_DE_OBRA', 'Sustitución de neumaticos y pastillas de freno', NULL,  3.000,  45.0000, 0, 'GENERAL', 21.00, 4),
  ( 7,  2, 2, 'PIEZA',        'Neumatico delantero 120/70 ZR17',                  9,  1.000, 159.0000, 0, 'GENERAL', 21.00, 4),
  ( 8,  2, 3, 'PIEZA',        'Neumatico trasero 180/55 ZR17',                   10,  1.000, 209.0000, 0, 'GENERAL', 21.00, 4),
  ( 9,  2, 4, 'PIEZA',        'Pastillas de freno delanteras sinterizadas',       5,  1.000,  39.9000, 0, 'GENERAL', 21.00, 4),
  (10,  2, 5, 'PIEZA',        'Liquido de frenos DOT 4 500 ml',                  13,  1.000,  14.9000, 0, 'GENERAL', 21.00, 4),
  -- OT-2026-00003
  (11,  3, 1, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',               NULL,  1.500,  45.0000, 0, 'GENERAL', 21.00, 3),
- (12,  3, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',            1,  1.000,  12.9000, 0, 'GENERAL', 21.00, 3),
+ (12,  3, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',            1,  1.000,  12.9000, 0, 'GENERAL', 21.00, 3),
  (13,  3, 3, 'PIEZA',        'Filtro de aceite HF204',                           2,  1.000,   9.5000, 0, 'GENERAL', 21.00, 3),
  (14,  3, 4, 'PIEZA',        'Lampara faro H4 12V 60/55W',                      17,  1.000,  10.9000, 0, 'GENERAL', 21.00, 3),
  -- OT-2026-00004 (presupuestada y rechazada: nunca llego a consumir piezas)
- (15,  4, 1, 'MANO_DE_OBRA', 'Desmontaje de culata y sustitucion de junta',    NULL,  8.000,  45.0000, 0, 'GENERAL', 21.00, 4),
+ (15,  4, 1, 'MANO_DE_OBRA', 'Desmontaje de culata y sustitución de junta',    NULL,  8.000,  45.0000, 0, 'GENERAL', 21.00, 4),
  (16,  4, 2, 'PIEZA',        'Junta de culata',                                 14,  1.000,  52.0000, 0, 'GENERAL', 21.00, 4),
  -- OT-2026-00005
- (17,  5, 1, 'MANO_DE_OBRA', 'Sustitucion de kit de transmision',              NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 3),
- (18,  5, 2, 'PIEZA',        'Kit de transmision 525 (cadena y pinones)',        8,  1.000, 168.0000, 0, 'GENERAL', 21.00, 3),
+ (17,  5, 1, 'MANO_DE_OBRA', 'Sustitución de kit de transmisión',              NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 3),
+ (18,  5, 2, 'PIEZA',        'Kit de transmisión 525 (cadena y pinones)',        8,  1.000, 168.0000, 0, 'GENERAL', 21.00, 3),
  -- OT-2026-00006
- (19,  6, 1, 'MANO_DE_OBRA', 'Sustitucion de pastillas traseras y bateria',    NULL,  1.500,  45.0000, 0, 'GENERAL', 21.00, 4),
+ (19,  6, 1, 'MANO_DE_OBRA', 'Sustitución de pastillas traseras y batería',    NULL,  1.500,  45.0000, 0, 'GENERAL', 21.00, 4),
  (20,  6, 2, 'PIEZA',        'Pastillas de freno traseras sinterizadas',         6,  1.000,  33.5000, 0, 'GENERAL', 21.00, 4),
- (21,  6, 3, 'PIEZA',        'Bateria YTX12-BS 12V 10Ah',                       11,  1.000,  89.9000, 0, 'GENERAL', 21.00, 4),
+ (21,  6, 3, 'PIEZA',        'Batería YTX12-BS 12V 10Ah',                       11,  1.000,  89.9000, 0, 'GENERAL', 21.00, 4),
  -- OT-2026-00007 (bloqueada: la pieza no esta en stock, no hay salida de almacen)
- (22,  7, 1, 'MANO_DE_OBRA', 'Sustitucion de espejo y ajuste de embrague',     NULL,  1.000,  45.0000, 0, 'GENERAL', 21.00, 3),
+ (22,  7, 1, 'MANO_DE_OBRA', 'Sustitución de espejo y ajuste de embrague',     NULL,  1.000,  45.0000, 0, 'GENERAL', 21.00, 3),
  (23,  7, 2, 'PIEZA',        'Espejo retrovisor derecho universal',             16,  1.000,  27.5000, 0, 'GENERAL', 21.00, 3),
  -- OT-2026-00008 (presupuestada: todavia sin consumir)
- (24,  8, 1, 'MANO_DE_OBRA', 'Revision general de mantenimiento',              NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 3),
- (25,  8, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 3),
+ (24,  8, 1, 'MANO_DE_OBRA', 'Revisión general de mantenimiento',              NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 3),
+ (25,  8, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 3),
  (26,  8, 3, 'PIEZA',        'Filtro de aceite HF204',                           2,  1.000,   9.5000, 0, 'GENERAL', 21.00, 3),
  -- OT-2026-00010 (aprobada: se consumira al pasar a EN_REPARACION)
- (27, 10, 1, 'MANO_DE_OBRA', 'Revision programada 15.000 km',                  NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 4),
- (28, 10, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 4),
+ (27, 10, 1, 'MANO_DE_OBRA', 'Revisión programada 15.000 km',                  NULL,  2.000,  45.0000, 0, 'GENERAL', 21.00, 4),
+ (28, 10, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',            1,  3.000,  12.9000, 0, 'GENERAL', 21.00, 4),
  (29, 10, 3, 'PIEZA',        'Filtro de aceite HF204',                           2,  1.000,   9.5000, 0, 'GENERAL', 21.00, 4),
  (30, 10, 4, 'PIEZA',        'Bujia NGK CR8E',                                   4,  4.000,   8.7500, 0, 'GENERAL', 21.00, 4);
 
@@ -497,25 +497,25 @@ $$;
 -- ---------------------------------------------------------------------
 INSERT INTO linea_factura (factura_id, numero_linea, tipo, descripcion, pieza_sku, cantidad, precio_unitario, descuento_pct, tipo_iva, porcentaje_iva) VALUES
  -- A/2026/000001
- (1, 1, 'MANO_DE_OBRA', 'Revision programada 20.000 km',                 NULL,             2.500,  45.0000, 0, 'GENERAL', 21.00),
- (1, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',         'ACE-10W40-1L',   3.000,  12.9000, 0, 'GENERAL', 21.00),
+ (1, 1, 'MANO_DE_OBRA', 'Revisión programada 20.000 km',                 NULL,             2.500,  45.0000, 0, 'GENERAL', 21.00),
+ (1, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',         'ACE-10W40-1L',   3.000,  12.9000, 0, 'GENERAL', 21.00),
  (1, 3, 'PIEZA',        'Filtro de aceite HF204',                        'FIL-ACE-HF204',  1.000,   9.5000, 0, 'GENERAL', 21.00),
  (1, 4, 'PIEZA',        'Bujia NGK CR8E',                                'BUJ-CR8E',       2.000,   8.7500, 0, 'GENERAL', 21.00),
  (1, 5, 'PIEZA',        'Filtro de aire HFA1618',                        'FIL-AIR-HFA1618',1.000,  24.0000, 0, 'GENERAL', 21.00),
  -- A/2026/000002
- (2, 1, 'MANO_DE_OBRA', 'Sustitucion de neumaticos y pastillas de freno', NULL,            3.000,  45.0000, 0, 'GENERAL', 21.00),
+ (2, 1, 'MANO_DE_OBRA', 'Sustitución de neumaticos y pastillas de freno', NULL,            3.000,  45.0000, 0, 'GENERAL', 21.00),
  (2, 2, 'PIEZA',        'Neumatico delantero 120/70 ZR17',               'NEU-DEL-120-70-17', 1.000, 159.0000, 0, 'GENERAL', 21.00),
  (2, 3, 'PIEZA',        'Neumatico trasero 180/55 ZR17',                 'NEU-TRA-180-55-17', 1.000, 209.0000, 0, 'GENERAL', 21.00),
  (2, 4, 'PIEZA',        'Pastillas de freno delanteras sinterizadas',    'PAS-FRE-DEL-SBS',1.000,  39.9000, 0, 'GENERAL', 21.00),
  (2, 5, 'PIEZA',        'Liquido de frenos DOT 4 500 ml',                'LIQ-FRE-DOT4',   1.000,  14.9000, 0, 'GENERAL', 21.00),
  -- A/2026/000003
  (3, 1, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',              NULL,             1.500,  45.0000, 0, 'GENERAL', 21.00),
- (3, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
+ (3, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
  (3, 3, 'PIEZA',        'Filtro de aceite HF204',                        'FIL-ACE-HF204',  1.000,   9.5000, 0, 'GENERAL', 21.00),
  (3, 4, 'PIEZA',        'Lampara faro H4 12V 60/55W',                    'LAM-H4',         1.000,  10.9000, 0, 'GENERAL', 21.00),
  -- R/2026/000001 (sustituye integramente a la A/2026/000003, con 1 h de mano de obra)
  (4, 1, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',              NULL,             1.000,  45.0000, 0, 'GENERAL', 21.00),
- (4, 2, 'PIEZA',        'Aceite motor 10W-40 semisintetico 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
+ (4, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
  (4, 3, 'PIEZA',        'Filtro de aceite HF204',                        'FIL-ACE-HF204',  1.000,   9.5000, 0, 'GENERAL', 21.00),
  (4, 4, 'PIEZA',        'Lampara faro H4 12V 60/55W',                    'LAM-H4',         1.000,  10.9000, 0, 'GENERAL', 21.00);
 

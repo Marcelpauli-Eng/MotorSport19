@@ -6,7 +6,7 @@ package com.motorsport19.taller.factura.domain;
 public enum TipoRectificativa {
 
     /** La rectificativa sustituye integramente a la original. */
-    POR_SUSTITUCION("Por sustitucion"),
+    POR_SUSTITUCION("Por sustitución"),
 
     /** La rectificativa recoge solo la diferencia respecto a la original. */
     POR_DIFERENCIAS("Por diferencias");

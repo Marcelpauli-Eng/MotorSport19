@@ -3,16 +3,37 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: fases 1 a 4 y 6 completadas.** Esquema de base de datos, entidades JPA,
-> datos de demostración, backend de clientes, motos e inventario, órdenes de
-> trabajo con máquina de estados y consumo de almacén, y facturación con cadena
-> de huellas, PDF con QR y exportación, y el frontend Angular completo.
-> 232 tests en verde.
+> **Estado: las siete fases completadas.** 232 tests en verde.
 >
-> La API exige identificarse para todo salvo `/actuator/health`, con tokens JWT
-> y tres perfiles (ADMIN, MOSTRADOR, TECNICO). Antes de publicarla hay que
-> definir `MOTORSPORT19_SEGURIDAD_CLAVE_JWT`: sin ella la aplicación no arranca.
-> Ver las guías de despliegue más abajo.
+> Clientes, motos, órdenes de trabajo con máquina de estados y consumo de
+> almacén, facturación con numeración sin huecos y cadena de huellas, frontend
+> Angular, y autenticación con tres perfiles.
+>
+> Antes de publicarlo hay que definir `MOTORSPORT19_SEGURIDAD_CLAVE_JWT`: sin
+> ella la aplicación no arranca, a propósito.
+
+### Documentación
+
+| Documento | Para qué |
+|---|---|
+| [GARANTIAS.md](GARANTIAS.md) | Qué no puede pasar y por qué. El documento para la gestoría |
+| [COPIAS.md](COPIAS.md) | Copias de seguridad: qué se guarda, cómo restaurar, el simulacro |
+| [INSTALACION-TALLER.md](INSTALACION-TALLER.md) | Montar el servidor en el taller (el destino final) |
+| [DESPLIEGUE.md](DESPLIEGUE.md) | Publicarlo en la nube: Supabase + Render + Vercel |
+
+---
+
+## Empezar en dos minutos
+
+```bash
+docker compose up --build
+```
+
+Y entrar en **http://localhost:4200** con `admin` / `admin1234`.
+
+Eso levanta PostgreSQL, la API y el frontend, con la base ya poblada de datos de
+demostración. No hace falta configurar nada: el `docker-compose.yml` trae valores
+de desarrollo para todo.
 
 ---
 
@@ -169,8 +190,9 @@ Las migraciones están en `backend/src/main/resources/db/migration`:
 ### Garantías que impone la base de datos
 
 Estas reglas **no dependen de que la aplicación se porte bien**: se cumplen aunque
-alguien entre por `psql`. Están implementadas en `V6` y se documentan a fondo en la
-fase 7.
+alguien entre por `psql`. Están implementadas en `V6` y cada una se explica, con
+el ataque que la pone a prueba y el error que devuelve, en
+**[GARANTIAS.md](GARANTIAS.md)**.
 
 | Garantía | Cómo se impone |
 |----------|----------------|
@@ -191,6 +213,10 @@ ambas devuelven **cero filas** si todo está correcto:
 SELECT * FROM fn_verificar_cadena_facturas();
 SELECT * FROM fn_verificar_integridad_stock();
 ```
+
+Y la facturación se puede verificar **sin este programa**, con veinte líneas de
+Python sobre el JSON exportado: ver
+[GARANTIAS.md](GARANTIAS.md#verificarlo-sin-este-programa).
 
 ---
 
@@ -221,6 +247,61 @@ cámbialas desde *Mi cuenta* antes de meter datos reales.
 
 Sin el perfil `demo`, el primer arranque sobre una base vacía crea un `admin` con
 contraseña aleatoria y la escribe en el log de arranque (busca `PRIMER ARRANQUE`).
+Sin eso, una instalación nueva quedaría inservible: la API pide identificarse para
+todo y no habría nadie con quien entrar.
+
+---
+
+## Autenticación y permisos (fase 5)
+
+Todo exige identificarse salvo `/actuator/health`. El login devuelve un token JWT
+(HMAC-SHA256, 8 horas) que el frontend guarda y adjunta en cada petición.
+
+### Qué puede hacer cada perfil
+
+|                                   | ADMIN | MOSTRADOR | TECNICO |
+|-----------------------------------|:-----:|:---------:|:-------:|
+| Consultar clientes, motos, piezas | ✅ | ✅ | ✅ |
+| Crear y editar clientes y motos   | ✅ | ✅ | — |
+| Órdenes de trabajo                | todas | todas | **solo las suyas** |
+| Aprobar, rechazar y entregar      | ✅ | ✅ | — |
+| Facturar y exportar               | ✅ | ✅ | — |
+| Precios y movimientos de almacén  | ✅ | — | — |
+| Gestión de usuarios               | ✅ | — | — |
+
+La restricción del técnico no es solo de rutas: es **de datos**. Un técnico ve la
+misma URL que los demás, pero el listado solo devuelve sus órdenes y el servicio
+rechaza cualquier escritura sobre la orden de un compañero. Puede consultarla —en
+un taller pequeño se cubren entre ellos— pero no trabajarla. Sí puede hacerse
+cargo de una orden que aún no tenga técnico asignado: así es como empieza el día.
+
+### Detalles que importan
+
+- **Bloqueo por intentos**: 5 fallos dejan al usuario bloqueado 15 minutos, con
+  respuesta `429` y `Retry-After`. Es por usuario, así que bloquear a un
+  compañero no bloquea a los demás.
+- **Mensaje deliberadamente vago**: «Usuario o contraseña incorrectos», tanto si
+  el usuario no existe como si la contraseña está mal. Distinguirlos permitiría
+  averiguar quién trabaja en el taller.
+- **Clave de firma obligatoria**: sin `MOTORSPORT19_SEGURIDAD_CLAVE_JWT` de al
+  menos 32 caracteres, la aplicación **se niega a arrancar**. Es para que nadie
+  se deje puesta una clave de ejemplo.
+- **CORS cerrado por defecto**: ningún origen permitido. Detrás de un proxy
+  inverso hay que tenerlo en cuenta — ver la nota más abajo.
+
+### La cabecera `Origin` detrás de un proxy
+
+Merece un aviso porque cuesta un rato de depuración: un proxy inverso reenvía la
+cabecera `Origin` del navegador salvo que se le diga lo contrario. La API, que no
+tiene orígenes permitidos, la lee como una petición de fuera y responde `403` a
+todo, login incluido.
+
+- **En el taller** (nginx): resuelto con `proxy_set_header Origin "";` en
+  [`frontend/nginx.conf`](frontend/nginx.conf). Para el navegador es el mismo
+  origen, así que CORS no debería entrar en juego.
+- **En Vercel**: no se puede tocar la cabecera, así que hay que declarar el
+  dominio en `MOTORSPORT19_SEGURIDAD_ORIGENES_CORS`.
+- **En desarrollo** (`ng serve`): el perfil `dev` ya permite `localhost:4200`.
 
 ---
 
@@ -409,6 +490,6 @@ aceptan sin verificar, porque no llevan un control comprobable aquí.
 - [x] **Fase 2** — Backend de clientes, motos e inventario. Tests
 - [x] **Fase 3** — Órdenes de trabajo, máquina de estados y consumo de inventario. Tests
 - [x] **Fase 4** — Facturación: hash encadenado, PDF con QR, eventos y exportación. Tests
-- [ ] **Fase 5** — Autenticación JWT, roles y seguridad
+- [x] **Fase 5** — Autenticación JWT, roles y seguridad
 - [x] **Fase 6** — Frontend Angular
-- [ ] **Fase 7** — README de despliegue, backup y documentación de inmutabilidad
+- [x] **Fase 7** — Documentación de despliegue, copias e inmutabilidad

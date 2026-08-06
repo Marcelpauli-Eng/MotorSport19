@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
 import { AlertaStock, MovimientoStock, Pieza } from '../../nucleo/modelos/taller';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
+import { Icono } from '../../compartido/icono';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 
@@ -17,7 +18,7 @@ type Pestana = 'catalogo' | 'alertas' | 'movimientos';
  */
 @Component({
   selector: 'app-inventario',
-  imports: [CommonModule, FormsModule, Cargando],
+  imports: [CommonModule, FormsModule, Cargando, Icono],
   templateUrl: './inventario.html',
   styleUrl: './inventario.scss',
 })

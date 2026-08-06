@@ -7,9 +7,9 @@ public enum TipoEventoFactura {
 
     EMISION("Emision de factura"),
     RECTIFICACION("Emision de factura rectificativa"),
-    GENERACION_PDF("Generacion del PDF"),
-    EXPORTACION("Exportacion del registro de facturacion"),
-    VERIFICACION_CADENA("Verificacion de la cadena de huellas"),
+    GENERACION_PDF("Generación del PDF"),
+    EXPORTACION("Exportación del registro de facturación"),
+    VERIFICACION_CADENA("Verificación de la cadena de huellas"),
     CONSULTA("Consulta de factura"),
     INCIDENCIA("Incidencia detectada");
 

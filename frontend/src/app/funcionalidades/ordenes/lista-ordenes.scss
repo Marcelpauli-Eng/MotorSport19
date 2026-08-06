@@ -1,0 +1,8 @@
+/*
+  La avería es lo primero que sobra cuando falta anchura: el resto de columnas
+  identifican la orden, y esta solo la describe. Antes la tabla se desbordaba y
+  quedaba cortada a media palabra, que es peor que no enseñarla.
+*/
+@media (max-width: 1500px) {
+  .col-opcional { display: none; }
+}

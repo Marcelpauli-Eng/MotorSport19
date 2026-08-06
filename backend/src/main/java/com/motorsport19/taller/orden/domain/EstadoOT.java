@@ -23,10 +23,10 @@ import java.util.Set;
 public enum EstadoOT {
 
     RECIBIDA("Recibida"),
-    EN_DIAGNOSTICO("En diagnostico"),
+    EN_DIAGNOSTICO("En diagnóstico"),
     PRESUPUESTADA("Presupuestada"),
     APROBADA("Aprobada por el cliente"),
-    EN_REPARACION("En reparacion"),
+    EN_REPARACION("En reparación"),
     ESPERANDO_PIEZAS("Esperando piezas"),
     LISTA("Lista para entregar"),
     ENTREGADA("Entregada"),

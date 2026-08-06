@@ -1,38 +1,67 @@
+/* El sello es lo que da fe de que la factura no se ha tocado: verde cuando
+   cuadra, rojo cuando no, y sin medias tintas. */
 .sello {
-  border-left: 4px solid var(--verde);
-  background: var(--verde-claro);
+  background: var(--verde-suave);
+  border-color: var(--verde-borde);
 }
 
 .sello--roto {
-  border-left-color: var(--rojo);
-  background: var(--rojo-claro);
+  background: var(--rojo-suave);
+  border-color: var(--rojo-borde);
 }
 
-.sello__icono { font-size: 1.6rem; }
+.sello__icono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  color: var(--verde);
+  background: var(--blanco);
+  border: 1px solid var(--verde-borde);
+  border-radius: 50%;
+}
+
+.sello--roto .sello__icono { color: var(--rojo); border-color: var(--rojo-borde); }
+
 .sello p { margin: 0; }
 
 .huellas {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.2rem 1rem;
-  margin: 0.9rem 0 0;
-  font-size: 0.75rem;
+  gap: 3px var(--e4);
+  margin: var(--e4) 0 0;
+  padding-top: var(--e3);
+  border-top: 1px solid rgb(0 0 0 / 7%);
+  font-size: 0.6875rem;
 }
 
-.huellas dt { font-weight: 600; white-space: nowrap; }
-.huellas dd { margin: 0; overflow-wrap: anywhere; }
+.huellas dt { color: var(--gris-600); white-space: nowrap; }
+
+/* 64 caracteres sin espacios: si no se parten, ensanchan la tarjeta y sacan la
+   página de la pantalla. */
+.huellas dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  color: var(--gris-600);
+}
 
 .aviso-rectificativa {
-  border-left: 4px solid var(--ambar);
-  background: var(--ambar-claro);
+  background: var(--ambar-suave);
+  border-color: var(--ambar-borde);
 }
 
-.aviso-rectificativa p { margin: 0 0 0.3rem; }
-.aviso-rectificativa ul { margin: 0.3rem 0 0; padding-left: 1.2rem; }
+.aviso-rectificativa p { margin: 0 0 var(--e1); }
+.aviso-rectificativa ul { margin: var(--e1) 0 0; padding-left: var(--e4); }
 
-.rejilla--partes { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.rejilla--partes {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: start;
+}
 
-.rejilla--partes p { margin: 0 0 0.2rem; }
+.rejilla--partes p { margin: 0 0 2px; }
 
 .datos-congelados {
   margin-top: 0.7rem !important;

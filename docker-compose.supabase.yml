@@ -18,6 +18,11 @@ services:
       SPRING_DATASOURCE_URL: ${SUPABASE_DB_URL:?falta SUPABASE_DB_URL en el .env}
       SPRING_DATASOURCE_USERNAME: ${SUPABASE_DB_USER:?falta SUPABASE_DB_USER en el .env}
       SPRING_DATASOURCE_PASSWORD: ${SUPABASE_DB_PASSWORD:?falta SUPABASE_DB_PASSWORD en el .env}
+
+      # Sin clave de firma la API no arranca. Generala con:
+      #   openssl rand -base64 48
+      MOTORSPORT19_SEGURIDAD_CLAVE_JWT: ${CLAVE_JWT:?falta CLAVE_JWT en el .env (openssl rand -base64 48)}
+
       TZ: ${TZ:-Europe/Madrid}
     ports:
       - "${API_PORT:-8080}:8080"

@@ -1,39 +1,65 @@
+/* La exportación es la acción principal de esta pantalla: se distingue con un
+   fondo levemente teñido, en lugar de la franja de color a un lado. */
 .exportacion {
-  border-left: 4px solid var(--azul);
+  background: linear-gradient(var(--azul-suave), var(--blanco) 130px);
+  border-color: var(--azul-borde);
 }
 
+.exportacion .rejilla { margin-bottom: var(--e3); }
+
 .separador {
-  margin: 1rem 0;
+  margin: var(--e4) 0;
   border: none;
-  border-top: 1px solid var(--gris-200);
+  border-top: var(--borde);
 }
 
 .ayuda {
-  margin: 0.75rem 0 0;
-  line-height: 1.45;
+  margin: var(--e3) 0 0;
+  line-height: 1.5;
+  max-width: 76ch;
 }
 
+/* ---------- Informe de verificación ---------- */
+
 .informe {
-  margin-top: 1rem;
-  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--e4);
+  padding: var(--e3) var(--e4);
+  border: 1px solid var(--verde-borde);
   border-radius: var(--radio);
-  background: var(--verde-claro);
+  background: var(--verde-suave);
   color: var(--verde);
 }
 
 .informe--error {
-  background: var(--rojo-claro);
+  border-color: var(--rojo-borde);
+  background: var(--rojo-suave);
   color: var(--rojo);
 }
 
 .informe ul {
-  margin: 0.5rem 0 0;
-  padding-left: 1.2rem;
-  font-size: 0.85rem;
+  margin: 0;
+  padding-left: var(--e4);
+  font-size: 0.8125rem;
 }
 
 .informe p { margin: 0; }
 
+/* El sello son 64 caracteres seguidos: se deja partir para que no ensanche la
+   tarjeta ni saque la página de la pantalla. */
+.informe .mono {
+  word-break: break-all;
+  color: var(--gris-500);
+}
+
 .negativo { color: var(--rojo); }
 
-.paginacion { margin-top: 1rem; }
+/*
+  La orden de trabajo es la columna que primero sobra: identifica el origen de
+  la factura, no la factura. Al ocultarla, el resto cabe sin cortarse.
+*/
+@media (max-width: 1500px) {
+  .col-opcional { display: none; }
+}

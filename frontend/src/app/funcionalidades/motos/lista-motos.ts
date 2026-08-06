@@ -3,42 +3,50 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { Icono } from '../../compartido/icono';
 import { MotoResumen } from '../../nucleo/modelos/taller';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 
 @Component({
   selector: 'app-lista-motos',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono],
   template: `
-    <div class="apilado">
-      <h1>Motos</h1>
+    <div class="pagina-cabecera">
+      <div class="pagina-cabecera__texto">
+        <h1>Motos</h1>
+        <p class="pagina-cabecera__sub">
+          {{ totalItems() }} {{ totalItems() === 1 ? 'moto registrada' : 'motos registradas' }}
+        </p>
+      </div>
+    </div>
 
-      <section class="tarjeta">
-        <div class="fila">
-          <div class="campo crece" style="margin: 0">
-            <label for="buscar">Buscar</label>
-            <input
-              id="buscar"
-              type="search"
-              placeholder="Matrícula, marca, modelo o bastidor…"
-              [ngModel]="texto()"
-              (ngModelChange)="texto.set($event)"
-              (keyup.enter)="cargar()"
-            />
-          </div>
-          <button type="button" class="boton boton--principal" (click)="cargar()" style="margin-top: 1.2rem">
-            Buscar
-          </button>
-        </div>
-      </section>
+    <div class="filtros">
+      <div class="campo filtros__crece">
+        <label for="buscar">Buscar</label>
+        <input
+          id="buscar"
+          type="search"
+          placeholder="Matrícula, marca, modelo o bastidor…"
+          [ngModel]="texto()"
+          (ngModelChange)="texto.set($event)"
+          (keyup.enter)="cargar()"
+        />
+      </div>
+      <button type="button" class="boton" (click)="cargar()">
+        <app-icono nombre="buscar" [tamano]="16" />
+        Buscar
+      </button>
+    </div>
 
-      <section class="tarjeta">
-        <div class="tarjeta__titulo"><h2>{{ totalItems() }} moto(s)</h2></div>
-
+    <section class="tarjeta tarjeta--ajustada">
         @if (cargando()) {
           <app-cargando mensaje="Cargando motos…" />
         } @else if (!filas().length) {
-          <p class="vacio">No se ha encontrado ninguna moto.</p>
+          <div class="vacio">
+            <app-icono class="vacio__icono" nombre="motos" [tamano]="30" />
+            <span class="vacio__titulo">Ninguna moto encontrada</span>
+            <span class="pequeno">Prueba con la matrícula, la marca o el bastidor.</span>
+          </div>
         } @else {
           <div class="tabla-envoltorio">
             <table>
@@ -47,21 +55,23 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
                   <th>Matrícula</th>
                   <th>Moto</th>
                   <th>Año</th>
-                  <th class="num">Kilómetros</th>
+                  <th class="num">Kilometraje</th>
                 </tr>
               </thead>
               <tbody>
                 @for (m of filas(); track m.id) {
                   <tr>
                     <td>
-                      <a [routerLink]="['/motos', m.id]" class="negrita">{{ m.matricula }}</a>
-                      @if (!m.activo) {
-                        <span class="etiqueta etiqueta--gris">De baja</span>
-                      }
+                      <div class="fila" style="gap: 6px; flex-wrap: nowrap">
+                        <a [routerLink]="['/motos', m.id]" class="codigo">{{ m.matricula }}</a>
+                        @if (!m.activo) {
+                          <span class="etiqueta etiqueta--gris etiqueta--simple">De baja</span>
+                        }
+                      </div>
                     </td>
-                    <td>{{ m.descripcion }}</td>
-                    <td>{{ m.anio || '—' }}</td>
-                    <td class="num">{{ m.kmActual | number: '1.0-0' : 'es' }}</td>
+                    <td class="celda-doble__principal">{{ m.descripcion }}</td>
+                    <td class="silenciado">{{ m.anio || '—' }}</td>
+                    <td class="num importe">{{ m.kmActual | number: '1.0-0' : 'es' }} km</td>
                   </tr>
                 }
               </tbody>
@@ -69,29 +79,30 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
           </div>
 
           @if (totalPaginas() > 1) {
-            <div class="fila fila--fin" style="margin-top: 1rem">
-              <button
-                type="button"
-                class="boton boton--pequeno"
-                [disabled]="pagina() === 0"
-                (click)="cargar(pagina() - 1)"
-              >
-                ← Anterior
-              </button>
+            <div class="paginacion">
               <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
-              <button
-                type="button"
-                class="boton boton--pequeno"
-                [disabled]="pagina() + 1 >= totalPaginas()"
-                (click)="cargar(pagina() + 1)"
-              >
-                Siguiente →
-              </button>
+              <div class="fila">
+                <button
+                  type="button"
+                  class="boton boton--pequeno"
+                  [disabled]="pagina() === 0"
+                  (click)="cargar(pagina() - 1)"
+                >
+                  <app-icono nombre="flecha-izquierda" [tamano]="14" /> Anterior
+                </button>
+                <button
+                  type="button"
+                  class="boton boton--pequeno"
+                  [disabled]="pagina() + 1 >= totalPaginas()"
+                  (click)="cargar(pagina() + 1)"
+                >
+                  Siguiente <app-icono nombre="flecha-derecha" [tamano]="14" />
+                </button>
+              </div>
             </div>
           }
         }
-      </section>
-    </div>
+    </section>
   `,
 })
 export class ListaMotos {

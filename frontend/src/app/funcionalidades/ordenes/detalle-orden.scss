@@ -1,63 +1,123 @@
-.acciones { border-left: 4px solid var(--azul); }
+/* ---------- Cabecera ---------- */
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: var(--e3);
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
+
+.volver:hover { color: var(--gris-900); text-decoration: none; }
+
+.titulo-orden {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  flex-wrap: wrap;
+}
+
+/* ---------- Acciones ---------- */
+
+/* Es a lo que se viene a esta pantalla, así que va destacado; pero con un tinte
+   de fondo en lugar de la franja de color que llevaba a un lado. */
+.acciones {
+  background: linear-gradient(var(--azul-suave), var(--blanco) 90px);
+  border-color: var(--azul-borde);
+}
 
 .facturar {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--gris-200);
+  margin-top: var(--e4);
+  padding-top: var(--e4);
+  border-top: var(--borde);
 }
+
+/* ---------- Faltan piezas ---------- */
 
 .faltantes {
-  margin-top: 1rem;
-  padding: 0.9rem 1rem;
-  background: var(--ambar-claro);
-  color: var(--ambar);
+  margin-top: var(--e4);
+  padding: var(--e3) var(--e4);
+  background: var(--ambar-suave);
+  border: 1px solid var(--ambar-borde);
   border-radius: var(--radio);
+  color: var(--ambar);
 }
 
-.faltantes p { margin: 0 0 0.5rem; }
-.faltantes p:last-child { margin: 0.6rem 0 0; line-height: 1.4; }
-.faltantes table { background: var(--blanco); border-radius: 6px; color: var(--gris-900); }
+.faltantes p { margin: 0 0 var(--e2); }
+.faltantes p:last-child { margin: var(--e2) 0 0; line-height: 1.5; }
 
-.rejilla--dos { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.faltantes table {
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio-s);
+  overflow: hidden;
+  color: var(--gris-800);
+}
 
-.datos {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.35rem 1rem;
+/* ---------- Fichas de datos ---------- */
+
+.rejilla--dos {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  align-items: start;
+}
+
+/* Texto libre: aquí sí interesa que se lea como prosa, con su interlineado, y
+   no apretado como los datos de una ficha. */
+.prosa {
   margin: 0;
-  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--gris-700);
 }
 
-.datos dt { color: var(--gris-500); white-space: nowrap; }
-.datos dd { margin: 0; font-weight: 500; }
+.prosa__titulo { margin-top: var(--e4); }
+.etiqueta-campo { display: block; margin: 0 0 2px; }
 
-.totales { margin-top: 1rem; margin-left: auto; max-width: 320px; }
+/* ---------- Totales ---------- */
+
+.totales {
+  margin-left: auto;
+  padding: var(--e3) var(--e5);
+  max-width: 330px;
+}
 
 .totales__fila {
   display: flex;
   justify-content: space-between;
-  gap: 2rem;
-  padding: 0.25rem 0;
+  gap: var(--e6);
+  padding: 3px 0;
+  font-size: 0.875rem;
+  color: var(--gris-600);
+  font-variant-numeric: tabular-nums;
 }
 
 .totales__fila--total {
-  margin-top: 0.4rem;
-  padding-top: 0.5rem;
-  border-top: 2px solid var(--gris-300);
-  font-size: 1.1rem;
-  font-weight: 700;
+  margin-top: 6px;
+  padding-top: var(--e2);
+  border-top: 1px solid var(--gris-300);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gris-900);
 }
+
+/* ---------- Historial ---------- */
 
 .historial { list-style: none; margin: 0; padding: 0; }
 
 .historial li {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--e2);
   flex-wrap: wrap;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--gris-100);
+  padding: var(--e2) 0;
+  border-bottom: 1px solid var(--gris-150);
+  font-size: 0.875rem;
 }
 
 .historial li:last-child { border-bottom: none; }
-.historial__motivo { width: 100%; color: var(--gris-700); padding-left: 0.2rem; }
+
+.historial__motivo {
+  width: 100%;
+  color: var(--gris-500);
+  font-size: 0.8125rem;
+}

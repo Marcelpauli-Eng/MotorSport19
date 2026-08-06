@@ -87,10 +87,15 @@ psql \
   --dbname="$PGDATABASE" \
   --quiet --no-align --tuples-only \
   --file=/dev/stdin > "$LIBRO" <<'SQL' || { log "AVISO: no se ha podido exportar el libro de facturas."; rm -f "$LIBRO"; }
+-- La forma del JSON es la MISMA que la de la exportacion de la aplicacion
+-- (/facturas/exportacion/json). Es importante: asi el mismo script de
+-- verificacion sirve para el fichero que descarga la gestoria y para el que va
+-- dentro de la copia nocturna. Ver GARANTIAS.md.
 SELECT json_build_object(
     'generado', now(),
     'facturas_exportadas', (SELECT COUNT(*) FROM factura),
     'algoritmo_huella', 'SHA-256',
+    'huella_genesis', repeat('0', 64),
     'facturas', COALESCE((
         SELECT json_agg(f ORDER BY f.posicion_registro)
           FROM (
@@ -100,25 +105,34 @@ SELECT json_build_object(
                    fa.fecha_emision,
                    fa.fecha_operacion,
                    fa.timestamp_emision,
-                   fa.emisor_razon_social,
-                   fa.emisor_nif,
-                   fa.receptor_nombre,
-                   fa.receptor_nif,
+                   json_build_object('nombre', fa.emisor_razon_social,
+                                     'nif', fa.emisor_nif) AS emisor,
+                   json_build_object('nombre', fa.receptor_nombre,
+                                     'nif', fa.receptor_nif,
+                                     'direccion', fa.receptor_direccion,
+                                     'codigo_postal', fa.receptor_cp,
+                                     'ciudad', fa.receptor_ciudad,
+                                     'provincia', fa.receptor_provincia) AS receptor,
                    fa.codigo_ot,
                    fa.matricula,
                    fa.base_imponible,
                    fa.total_iva,
                    fa.total,
-                   fa.huella_anterior,
-                   fa.huella,
-                   fa.cadena_huella,
-                   fa.algoritmo_huella,
                    (SELECT json_agg(l ORDER BY l.numero_linea)
                       FROM (SELECT numero_linea, tipo, descripcion, pieza_sku,
                                    cantidad, precio_unitario, descuento_pct,
                                    porcentaje_iva, base_imponible, cuota_iva, total
                               FROM linea_factura
-                             WHERE factura_id = fa.id) l) AS lineas
+                             WHERE factura_id = fa.id) l) AS lineas,
+                   (SELECT json_agg(d ORDER BY d.porcentaje)
+                      FROM (SELECT tipo_iva, porcentaje_iva AS porcentaje,
+                                   base_imponible, cuota_iva
+                              FROM desglose_iva_factura
+                             WHERE factura_id = fa.id) d) AS desglose_iva,
+                   json_build_object('huella_anterior', fa.huella_anterior,
+                                     'huella', fa.huella,
+                                     'algoritmo', fa.algoritmo_huella,
+                                     'cadena_huella', fa.cadena_huella) AS sello
               FROM factura fa
           ) f), '[]'::json)
 );

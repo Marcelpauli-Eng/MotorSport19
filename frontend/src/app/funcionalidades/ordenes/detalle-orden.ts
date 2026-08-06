@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { Icono } from '../../compartido/icono';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { EstadoOT, OrdenTrabajo, ResultadoConsumo } from '../../nucleo/modelos/taller';
 import { SerieFactura } from '../../nucleo/modelos/facturacion';
@@ -26,7 +27,7 @@ interface Accion {
  */
 @Component({
   selector: 'app-detalle-orden',
-  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe],
+  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono],
   templateUrl: './detalle-orden.html',
   styleUrl: './detalle-orden.scss',
 })
