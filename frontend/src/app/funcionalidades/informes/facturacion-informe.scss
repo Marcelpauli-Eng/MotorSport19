@@ -1,0 +1,90 @@
+/* ---------- Cifras de cabecera ---------- */
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--e3);
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e4) var(--e5);
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-s);
+}
+
+.kpi__etiqueta {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gris-500);
+}
+
+.kpi__valor {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un IVA negativo sale a devolver: es una buena noticia, no un error, así que
+   se marca en verde y no en rojo. */
+.kpi__valor--devolver { color: var(--verde); }
+
+.kpi__pie {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--gris-500);
+}
+
+.delta {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta--sube { color: var(--verde); }
+.delta--baja { color: var(--rojo); }
+
+/* ---------- Distribución ---------- */
+
+.rejilla--informe {
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  align-items: start;
+}
+
+.selector-ejercicio {
+  width: auto;
+  min-width: 108px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Nota al pie de una gráfica: explica de dónde sale el dato y qué no es. */
+.nota {
+  margin: var(--e4) 0 0;
+  padding-top: var(--e3);
+  border-top: var(--borde);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--gris-500);
+}
+
+.nota strong { color: var(--gris-700); }
+
+.negativo { color: var(--rojo); }
+
+/*
+  En el detalle mensual sobran primero las columnas de compras: son el origen
+  del IVA soportado, que ya tiene su propia columna resumida.
+*/
+@media (max-width: 1400px) {
+  .col-opcional { display: none; }
+}
+
+@media (max-width: 520px) {
+  .rejilla--informe { grid-template-columns: 1fr; }
+}

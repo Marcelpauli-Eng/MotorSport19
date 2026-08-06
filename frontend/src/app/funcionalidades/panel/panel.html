@@ -63,6 +63,33 @@
     }
   </section>
 
+  @if (veFacturacion && informe(); as inf) {
+    <div class="rejilla rejilla--dos">
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>Facturación reciente</h2>
+          <a routerLink="/informes" class="pequeno fila" style="gap: 4px">
+            Informes <app-icono nombre="flecha-derecha" [tamano]="14" />
+          </a>
+        </div>
+        <app-grafica-barras [datos]="serieFacturacion()" serie1="Base facturada" [alto]="130" />
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>¿De qué vive el taller?</h2>
+          <span class="pequeno silenciado">{{ inf.ejercicio }}</span>
+        </div>
+        <app-grafica-reparto
+          etiqueta1="Mano de obra"
+          [valor1]="inf.totales.ingresoManoDeObra"
+          etiqueta2="Piezas"
+          [valor2]="inf.totales.ingresoPiezas"
+        />
+      </section>
+    </div>
+  }
+
   <div class="rejilla rejilla--dos">
     <!-- Reposición -->
     <section class="tarjeta tarjeta--ajustada">

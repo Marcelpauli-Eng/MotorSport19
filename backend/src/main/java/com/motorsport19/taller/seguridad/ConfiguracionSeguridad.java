@@ -110,6 +110,10 @@ public class ConfiguracionSeguridad {
                 .requestMatchers("/facturas/**").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/facturacion/**").hasAnyRole(ADMIN, MOSTRADOR)
 
+                // Los informes son datos economicos: margenes, compras y IVA.
+                // Un tecnico no tiene por que ver cuanto gana el taller.
+                .requestMatchers("/estadisticas/**").hasAnyRole(ADMIN, MOSTRADOR)
+
                 // ----- Clientes y motos: los gestiona mostrador -----
                 // El tecnico los CONSULTA, porque necesita saber de quien es la
                 // moto que tiene delante, pero no los modifica.

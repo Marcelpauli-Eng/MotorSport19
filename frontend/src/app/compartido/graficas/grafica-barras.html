@@ -1,0 +1,103 @@
+@if (dosSeries()) {
+  <div class="leyenda">
+    <span class="leyenda__item">
+      <span class="leyenda__marca leyenda__marca--s1"></span>{{ serie1() }}
+    </span>
+    <span class="leyenda__item">
+      <span class="leyenda__marca leyenda__marca--s2"></span>{{ serie2() }}
+    </span>
+  </div>
+}
+
+@if (!hayDatos()) {
+  <p class="grafica__vacia">Sin datos en este periodo.</p>
+} @else {
+  <div class="grafica" (mouseleave)="activa.set(null)">
+    <svg
+      [attr.viewBox]="'0 0 ' + anchoTotal + ' ' + altoTotal"
+      preserveAspectRatio="none"
+      class="grafica__lienzo"
+      role="img"
+      [attr.aria-label]="serie1() || 'Serie mensual'"
+    >
+      <!-- Guías: finas, continuas y por detrás de todo -->
+      @for (g of guias(); track g.y) {
+        <line class="guia" x1="0" [attr.y1]="g.y" [attr.x2]="anchoTotal" [attr.y2]="g.y" />
+      }
+
+      @for (b of barras(); track b.etiqueta; let i = $index) {
+        <!-- Zona sensible: ocupa la banda entera, no solo la columna, para que
+             el puntero no tenga que acertar en una barra de 20 px -->
+        <rect
+          class="grafica__zona"
+          [attr.x]="inicioBanda(i)"
+          y="0"
+          [attr.width]="anchoGrupo()"
+          [attr.height]="altoTotal"
+          (mouseenter)="activa.set(i)"
+        />
+        @if (activa() === i) {
+          <rect
+            class="grafica__resalte"
+            [attr.x]="inicioBanda(i)"
+            y="0"
+            [attr.width]="anchoGrupo()"
+            [attr.height]="alto()"
+          />
+        }
+
+        <rect
+          class="barra barra--s1"
+          [attr.x]="b.x"
+          [attr.y]="b.y1"
+          [attr.width]="b.ancho"
+          [attr.height]="b.alto1"
+          rx="3"
+        />
+        @if (dosSeries()) {
+          <rect
+            class="barra barra--s2"
+            [attr.x]="b.x + b.ancho + 2"
+            [attr.y]="b.y2"
+            [attr.width]="b.ancho"
+            [attr.height]="b.alto2"
+            rx="3"
+          />
+        }
+      }
+    </svg>
+
+    <!-- Etiquetas fuera del SVG: así no se deforman con `preserveAspectRatio` -->
+    <div class="grafica__eje">
+      @for (b of barras(); track b.etiqueta; let i = $index) {
+        <span class="grafica__tick" [class.grafica__tick--activo]="activa() === i">
+          {{ b.etiqueta }}
+        </span>
+      }
+    </div>
+
+    @if (activa() !== null && barras()[activa()!]; as b) {
+      <div
+        class="tooltip"
+        [style.left.%]="((b.centro / anchoTotal) * 100)"
+        [class.tooltip--derecha]="b.centro / anchoTotal > 0.72"
+      >
+        <span class="tooltip__titulo">{{ b.etiqueta }}</span>
+        <span class="tooltip__fila">
+          @if (dosSeries()) {
+            <span class="leyenda__marca leyenda__marca--s1"></span>
+          }
+          {{ serie1() || 'Total' }}
+          <strong>{{ b.valor | number: '1.2-2' : 'es' }} {{ unidad() }}</strong>
+        </span>
+        @if (dosSeries()) {
+          <span class="tooltip__fila">
+            <span class="leyenda__marca leyenda__marca--s2"></span>
+            {{ serie2() }}
+            <strong>{{ b.valor2 | number: '1.2-2' : 'es' }} {{ unidad() }}</strong>
+          </span>
+        }
+      </div>
+    }
+  </div>
+}

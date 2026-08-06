@@ -9,6 +9,10 @@ import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { EstadisticasService } from '../../nucleo/servicios/estadisticas.service';
+import { GraficaBarras, PuntoBarra } from '../../compartido/graficas/grafica-barras';
+import { GraficaReparto } from '../../compartido/graficas/grafica-reparto';
+import { InformeFacturacion } from '../../nucleo/modelos/estadisticas';
 
 /**
  * Pantalla de inicio: lo que hay que mirar nada más abrir el programa.
@@ -18,7 +22,7 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
  */
 @Component({
   selector: 'app-panel',
-  imports: [CommonModule, RouterLink, ColorEstadoPipe, Icono],
+  imports: [CommonModule, RouterLink, ColorEstadoPipe, Icono, GraficaBarras, GraficaReparto],
   templateUrl: './panel.html',
   styleUrl: './panel.scss',
 })
@@ -26,6 +30,7 @@ export class Panel {
   private readonly ordenes = inject(OrdenesService);
   private readonly inventario = inject(InventarioService);
   private readonly facturas = inject(FacturasService);
+  private readonly estadisticas = inject(EstadisticasService);
   protected readonly sesion = inject(SesionService);
 
   /** Facturar es cosa de mostrador y dirección: al técnico ni se le pide. */
@@ -35,6 +40,7 @@ export class Panel {
   protected readonly alertas = signal<AlertaStock[]>([]);
   protected readonly ultimasFacturas = signal<FacturaResumen[]>([]);
   protected readonly totalAbiertas = signal(0);
+  protected readonly informe = signal<InformeFacturacion | null>(null);
 
   constructor() {
     this.ordenes.buscar({ soloAbiertas: true, tamano: 50 }).subscribe((p) => {
@@ -46,6 +52,7 @@ export class Panel {
     // un 403 y le saltaría un aviso de permisos cada vez que abre el programa.
     if (this.veFacturacion) {
       this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
+      this.estadisticas.facturacion().subscribe((i) => this.informe.set(i));
     }
   }
 
@@ -91,6 +98,30 @@ export class Panel {
       atencion: this.alertas().length > 0,
     },
   ]);
+
+  /**
+   * Facturación de los últimos seis meses.
+   *
+   * <p>Seis y no doce: en el panel la gráfica es pequeña y lo que interesa es
+   * la tendencia reciente. El año entero está en Informes.
+   */
+  protected readonly serieFacturacion = computed<PuntoBarra[]>(() => {
+    const meses = this.informe()?.meses ?? [];
+    const hasta = this.informe()?.totales.mesesComputados ?? meses.length;
+    return meses.slice(Math.max(0, hasta - 6), hasta).map((m) => ({
+      etiqueta: m.nombreMes.slice(0, 3),
+      valor: m.baseFacturada,
+    }));
+  });
+
+  protected readonly serieOrdenes = computed<PuntoBarra[]>(() => {
+    const meses = this.informe()?.meses ?? [];
+    const hasta = this.informe()?.totales.mesesComputados ?? meses.length;
+    return meses.slice(Math.max(0, hasta - 6), hasta).map((m) => ({
+      etiqueta: m.nombreMes.slice(0, 3),
+      valor: m.ordenesAbiertas,
+    }));
+  });
 
   /** «Nuria Sanz Belmonte» → «NS», para la ficha del tablero. */
   protected inicialesDe(nombre: string): string {

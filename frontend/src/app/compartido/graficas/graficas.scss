@@ -1,0 +1,243 @@
+/* ==========================================================================
+   Gráficas
+
+   Los colores de serie son los dos únicos que se usan para identidad en toda
+   la aplicación. Están validados para daltonismo (ΔE 29,9 en protanopía, muy
+   por encima del mínimo de 8) y ambos superan 3:1 sobre blanco.
+
+   La regla de fondo: la tinta la lleva el dato. Guías, ejes y textos son
+   grises; el color solo distingue series.
+   ========================================================================== */
+
+:host {
+  display: block;
+  --serie-1: #2563eb;
+  --serie-2: #eb6834;
+}
+
+.grafica {
+  position: relative;
+}
+
+.grafica__lienzo {
+  display: block;
+  width: 100%;
+  height: 190px;
+  overflow: visible;
+}
+
+/* Guías finas y continuas. Nunca discontinuas: las rayas compiten con las
+   columnas y ensucian la lectura. */
+.guia {
+  stroke: var(--gris-200);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.barra--s1 { fill: var(--serie-1); }
+.barra--s2 { fill: var(--serie-2); }
+
+.grafica__zona {
+  fill: transparent;
+  cursor: default;
+}
+
+.grafica__resalte {
+  fill: var(--gris-100);
+  pointer-events: none;
+}
+
+/* ---------- Eje de abajo ---------- */
+
+.grafica__eje {
+  display: flex;
+  margin-top: 6px;
+}
+
+.grafica__tick {
+  flex: 1;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--gris-500);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.grafica__tick--activo {
+  color: var(--gris-900);
+  font-weight: 600;
+}
+
+/* ---------- Leyenda ---------- */
+
+.leyenda {
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  flex-wrap: wrap;
+  margin-bottom: var(--e3);
+}
+
+.leyenda__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  /* El texto nunca lleva el color de la serie: lo identifica la marca de al
+     lado. Un naranja claro como texto sobre blanco no se lee. */
+  color: var(--gris-600);
+}
+
+.leyenda__marca {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 2px;
+}
+
+.leyenda__marca--s1 { background: var(--serie-1); }
+.leyenda__marca--s2 { background: var(--serie-2); }
+
+/* ---------- Tooltip ---------- */
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  margin-bottom: var(--e2);
+  padding: var(--e2) 10px;
+  min-width: 190px;
+  background: var(--gris-950);
+  color: var(--blanco);
+  border-radius: var(--radio-s);
+  box-shadow: var(--sombra-g);
+  font-size: 0.75rem;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Cerca del borde derecho se ancla por su esquina para no salirse de la
+   tarjeta. */
+.tooltip--derecha { transform: translateX(-90%); }
+
+.tooltip__titulo {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.tooltip__fila {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--gris-400);
+  line-height: 1.7;
+  /* El importe nunca parte: «1.532,00 €» en dos renglones se lee fatal. */
+  white-space: nowrap;
+}
+
+.tooltip__fila strong {
+  margin-left: auto;
+  color: var(--blanco);
+  font-variant-numeric: tabular-nums;
+}
+
+.grafica__vacia {
+  margin: 0;
+  padding: var(--e8) 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--gris-400);
+}
+
+/* ---------- Barras horizontales (rankings) ---------- */
+
+.ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ranking__fila {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px var(--e3);
+  align-items: baseline;
+}
+
+.ranking__nombre {
+  font-size: 0.8125rem;
+  color: var(--gris-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ranking__valor {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ranking__pista {
+  grid-column: 1 / -1;
+  height: 6px;
+  background: var(--gris-150);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.ranking__barra {
+  height: 100%;
+  background: var(--serie-1);
+  border-radius: 3px;
+}
+
+/* ---------- Reparto (dos partes de un total) ---------- */
+
+.reparto__pista {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  /* El hueco entre los dos tramos lo hace el color de fondo, no un borde:
+     un borde añadiría tinta que no es dato. */
+  gap: 2px;
+  background: var(--blanco);
+}
+
+.reparto__tramo { height: 100%; }
+.reparto__tramo:first-child { border-radius: 5px 0 0 5px; }
+.reparto__tramo:last-child { border-radius: 0 5px 5px 0; }
+.reparto__tramo--s1 { background: var(--serie-1); }
+.reparto__tramo--s2 { background: var(--serie-2); }
+
+.reparto__leyenda {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--e4);
+  margin-top: var(--e3);
+}
+
+.reparto__parte {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reparto__etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--gris-500);
+}
+
+.reparto__importe {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}

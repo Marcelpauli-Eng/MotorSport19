@@ -64,6 +64,15 @@ export const routes: Routes = [
       // Un técnico si consulta clientes y motos: necesita saber de quién es la
       // moto que tiene en el elevador. Lo que no puede es crearlos ni editarlos,
       // y eso se controla en la propia pantalla, no en la ruta.
+      // Datos económicos del taller: mismo perfil que la facturación.
+      {
+        path: 'informes',
+        title: 'Informes · MotorSport19',
+        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        loadComponent: () =>
+          import('./funcionalidades/informes/facturacion-informe').then((m) => m.FacturacionInforme),
+      },
+
       {
         path: 'clientes',
         title: 'Clientes · MotorSport19',

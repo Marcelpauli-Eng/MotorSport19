@@ -1,0 +1,269 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Informe de facturación</h1>
+    <p class="pagina-cabecera__sub">
+      @if (informe(); as i) {
+        Ejercicio {{ i.ejercicio }}
+        @if (ejercicioEnCurso()) {
+          · acumulado hasta {{ i.meses[i.totales.mesesComputados - 1].nombreMes | lowercase }}
+        }
+      }
+    </p>
+  </div>
+
+  <div class="fila">
+    <select
+      class="selector-ejercicio"
+      [ngModel]="ejercicio()"
+      (ngModelChange)="cambiarEjercicio($event)"
+      aria-label="Ejercicio"
+    >
+      @for (a of informe()?.ejerciciosDisponibles ?? [ejercicio()]; track a) {
+        <option [value]="a">{{ a }}</option>
+      }
+    </select>
+    <button type="button" class="boton" (click)="descargarCsv()" [disabled]="!informe()">
+      <app-icono nombre="descargar" [tamano]="16" />
+      Descargar
+    </button>
+  </div>
+</div>
+
+@if (cargando()) {
+  <app-cargando mensaje="Calculando el informe…" />
+} @else if (informe(); as inf) {
+  <div class="apilado">
+    <!-- Las cuatro cifras que resumen el año -->
+    <div class="kpis">
+      <div class="kpi">
+        <span class="kpi__etiqueta">Facturado (base)</span>
+        <span class="kpi__valor">{{ inf.totales.baseFacturada | number: '1.2-2' : 'es' }} €</span>
+        <span class="kpi__pie">
+          @if (inf.totales.variacionBase !== null) {
+            <span
+              class="delta"
+              [class.delta--sube]="inf.totales.variacionBase! >= 0"
+              [class.delta--baja]="inf.totales.variacionBase! < 0"
+            >
+              {{ inf.totales.variacionBase! >= 0 ? '↑' : '↓' }}
+              {{ (inf.totales.variacionBase! < 0 ? -inf.totales.variacionBase! : inf.totales.variacionBase!) | number: '1.0-1' : 'es' }} %
+            </span>
+            frente a {{ inf.ejercicio - 1 }}
+          } @else {
+            {{ inf.totales.numeroFacturas }}
+            {{ inf.totales.numeroFacturas === 1 ? 'factura' : 'facturas' }}
+          }
+        </span>
+      </div>
+
+      <div class="kpi">
+        <span class="kpi__etiqueta">Margen bruto</span>
+        <span class="kpi__valor">{{ inf.totales.margenBruto | number: '1.2-2' : 'es' }} €</span>
+        <span class="kpi__pie">
+          {{ inf.totales.margenPorcentaje | number: '1.0-1' : 'es' }} % de lo facturado
+        </span>
+      </div>
+
+      <div class="kpi">
+        <span class="kpi__etiqueta">IVA a liquidar</span>
+        <span
+          class="kpi__valor"
+          [class.kpi__valor--devolver]="inf.totales.ivaALiquidar < 0"
+        >
+          {{ inf.totales.ivaALiquidar | number: '1.2-2' : 'es' }} €
+        </span>
+        <span class="kpi__pie">
+          {{ inf.totales.ivaALiquidar >= 0 ? 'a ingresar en Hacienda' : 'a compensar o devolver' }}
+        </span>
+      </div>
+
+      <div class="kpi">
+        <span class="kpi__etiqueta">Ticket medio</span>
+        <span class="kpi__valor">{{ inf.totales.ticketMedio | number: '1.2-2' : 'es' }} €</span>
+        <span class="kpi__pie">
+          {{ inf.totales.numeroFacturas }}
+          {{ inf.totales.numeroFacturas === 1 ? 'factura emitida' : 'facturas emitidas' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Facturación mensual -->
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Facturación por meses</h2>
+        <span class="pequeno silenciado">Base imponible, sin IVA</span>
+      </div>
+      <app-grafica-barras [datos]="serieFacturacion()" serie1="Base facturada" />
+    </section>
+
+    <div class="rejilla rejilla--informe">
+      <!-- IVA -->
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>IVA repercutido y soportado</h2>
+        </div>
+        <app-grafica-barras
+          [datos]="serieIva()"
+          serie1="Repercutido (ventas)"
+          serie2="Soportado (compras)"
+          [alto]="150"
+        />
+        <p class="nota">
+          La diferencia entre los dos es lo que se ingresa cada trimestre. El
+          IVA soportado sale de las entradas de almacén valoradas a su coste; la
+          liquidación oficial la hace la gestoría con las facturas de proveedor.
+        </p>
+      </section>
+
+      <!-- Reparto -->
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>¿De qué vive el taller?</h2>
+        </div>
+        <app-grafica-reparto
+          etiqueta1="Mano de obra"
+          [valor1]="inf.totales.ingresoManoDeObra"
+          etiqueta2="Piezas"
+          [valor2]="inf.totales.ingresoPiezas"
+        />
+        <p class="nota">
+          La mano de obra es margen casi puro. Las piezas facturan más, pero de
+          ahí hay que descontar lo que costaron:
+          <strong>{{ inf.totales.costeMaterialVendido | number: '1.2-2' : 'es' }} €</strong>
+          en el ejercicio.
+        </p>
+      </section>
+    </div>
+
+    <!-- Trimestres de IVA -->
+    <section class="tarjeta tarjeta--ajustada">
+      <div class="tarjeta__titulo">
+        <h2>IVA por trimestres</h2>
+        <span class="pequeno silenciado">Como se presenta el modelo 303</span>
+      </div>
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Trimestre</th>
+              <th>Periodo</th>
+              <th class="num">Facturas</th>
+              <th class="num">IVA repercutido</th>
+              <th class="num">IVA soportado</th>
+              <th class="num">A liquidar</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of trimestres(); track t.nombre) {
+              <tr>
+                <td class="codigo">{{ t.nombre }}</td>
+                <td class="silenciado pequeno">{{ t.rango }}</td>
+                <td class="num tabular">{{ t.facturas }}</td>
+                <td class="num importe">{{ t.repercutido | number: '1.2-2' : 'es' }} €</td>
+                <td class="num importe">{{ t.soportado | number: '1.2-2' : 'es' }} €</td>
+                <td class="num importe importe--fuerte" [class.negativo]="t.aLiquidar < 0">
+                  {{ t.aLiquidar | number: '1.2-2' : 'es' }} €
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="rejilla rejilla--informe">
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Margen y coste del material</h2></div>
+        <app-grafica-barras
+          [datos]="serieMargen()"
+          serie1="Margen bruto"
+          serie2="Coste del material"
+          [alto]="150"
+        />
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo"><h2>Entradas de taller</h2></div>
+        <app-grafica-barras [datos]="serieOrdenes()" serie1="Órdenes abiertas" unidad="órdenes" [alto]="150" />
+      </section>
+    </div>
+
+    <div class="rejilla rejilla--informe">
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>Mejores clientes</h2>
+          <span class="pequeno silenciado">Por importe facturado</span>
+        </div>
+        <app-grafica-ranking
+          [filas]="inf.mejoresClientes"
+          vacio="Todavía no se ha facturado a nadie."
+        />
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>Piezas que más salen</h2>
+          <span class="pequeno silenciado">Unidades consumidas</span>
+        </div>
+        <app-grafica-ranking
+          [filas]="inf.piezasMasUsadas"
+          [mostrarUnidades]="true"
+          vacio="Todavía no ha salido material del almacén."
+        />
+      </section>
+    </div>
+
+    <!-- El detalle completo: es la vista de tabla que respalda las gráficas -->
+    <section class="tarjeta tarjeta--ajustada">
+      <div class="tarjeta__titulo">
+        <h2>Detalle mes a mes</h2>
+        <span class="pequeno silenciado">Los mismos datos de las gráficas</span>
+      </div>
+      @if (!mesesConActividad().length) {
+        <div class="vacio">
+          <app-icono class="vacio__icono" nombre="facturas" [tamano]="30" />
+          <span class="vacio__titulo">Sin actividad en {{ inf.ejercicio }}</span>
+        </div>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>Mes</th>
+                <th class="num">Fact.</th>
+                <th class="num">Base</th>
+                <th class="num">IVA rep.</th>
+                <th class="num">Total</th>
+                <th class="num col-opcional">Compras</th>
+                <th class="num col-opcional">IVA sop.</th>
+                <th class="num">A liquidar</th>
+                <th class="num">Margen</th>
+                <th class="num col-opcional">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of mesesConActividad(); track m.mes) {
+                <tr>
+                  <td class="celda-doble__principal">{{ m.nombreMes }}</td>
+                  <td class="num tabular silenciado">{{ m.numeroFacturas }}</td>
+                  <td class="num importe">{{ m.baseFacturada | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe silenciado">{{ m.ivaRepercutido | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe importe--fuerte">{{ m.totalFacturado | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe silenciado col-opcional">{{ m.comprasMaterial | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe silenciado col-opcional">{{ m.ivaSoportado | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe" [class.negativo]="m.ivaALiquidar < 0">
+                    {{ m.ivaALiquidar | number: '1.2-2' : 'es' }}
+                  </td>
+                  <td class="num importe">{{ m.margenBruto | number: '1.2-2' : 'es' }}</td>
+                  <td class="num tabular silenciado col-opcional">
+                    {{ m.margenPorcentaje | number: '1.0-1' : 'es' }} %
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+}

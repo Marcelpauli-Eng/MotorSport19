@@ -387,6 +387,333 @@ INSERT INTO serie_factura (id, codigo, ejercicio, descripcion, tipo, ultimo_nume
 
 
 -- ---------------------------------------------------------------------
+-- Historico del ejercicio anterior: un año completo de actividad
+--
+-- Sin esto la demostracion solo tiene cuatro facturas de dos meses, y las
+-- graficas del informe salen vacias. Aqui se genera un 2025 entero: doce meses
+-- de ordenes cerradas y facturadas con sus compras de material.
+--
+-- Se genera de verdad, no se falsea. Cada factura pasa por los mismos triggers
+-- que una emitida desde la aplicacion —numeracion correlativa, posicion de
+-- registro correlativa y cadena SHA-256 encadenada—, asi que si un importe no
+-- cuadrase con sus lineas esta migracion fallaria al aplicarse.
+--
+-- Va ANTES del bloque de facturas de 2026 para que la posicion en el registro
+-- siga el orden en que se emitieron: las de 2025 ocupan las primeras y las de
+-- 2026 continuan detras. Un registro de facturacion en el que el numero 1 es
+-- posterior al numero 5 no se sostiene.
+-- ---------------------------------------------------------------------
+-- ---------------------------------------------------------------------
+-- Serie y contador del ejercicio anterior
+-- ---------------------------------------------------------------------
+INSERT INTO serie_factura (id, codigo, ejercicio, descripcion, tipo, ultimo_numero, activa) VALUES
+ (10, 'A', 2025, 'Facturas ordinarias 2025', 'ORDINARIA', 0, TRUE);
+
+INSERT INTO contador_ot (ejercicio, ultimo_numero) VALUES (2025, 0);
+
+
+DO $$
+DECLARE
+    c_nif_emisor CONSTANT VARCHAR(20) := 'B87654323';
+    c_tarifa     CONSTANT NUMERIC     := 45.00;
+
+    -- Trabajos tipo del taller: descripcion, horas y las piezas que llevan.
+    -- Se van rotando mes a mes para que la facturacion no salga plana.
+    c_trabajos CONSTANT TEXT[] := ARRAY[
+        'Revisión programada de mantenimiento',
+        'Sustitución del kit de transmisión',
+        'Cambio de pastillas y purga de frenos',
+        'Sustitución de neumático y equilibrado',
+        'Puesta a punto de carburación',
+        'Cambio de aceite y filtros',
+        'Revisión pre-ITV',
+        'Sustitución de batería y revisión de carga'
+    ];
+
+    v_huella_previa VARCHAR(64);
+    v_registro      BIGINT;
+    v_numero        INTEGER := 0;
+    v_factura_id    BIGINT  := 1000;
+    v_orden_id      BIGINT  := 1000;
+    v_linea_id      BIGINT  := 5000;
+
+    v_mes           INTEGER;
+    v_dia           INTEGER;
+    v_factura_mes   INTEGER;
+    v_por_mes       INTEGER;
+    v_fecha         DATE;
+    v_ts            TIMESTAMPTZ;
+    v_entrada       TIMESTAMPTZ;
+
+    v_cliente       BIGINT;
+    v_moto          BIGINT;
+    v_tecnico       BIGINT;
+    v_horas         NUMERIC;
+    v_trabajo       TEXT;
+
+    v_base          NUMERIC(12,2);
+    v_cuota         NUMERIC(12,2);
+    v_total         NUMERIC(12,2);
+    v_linea_base    NUMERIC(12,2);
+    v_linea_cuota   NUMERIC(12,2);
+    v_num_linea     INTEGER;
+
+    v_cadena        TEXT;
+    v_huella        VARCHAR(64);
+    v_semilla       INTEGER;
+
+    p               RECORD;
+    v_piezas        BIGINT[];
+    v_cantidades    NUMERIC[];
+    i               INTEGER;
+BEGIN
+    -- Se arranca donde este el registro: si V900 ya metio facturas, esto
+    -- continua su cadena en vez de abrir otra.
+    SELECT COALESCE(MAX(numero_registro), 0) INTO v_registro FROM factura;
+    SELECT COALESCE((SELECT huella FROM factura ORDER BY numero_registro DESC LIMIT 1),
+                    repeat('0', 64))
+      INTO v_huella_previa;
+
+    FOR v_mes IN 1..12 LOOP
+        -- Entre 3 y 6 facturas al mes, con mas trabajo en primavera y antes de
+        -- vacaciones, que es como funciona un taller de motos.
+        v_por_mes := 3 + ((v_mes * 7) % 4);
+
+        FOR v_factura_mes IN 1..v_por_mes LOOP
+            v_semilla := v_mes * 13 + v_factura_mes * 7;
+            -- El dia crece con el numero de factura del mes: el registro de
+            -- facturacion tiene que seguir el orden de emision, y con un dia al
+            -- azar salian facturas posteriores con fecha anterior.
+            v_dia     := 2 + (v_factura_mes - 1) * 4 + (v_semilla % 3);
+            v_fecha   := make_date(2025, v_mes, v_dia);
+            v_ts      := v_fecha + TIME '17:30:00';
+            v_entrada := (v_fecha - ((v_semilla % 5) + 2)) + TIME '09:15:00';
+
+            -- Solo clientes facturables: sin datos fiscales no se puede emitir
+            -- una factura, y es justo lo que impide el NOT NULL de receptor_nif.
+            -- (El cliente sin documento de la demo esta ahi a proposito, para
+            -- que se vea la advertencia de «faltan datos» en su ficha.)
+            SELECT c.id, m.id INTO v_cliente, v_moto
+              FROM cliente c
+              JOIN moto m ON m.cliente_id = c.id AND m.activo
+             WHERE c.documento IS NOT NULL AND c.activo
+             ORDER BY c.id, m.id
+             OFFSET (v_semilla % (SELECT COUNT(*)
+                                    FROM cliente c2
+                                    JOIN moto m2 ON m2.cliente_id = c2.id AND m2.activo
+                                   WHERE c2.documento IS NOT NULL AND c2.activo))
+             LIMIT 1;
+
+            v_tecnico := CASE WHEN v_semilla % 2 = 0 THEN 3 ELSE 4 END;
+            v_horas   := 1.0 + ((v_semilla % 7) * 0.5);
+            v_trabajo := c_trabajos[1 + (v_semilla % array_length(c_trabajos, 1))];
+
+            -- ----- Orden de trabajo, ya entregada -----
+            v_orden_id := v_orden_id + 1;
+            UPDATE contador_ot SET ultimo_numero = ultimo_numero + 1 WHERE ejercicio = 2025;
+
+            INSERT INTO orden_trabajo (
+                id, ejercicio, numero, moto_id, cliente_id,
+                fecha_entrada, fecha_estimada_salida, fecha_real_salida,
+                km_entrada, problema_reportado, diagnostico, estado,
+                tecnico_id, tarifa_hora, fecha_presupuesto, fecha_aprobacion, aprobado_por,
+                created_by, updated_by)
+            SELECT v_orden_id, 2025,
+                   (SELECT ultimo_numero FROM contador_ot WHERE ejercicio = 2025),
+                   v_moto, v_cliente,
+                   v_entrada, v_fecha, NULL,
+                   m.km_actual - (400 * (12 - v_mes)),
+                   v_trabajo || '.',
+                   'Trabajo realizado y comprobado en banco.',
+                   -- Nace en reparacion: una orden ENTREGADA ya no admite
+                   -- lineas nuevas, y todavia hay que ponerselas. Se entrega
+                   -- mas abajo, igual que haria la aplicacion.
+                   'EN_REPARACION',
+                   v_tecnico, c_tarifa,
+                   v_entrada + INTERVAL '3 hours', v_entrada + INTERVAL '6 hours',
+                   TRIM(c.nombre || ' ' || COALESCE(c.apellidos, '')),
+                   2, 2
+              FROM moto m JOIN cliente c ON c.id = v_cliente
+             WHERE m.id = v_moto;
+
+            -- ----- Piezas del trabajo: entre una y tres -----
+            v_piezas     := ARRAY[]::BIGINT[];
+            v_cantidades := ARRAY[]::NUMERIC[];
+            FOR i IN 0..(v_semilla % 3) LOOP
+                v_piezas     := v_piezas || (1 + ((v_semilla + i * 5) % 18))::BIGINT;
+                v_cantidades := v_cantidades || (1 + ((v_semilla + i) % 3))::NUMERIC;
+            END LOOP;
+
+            -- Se compra ANTES lo que se va a gastar: asi el almacen nunca queda
+            -- en negativo y el stock final es el que dejo V900.
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                INSERT INTO movimiento_stock (
+                    pieza_id, tipo, cantidad, fecha, usuario_id, motivo,
+                    documento_proveedor, precio_coste_unitario)
+                SELECT v_piezas[i], 'ENTRADA', v_cantidades[i],
+                       v_entrada - INTERVAL '2 days', 1,
+                       'Reposición de almacén',
+                       'ALB-2025-' || LPAD((v_mes * 100 + v_factura_mes)::text, 5, '0'),
+                       pz.precio_coste
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+            END LOOP;
+
+            -- ----- Lineas de la orden y consumo de almacen -----
+            v_linea_id := v_linea_id + 1;
+            INSERT INTO linea_ot (id, orden_trabajo_id, numero_linea, tipo, descripcion,
+                                  pieza_id, cantidad, precio_unitario, descuento_pct,
+                                  tipo_iva, porcentaje_iva, created_by)
+            VALUES (v_linea_id, v_orden_id, 1, 'MANO_DE_OBRA', v_trabajo,
+                    NULL, v_horas, c_tarifa, 0, 'GENERAL', 21.00, v_tecnico);
+
+            v_num_linea := 1;
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                v_num_linea := v_num_linea + 1;
+                v_linea_id  := v_linea_id + 1;
+
+                INSERT INTO linea_ot (id, orden_trabajo_id, numero_linea, tipo, descripcion,
+                                      pieza_id, cantidad, precio_unitario, descuento_pct,
+                                      tipo_iva, porcentaje_iva, created_by)
+                SELECT v_linea_id, v_orden_id, v_num_linea, 'PIEZA', pz.descripcion,
+                       pz.id, v_cantidades[i], pz.precio_venta, 0, pz.tipo_iva, t.porcentaje, v_tecnico
+                  FROM pieza pz JOIN tipo_iva t ON t.codigo = pz.tipo_iva
+                 WHERE pz.id = v_piezas[i];
+
+                INSERT INTO movimiento_stock (
+                    pieza_id, tipo, cantidad, fecha, usuario_id,
+                    orden_trabajo_id, linea_ot_id, motivo, precio_coste_unitario)
+                SELECT v_piezas[i], 'SALIDA', -v_cantidades[i],
+                       v_entrada + INTERVAL '1 day', v_tecnico,
+                       v_orden_id, v_linea_id, 'Consumo en orden de trabajo', pz.precio_coste
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+            END LOOP;
+
+            -- Ya tiene todas sus lineas: ahora se puede entregar.
+            UPDATE orden_trabajo
+               SET estado = 'ENTREGADA', fecha_real_salida = v_ts, updated_by = 2
+             WHERE id = v_orden_id;
+
+            -- ----- Totales de la factura -----
+            -- Con la MISMA formula que las columnas generadas de linea_factura:
+            -- primero se redondea la base de cada linea, y sobre esa base
+            -- redondeada se calcula la cuota. Hacerlo de otra forma daria un
+            -- centimo de diferencia y el trigger de totales rechazaria la
+            -- factura al hacer commit.
+            v_base  := 0;
+            v_cuota := 0;
+
+            v_linea_base  := ROUND(v_horas * c_tarifa, 2);
+            v_linea_cuota := ROUND(v_linea_base * 21.00 / 100, 2);
+            v_base  := v_base + v_linea_base;
+            v_cuota := v_cuota + v_linea_cuota;
+
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                SELECT ROUND(v_cantidades[i] * pz.precio_venta, 2)
+                  INTO v_linea_base
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+                SELECT ROUND(v_linea_base * t.porcentaje / 100, 2)
+                  INTO v_linea_cuota
+                  FROM pieza pz JOIN tipo_iva t ON t.codigo = pz.tipo_iva
+                 WHERE pz.id = v_piezas[i];
+
+                v_base  := v_base + v_linea_base;
+                v_cuota := v_cuota + v_linea_cuota;
+            END LOOP;
+
+            v_total := v_base + v_cuota;
+
+            -- ----- Huella encadenada -----
+            v_numero     := v_numero + 1;
+            v_registro   := v_registro + 1;
+            v_factura_id := v_factura_id + 1;
+
+            v_cadena := format(
+                'NIFEmisor=%s&NumSerieFactura=%s&FechaExpedicion=%s&TipoFactura=%s&CuotaTotal=%s&ImporteTotal=%s&Huella=%s&FechaHoraHusoGenRegistro=%s',
+                c_nif_emisor,
+                'A/2025/' || LPAD(v_numero::text, 6, '0'),
+                to_char(v_fecha, 'DD-MM-YYYY'),
+                'ORDINARIA',
+                to_char(v_cuota, 'FM9999999990.00'),
+                to_char(v_total, 'FM9999999990.00'),
+                v_huella_previa,
+                to_char(v_ts AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD"T"HH24:MI:SS') ||
+                    to_char(v_ts, 'OF')
+            );
+            v_huella := encode(sha256(convert_to(v_cadena, 'UTF8')), 'hex');
+
+            INSERT INTO factura (
+                id, serie_id, serie_codigo, ejercicio, numero, tipo,
+                orden_trabajo_id, fecha_emision, fecha_operacion, timestamp_emision,
+                emisor_razon_social, emisor_nif, emisor_direccion, emisor_cp, emisor_ciudad,
+                emisor_provincia, emisor_pais,
+                receptor_id, receptor_nombre, receptor_nif, receptor_direccion, receptor_cp,
+                receptor_ciudad, receptor_provincia, receptor_pais,
+                matricula, descripcion_vehiculo, codigo_ot,
+                base_imponible, total_iva, total,
+                numero_registro, huella_anterior, huella, cadena_huella, algoritmo_huella,
+                qr_contenido, software_nombre, software_version, software_nif, created_at, created_by)
+            SELECT v_factura_id, 10, 'A', 2025, v_numero, 'ORDINARIA',
+                   v_orden_id, v_fecha, v_fecha, v_ts,
+                   cfg.razon_social, cfg.nif, cfg.direccion, cfg.codigo_postal, cfg.ciudad,
+                   cfg.provincia, cfg.pais,
+                   c.id, TRIM(c.nombre || ' ' || COALESCE(c.apellidos, '')),
+                   c.documento, c.direccion, c.codigo_postal, c.ciudad, c.provincia, c.pais,
+                   m.matricula, m.marca || ' ' || m.modelo, o.codigo,
+                   v_base, v_cuota, v_total,
+                   v_registro, v_huella_previa, v_huella, v_cadena, 'SHA-256',
+                   format('https://verifactu.motorsport19.example/verifica?nif=%s&numserie=%s&fecha=%s&importe=%s',
+                          c_nif_emisor, 'A/2025/' || LPAD(v_numero::text, 6, '0'),
+                          to_char(v_fecha, 'DD-MM-YYYY'), to_char(v_total, 'FM9999999990.00')),
+                   cfg.software_nombre, cfg.software_version, cfg.software_nif, v_ts, 2
+              FROM configuracion_taller cfg
+              JOIN orden_trabajo o ON o.id = v_orden_id
+              JOIN moto m          ON m.id = v_moto
+              JOIN cliente c       ON c.id = v_cliente
+             WHERE cfg.id = 1;
+
+            UPDATE serie_factura SET ultimo_numero = v_numero WHERE id = 10;
+
+            -- ----- Lineas de la factura (copiadas de la orden) -----
+            INSERT INTO linea_factura (factura_id, numero_linea, tipo, descripcion, pieza_sku,
+                                       cantidad, precio_unitario, descuento_pct, tipo_iva, porcentaje_iva)
+            SELECT v_factura_id, l.numero_linea, l.tipo, l.descripcion, pz.sku,
+                   l.cantidad, l.precio_unitario, l.descuento_pct, l.tipo_iva, l.porcentaje_iva
+              FROM linea_ot l
+         LEFT JOIN pieza pz ON pz.id = l.pieza_id
+             WHERE l.orden_trabajo_id = v_orden_id
+             ORDER BY l.numero_linea;
+
+            -- ----- Desglose de IVA -----
+            INSERT INTO desglose_iva_factura (factura_id, tipo_iva, porcentaje_iva, base_imponible, cuota_iva)
+            SELECT v_factura_id, l.tipo_iva, l.porcentaje_iva,
+                   SUM(l.base_imponible), SUM(l.cuota_iva)
+              FROM linea_factura l
+             WHERE l.factura_id = v_factura_id
+             GROUP BY l.tipo_iva, l.porcentaje_iva;
+
+            -- ----- Historial de estados de la orden -----
+            INSERT INTO cambio_estado_ot (orden_trabajo_id, estado_anterior, estado_nuevo, fecha, usuario_id, motivo) VALUES
+             (v_orden_id, NULL,               'RECIBIDA',       v_entrada,                        2, 'Entrada de la moto en el taller'),
+             (v_orden_id, 'RECIBIDA',         'EN_DIAGNOSTICO', v_entrada + INTERVAL '2 hours',   v_tecnico, NULL),
+             (v_orden_id, 'EN_DIAGNOSTICO',   'PRESUPUESTADA',  v_entrada + INTERVAL '3 hours',   v_tecnico, NULL),
+             (v_orden_id, 'PRESUPUESTADA',    'APROBADA',       v_entrada + INTERVAL '6 hours',   2, 'Aprobado por el cliente'),
+             (v_orden_id, 'APROBADA',         'EN_REPARACION',  v_entrada + INTERVAL '1 day',     v_tecnico, NULL),
+             (v_orden_id, 'EN_REPARACION',    'LISTA',          v_ts - INTERVAL '2 hours',        v_tecnico, NULL),
+             (v_orden_id, 'LISTA',            'ENTREGADA',      v_ts,                             2, 'Entregada y cobrada');
+
+            INSERT INTO evento_factura (factura_id, tipo_evento, fecha, usuario_id, descripcion) VALUES
+             (v_factura_id, 'EMISION', v_ts, 2, 'Emisión de la factura A/2025/' || LPAD(v_numero::text, 6, '0'));
+
+            v_huella_previa := v_huella;
+        END LOOP;
+    END LOOP;
+
+    RAISE NOTICE 'Historico 2025 generado: % facturas, ultimo registro %', v_numero, v_registro;
+END
+$$;
+
+
+-- ---------------------------------------------------------------------
 -- Facturas, con cadena de huellas SHA-256 real
 -- ---------------------------------------------------------------------
 -- Las huellas se calculan aqui de verdad, con la misma funcion que usara la
@@ -402,7 +729,11 @@ INSERT INTO serie_factura (id, codigo, ejercicio, descripcion, tipo, ultimo_nume
 DO $$
 DECLARE
     c_nif_emisor CONSTANT VARCHAR(20) := 'B87654323';
-    v_huella_previa VARCHAR(64) := repeat('0', 64);
+    -- Se continua la cadena que dejo el historico, en vez de arrancar otra.
+    v_huella_previa VARCHAR(64) := COALESCE(
+        (SELECT huella FROM factura ORDER BY numero_registro DESC LIMIT 1),
+        repeat('0', 64));
+    v_registro_base BIGINT := (SELECT COALESCE(MAX(numero_registro), 0) FROM factura);
     v_cadena        TEXT;
     v_huella        VARCHAR(64);
     v_qr            TEXT;
@@ -478,7 +809,7 @@ BEGIN
             c.documento, c.direccion, c.codigo_postal, c.ciudad, c.provincia, c.pais,
             m.matricula, m.marca || ' ' || m.modelo, o.codigo,
             r.base, r.cuota, r.total,
-            r.id, v_huella_previa, v_huella, v_cadena, 'SHA-256', v_qr,
+            v_registro_base + r.id, v_huella_previa, v_huella, v_cadena, 'SHA-256', v_qr,
             cfg.software_nombre, cfg.software_version, cfg.software_nif, r.ts_emision, 2
         FROM configuracion_taller cfg
         JOIN orden_trabajo o ON o.id = r.orden_id
@@ -526,11 +857,323 @@ INSERT INTO linea_factura (factura_id, numero_linea, tipo, descripcion, pieza_sk
 -- Se calcula sumando las lineas, nunca recalculando sobre el total: asi el
 -- desglose cuadra al centimo con las lineas y con la cabecera, que es lo que
 -- comprueba el trigger diferido al hacer commit.
+-- Solo las facturas que aun no lo tienen: las del historico ya se desglosaron
+-- dentro de su propio bucle, y volver a insertarlas romperia la unicidad de
+-- (factura, porcentaje).
 INSERT INTO desglose_iva_factura (factura_id, tipo_iva, porcentaje_iva, base_imponible, cuota_iva)
 SELECT lf.factura_id, lf.tipo_iva, lf.porcentaje_iva, SUM(lf.base_imponible), SUM(lf.cuota_iva)
   FROM linea_factura lf
+ WHERE NOT EXISTS (SELECT 1 FROM desglose_iva_factura d WHERE d.factura_id = lf.factura_id)
  GROUP BY lf.factura_id, lf.tipo_iva, lf.porcentaje_iva;
 
+
+
+-- ---------------------------------------------------------------------
+-- Julio y agosto de 2026: el ejercicio en curso hasta hoy
+--
+-- Va DESPUES de las facturas de mayo y junio para que la posicion en el
+-- registro siga el orden de emision. Continua la numeracion de la serie A/2026
+-- donde la dejaron aquellas, en lugar de fijarla a mano.
+-- ---------------------------------------------------------------------
+DO $$
+DECLARE
+    c_nif_emisor CONSTANT VARCHAR(20) := 'B87654323';
+    c_tarifa     CONSTANT NUMERIC     := 45.00;
+
+    -- Trabajos tipo del taller: descripcion, horas y las piezas que llevan.
+    -- Se van rotando mes a mes para que la facturacion no salga plana.
+    c_trabajos CONSTANT TEXT[] := ARRAY[
+        'Revisión programada de mantenimiento',
+        'Sustitución del kit de transmisión',
+        'Cambio de pastillas y purga de frenos',
+        'Sustitución de neumático y equilibrado',
+        'Puesta a punto de carburación',
+        'Cambio de aceite y filtros',
+        'Revisión pre-ITV',
+        'Sustitución de batería y revisión de carga'
+    ];
+
+    v_huella_previa VARCHAR(64);
+    v_registro      BIGINT;
+    v_numero        INTEGER := (SELECT ultimo_numero FROM serie_factura WHERE id = 1);
+    v_factura_id    BIGINT  := 2000;
+    v_orden_id      BIGINT  := 2000;
+    v_linea_id      BIGINT  := 9000;
+
+    v_mes           INTEGER;
+    v_dia           INTEGER;
+    v_factura_mes   INTEGER;
+    v_por_mes       INTEGER;
+    v_fecha         DATE;
+    v_ts            TIMESTAMPTZ;
+    v_entrada       TIMESTAMPTZ;
+
+    v_cliente       BIGINT;
+    v_moto          BIGINT;
+    v_tecnico       BIGINT;
+    v_horas         NUMERIC;
+    v_trabajo       TEXT;
+
+    v_base          NUMERIC(12,2);
+    v_cuota         NUMERIC(12,2);
+    v_total         NUMERIC(12,2);
+    v_linea_base    NUMERIC(12,2);
+    v_linea_cuota   NUMERIC(12,2);
+    v_num_linea     INTEGER;
+
+    v_cadena        TEXT;
+    v_huella        VARCHAR(64);
+    v_semilla       INTEGER;
+
+    p               RECORD;
+    v_piezas        BIGINT[];
+    v_cantidades    NUMERIC[];
+    i               INTEGER;
+BEGIN
+    -- Se arranca donde este el registro: si V900 ya metio facturas, esto
+    -- continua su cadena en vez de abrir otra.
+    SELECT COALESCE(MAX(numero_registro), 0) INTO v_registro FROM factura;
+    SELECT COALESCE((SELECT huella FROM factura ORDER BY numero_registro DESC LIMIT 1),
+                    repeat('0', 64))
+      INTO v_huella_previa;
+
+    FOR v_mes IN 7..8 LOOP
+        -- Entre 3 y 6 facturas al mes, con mas trabajo en primavera y antes de
+        -- vacaciones, que es como funciona un taller de motos.
+        v_por_mes := 3 + ((v_mes * 7) % 4);
+
+        FOR v_factura_mes IN 1..v_por_mes LOOP
+            v_semilla := v_mes * 13 + v_factura_mes * 7;
+            -- El dia crece con el numero de factura del mes: el registro de
+            -- facturacion tiene que seguir el orden de emision, y con un dia al
+            -- azar salian facturas posteriores con fecha anterior.
+            v_dia     := 2 + (v_factura_mes - 1) * 4 + (v_semilla % 3);
+            v_fecha   := make_date(2026, v_mes, v_dia);
+            v_ts      := v_fecha + TIME '17:30:00';
+            v_entrada := (v_fecha - ((v_semilla % 5) + 2)) + TIME '09:15:00';
+
+            -- Solo clientes facturables: sin datos fiscales no se puede emitir
+            -- una factura, y es justo lo que impide el NOT NULL de receptor_nif.
+            -- (El cliente sin documento de la demo esta ahi a proposito, para
+            -- que se vea la advertencia de «faltan datos» en su ficha.)
+            SELECT c.id, m.id INTO v_cliente, v_moto
+              FROM cliente c
+              JOIN moto m ON m.cliente_id = c.id AND m.activo
+             WHERE c.documento IS NOT NULL AND c.activo
+             ORDER BY c.id, m.id
+             OFFSET (v_semilla % (SELECT COUNT(*)
+                                    FROM cliente c2
+                                    JOIN moto m2 ON m2.cliente_id = c2.id AND m2.activo
+                                   WHERE c2.documento IS NOT NULL AND c2.activo))
+             LIMIT 1;
+
+            v_tecnico := CASE WHEN v_semilla % 2 = 0 THEN 3 ELSE 4 END;
+            v_horas   := 1.0 + ((v_semilla % 7) * 0.5);
+            v_trabajo := c_trabajos[1 + (v_semilla % array_length(c_trabajos, 1))];
+
+            -- ----- Orden de trabajo, ya entregada -----
+            v_orden_id := v_orden_id + 1;
+            UPDATE contador_ot SET ultimo_numero = ultimo_numero + 1 WHERE ejercicio = 2026;
+
+            INSERT INTO orden_trabajo (
+                id, ejercicio, numero, moto_id, cliente_id,
+                fecha_entrada, fecha_estimada_salida, fecha_real_salida,
+                km_entrada, problema_reportado, diagnostico, estado,
+                tecnico_id, tarifa_hora, fecha_presupuesto, fecha_aprobacion, aprobado_por,
+                created_by, updated_by)
+            SELECT v_orden_id, 2026,
+                   (SELECT ultimo_numero FROM contador_ot WHERE ejercicio = 2026),
+                   v_moto, v_cliente,
+                   v_entrada, v_fecha, NULL,
+                   m.km_actual - (150 * (9 - v_mes)),
+                   v_trabajo || '.',
+                   'Trabajo realizado y comprobado en banco.',
+                   -- Nace en reparacion: una orden ENTREGADA ya no admite
+                   -- lineas nuevas, y todavia hay que ponerselas. Se entrega
+                   -- mas abajo, igual que haria la aplicacion.
+                   'EN_REPARACION',
+                   v_tecnico, c_tarifa,
+                   v_entrada + INTERVAL '3 hours', v_entrada + INTERVAL '6 hours',
+                   TRIM(c.nombre || ' ' || COALESCE(c.apellidos, '')),
+                   2, 2
+              FROM moto m JOIN cliente c ON c.id = v_cliente
+             WHERE m.id = v_moto;
+
+            -- ----- Piezas del trabajo: entre una y tres -----
+            v_piezas     := ARRAY[]::BIGINT[];
+            v_cantidades := ARRAY[]::NUMERIC[];
+            FOR i IN 0..(v_semilla % 3) LOOP
+                v_piezas     := v_piezas || (1 + ((v_semilla + i * 5) % 18))::BIGINT;
+                v_cantidades := v_cantidades || (1 + ((v_semilla + i) % 3))::NUMERIC;
+            END LOOP;
+
+            -- Se compra ANTES lo que se va a gastar: asi el almacen nunca queda
+            -- en negativo y el stock final es el que dejo V900.
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                INSERT INTO movimiento_stock (
+                    pieza_id, tipo, cantidad, fecha, usuario_id, motivo,
+                    documento_proveedor, precio_coste_unitario)
+                SELECT v_piezas[i], 'ENTRADA', v_cantidades[i],
+                       v_entrada - INTERVAL '2 days', 1,
+                       'Reposición de almacén',
+                       'ALB-2026-' || LPAD((v_mes * 100 + v_factura_mes)::text, 5, '0'),
+                       pz.precio_coste
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+            END LOOP;
+
+            -- ----- Lineas de la orden y consumo de almacen -----
+            v_linea_id := v_linea_id + 1;
+            INSERT INTO linea_ot (id, orden_trabajo_id, numero_linea, tipo, descripcion,
+                                  pieza_id, cantidad, precio_unitario, descuento_pct,
+                                  tipo_iva, porcentaje_iva, created_by)
+            VALUES (v_linea_id, v_orden_id, 1, 'MANO_DE_OBRA', v_trabajo,
+                    NULL, v_horas, c_tarifa, 0, 'GENERAL', 21.00, v_tecnico);
+
+            v_num_linea := 1;
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                v_num_linea := v_num_linea + 1;
+                v_linea_id  := v_linea_id + 1;
+
+                INSERT INTO linea_ot (id, orden_trabajo_id, numero_linea, tipo, descripcion,
+                                      pieza_id, cantidad, precio_unitario, descuento_pct,
+                                      tipo_iva, porcentaje_iva, created_by)
+                SELECT v_linea_id, v_orden_id, v_num_linea, 'PIEZA', pz.descripcion,
+                       pz.id, v_cantidades[i], pz.precio_venta, 0, pz.tipo_iva, t.porcentaje, v_tecnico
+                  FROM pieza pz JOIN tipo_iva t ON t.codigo = pz.tipo_iva
+                 WHERE pz.id = v_piezas[i];
+
+                INSERT INTO movimiento_stock (
+                    pieza_id, tipo, cantidad, fecha, usuario_id,
+                    orden_trabajo_id, linea_ot_id, motivo, precio_coste_unitario)
+                SELECT v_piezas[i], 'SALIDA', -v_cantidades[i],
+                       v_entrada + INTERVAL '1 day', v_tecnico,
+                       v_orden_id, v_linea_id, 'Consumo en orden de trabajo', pz.precio_coste
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+            END LOOP;
+
+            -- Ya tiene todas sus lineas: ahora se puede entregar.
+            UPDATE orden_trabajo
+               SET estado = 'ENTREGADA', fecha_real_salida = v_ts, updated_by = 2
+             WHERE id = v_orden_id;
+
+            -- ----- Totales de la factura -----
+            -- Con la MISMA formula que las columnas generadas de linea_factura:
+            -- primero se redondea la base de cada linea, y sobre esa base
+            -- redondeada se calcula la cuota. Hacerlo de otra forma daria un
+            -- centimo de diferencia y el trigger de totales rechazaria la
+            -- factura al hacer commit.
+            v_base  := 0;
+            v_cuota := 0;
+
+            v_linea_base  := ROUND(v_horas * c_tarifa, 2);
+            v_linea_cuota := ROUND(v_linea_base * 21.00 / 100, 2);
+            v_base  := v_base + v_linea_base;
+            v_cuota := v_cuota + v_linea_cuota;
+
+            FOR i IN 1..array_length(v_piezas, 1) LOOP
+                SELECT ROUND(v_cantidades[i] * pz.precio_venta, 2)
+                  INTO v_linea_base
+                  FROM pieza pz WHERE pz.id = v_piezas[i];
+                SELECT ROUND(v_linea_base * t.porcentaje / 100, 2)
+                  INTO v_linea_cuota
+                  FROM pieza pz JOIN tipo_iva t ON t.codigo = pz.tipo_iva
+                 WHERE pz.id = v_piezas[i];
+
+                v_base  := v_base + v_linea_base;
+                v_cuota := v_cuota + v_linea_cuota;
+            END LOOP;
+
+            v_total := v_base + v_cuota;
+
+            -- ----- Huella encadenada -----
+            v_numero     := v_numero + 1;
+            v_registro   := v_registro + 1;
+            v_factura_id := v_factura_id + 1;
+
+            v_cadena := format(
+                'NIFEmisor=%s&NumSerieFactura=%s&FechaExpedicion=%s&TipoFactura=%s&CuotaTotal=%s&ImporteTotal=%s&Huella=%s&FechaHoraHusoGenRegistro=%s',
+                c_nif_emisor,
+                'A/2026/' || LPAD(v_numero::text, 6, '0'),
+                to_char(v_fecha, 'DD-MM-YYYY'),
+                'ORDINARIA',
+                to_char(v_cuota, 'FM9999999990.00'),
+                to_char(v_total, 'FM9999999990.00'),
+                v_huella_previa,
+                to_char(v_ts AT TIME ZONE 'Europe/Madrid', 'YYYY-MM-DD"T"HH24:MI:SS') ||
+                    to_char(v_ts, 'OF')
+            );
+            v_huella := encode(sha256(convert_to(v_cadena, 'UTF8')), 'hex');
+
+            INSERT INTO factura (
+                id, serie_id, serie_codigo, ejercicio, numero, tipo,
+                orden_trabajo_id, fecha_emision, fecha_operacion, timestamp_emision,
+                emisor_razon_social, emisor_nif, emisor_direccion, emisor_cp, emisor_ciudad,
+                emisor_provincia, emisor_pais,
+                receptor_id, receptor_nombre, receptor_nif, receptor_direccion, receptor_cp,
+                receptor_ciudad, receptor_provincia, receptor_pais,
+                matricula, descripcion_vehiculo, codigo_ot,
+                base_imponible, total_iva, total,
+                numero_registro, huella_anterior, huella, cadena_huella, algoritmo_huella,
+                qr_contenido, software_nombre, software_version, software_nif, created_at, created_by)
+            SELECT v_factura_id, 1, 'A', 2026, v_numero, 'ORDINARIA',
+                   v_orden_id, v_fecha, v_fecha, v_ts,
+                   cfg.razon_social, cfg.nif, cfg.direccion, cfg.codigo_postal, cfg.ciudad,
+                   cfg.provincia, cfg.pais,
+                   c.id, TRIM(c.nombre || ' ' || COALESCE(c.apellidos, '')),
+                   c.documento, c.direccion, c.codigo_postal, c.ciudad, c.provincia, c.pais,
+                   m.matricula, m.marca || ' ' || m.modelo, o.codigo,
+                   v_base, v_cuota, v_total,
+                   v_registro, v_huella_previa, v_huella, v_cadena, 'SHA-256',
+                   format('https://verifactu.motorsport19.example/verifica?nif=%s&numserie=%s&fecha=%s&importe=%s',
+                          c_nif_emisor, 'A/2026/' || LPAD(v_numero::text, 6, '0'),
+                          to_char(v_fecha, 'DD-MM-YYYY'), to_char(v_total, 'FM9999999990.00')),
+                   cfg.software_nombre, cfg.software_version, cfg.software_nif, v_ts, 2
+              FROM configuracion_taller cfg
+              JOIN orden_trabajo o ON o.id = v_orden_id
+              JOIN moto m          ON m.id = v_moto
+              JOIN cliente c       ON c.id = v_cliente
+             WHERE cfg.id = 1;
+
+            UPDATE serie_factura SET ultimo_numero = v_numero WHERE id = 1;
+
+            -- ----- Lineas de la factura (copiadas de la orden) -----
+            INSERT INTO linea_factura (factura_id, numero_linea, tipo, descripcion, pieza_sku,
+                                       cantidad, precio_unitario, descuento_pct, tipo_iva, porcentaje_iva)
+            SELECT v_factura_id, l.numero_linea, l.tipo, l.descripcion, pz.sku,
+                   l.cantidad, l.precio_unitario, l.descuento_pct, l.tipo_iva, l.porcentaje_iva
+              FROM linea_ot l
+         LEFT JOIN pieza pz ON pz.id = l.pieza_id
+             WHERE l.orden_trabajo_id = v_orden_id
+             ORDER BY l.numero_linea;
+
+            -- ----- Desglose de IVA -----
+            INSERT INTO desglose_iva_factura (factura_id, tipo_iva, porcentaje_iva, base_imponible, cuota_iva)
+            SELECT v_factura_id, l.tipo_iva, l.porcentaje_iva,
+                   SUM(l.base_imponible), SUM(l.cuota_iva)
+              FROM linea_factura l
+             WHERE l.factura_id = v_factura_id
+             GROUP BY l.tipo_iva, l.porcentaje_iva;
+
+            -- ----- Historial de estados de la orden -----
+            INSERT INTO cambio_estado_ot (orden_trabajo_id, estado_anterior, estado_nuevo, fecha, usuario_id, motivo) VALUES
+             (v_orden_id, NULL,               'RECIBIDA',       v_entrada,                        2, 'Entrada de la moto en el taller'),
+             (v_orden_id, 'RECIBIDA',         'EN_DIAGNOSTICO', v_entrada + INTERVAL '2 hours',   v_tecnico, NULL),
+             (v_orden_id, 'EN_DIAGNOSTICO',   'PRESUPUESTADA',  v_entrada + INTERVAL '3 hours',   v_tecnico, NULL),
+             (v_orden_id, 'PRESUPUESTADA',    'APROBADA',       v_entrada + INTERVAL '6 hours',   2, 'Aprobado por el cliente'),
+             (v_orden_id, 'APROBADA',         'EN_REPARACION',  v_entrada + INTERVAL '1 day',     v_tecnico, NULL),
+             (v_orden_id, 'EN_REPARACION',    'LISTA',          v_ts - INTERVAL '2 hours',        v_tecnico, NULL),
+             (v_orden_id, 'LISTA',            'ENTREGADA',      v_ts,                             2, 'Entregada y cobrada');
+
+            INSERT INTO evento_factura (factura_id, tipo_evento, fecha, usuario_id, descripcion) VALUES
+             (v_factura_id, 'EMISION', v_ts, 2, 'Emisión de la factura A/2026/' || LPAD(v_numero::text, 6, '0'));
+
+            v_huella_previa := v_huella;
+        END LOOP;
+    END LOOP;
+
+    RAISE NOTICE 'Verano 2026 generado: hasta la factura %, registro %', v_numero, v_registro;
+END
+$$;
 
 -- ---------------------------------------------------------------------
 -- Registro de eventos de facturacion
