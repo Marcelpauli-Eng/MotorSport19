@@ -1,0 +1,48 @@
+<div class="entrada">
+  <form class="entrada__caja" (ngSubmit)="entrar()">
+    <div class="entrada__marca">
+      <span class="entrada__logo" aria-hidden="true">🏍</span>
+      <div>
+        <h1>MotorSport19</h1>
+        <p class="pequeno">Gestión del taller</p>
+      </div>
+    </div>
+
+    @if (error(); as mensaje) {
+      <p class="entrada__error" role="alert">{{ mensaje }}</p>
+    }
+
+    <div class="campo">
+      <label for="username">Usuario</label>
+      <input
+        id="username"
+        name="username"
+        type="text"
+        autocomplete="username"
+        autocapitalize="none"
+        spellcheck="false"
+        [ngModel]="username()"
+        (ngModelChange)="username.set($event)"
+        [disabled]="enviando()"
+        autofocus
+      />
+    </div>
+
+    <div class="campo">
+      <label for="password">Contraseña</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        [ngModel]="password()"
+        (ngModelChange)="password.set($event)"
+        [disabled]="enviando()"
+      />
+    </div>
+
+    <button type="submit" class="boton boton--principal entrada__enviar" [disabled]="enviando()">
+      {{ enviando() ? 'Entrando…' : 'Entrar' }}
+    </button>
+  </form>
+</div>

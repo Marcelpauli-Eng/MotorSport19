@@ -28,15 +28,19 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
      * Busqueda de mostrador: el mismo cuadro de texto sirve para nombre,
      * apellidos, documento, telefono o email.
      */
+    // Los :texto van con CAST explicito. Sin el, cuando la busqueda llega vacia
+    // PostgreSQL recibe un parametro sin tipo y falla con
+    // «function upper(bytea) does not exist»: el listado sin filtro, que es la
+    // vista por defecto, respondia 500.
     @Query("""
             SELECT c FROM Cliente c
              WHERE (:soloActivos = FALSE OR c.activo = TRUE)
-               AND (:texto IS NULL
-                    OR UPPER(c.nombre)    LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(c.apellidos) LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(c.documento) LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR c.telefono         LIKE CONCAT('%', :texto, '%')
-                    OR UPPER(c.email)     LIKE UPPER(CONCAT('%', :texto, '%')))
+               AND (CAST(:texto AS String) IS NULL
+                    OR UPPER(c.nombre)    LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(c.apellidos) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(c.documento) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR c.telefono         LIKE CONCAT('%', CAST(:texto AS String), '%')
+                    OR UPPER(c.email)     LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
             """)
     Page<Cliente> buscar(@Param("texto") String texto,
                          @Param("soloActivos") boolean soloActivos,

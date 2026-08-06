@@ -99,7 +99,8 @@
       }
     </section>
 
-    <!-- Ultimas facturas -->
+    <!-- Ultimas facturas: solo para quien puede facturar -->
+    @if (veFacturacion) {
     <section class="tarjeta">
       <div class="tarjeta__titulo">
         <h2>Últimas facturas</h2>
@@ -126,5 +127,6 @@
         </div>
       }
     </section>
+    }
   </div>
 </div>

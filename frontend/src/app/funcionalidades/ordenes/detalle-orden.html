@@ -22,7 +22,16 @@
         <h2>¿Qué hacemos con esta orden?</h2>
       </div>
 
-      @if (!acciones().length) {
+      @if (!puedeTrabajarla()) {
+        <p class="pequeno silenciado">
+          Esta orden la lleva {{ o.tecnicoNombre }}. Puede consultarla, pero no trabajarla.
+        </p>
+      } @else if (esperaAMostrador()) {
+        <p class="pequeno silenciado">
+          Esta orden está {{ o.estadoDescripcion | lowercase }}. El siguiente paso lo da el
+          mostrador.
+        </p>
+      } @else if (!acciones().length) {
         <p class="pequeno silenciado">
           Esta orden está {{ o.estadoDescripcion | lowercase }} y ya no admite más cambios de estado.
         </p>
@@ -43,7 +52,7 @@
         </div>
       }
 
-      @if (o.facturable) {
+      @if (o.facturable && puedeFacturar) {
         <div class="fila facturar">
           <button
             type="button"

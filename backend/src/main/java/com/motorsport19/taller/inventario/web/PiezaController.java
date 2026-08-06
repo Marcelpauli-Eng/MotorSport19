@@ -7,6 +7,7 @@ import com.motorsport19.taller.inventario.web.dto.ActualizarPiezaRequest;
 import com.motorsport19.taller.inventario.web.dto.ActualizarPreciosRequest;
 import com.motorsport19.taller.inventario.web.dto.CrearPiezaRequest;
 import com.motorsport19.taller.inventario.web.dto.PiezaResponse;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,9 +29,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class PiezaController {
 
     private final PiezaService piezaService;
+    private final UsuarioActual usuarioActual;
 
-    public PiezaController(PiezaService piezaService) {
+    public PiezaController(PiezaService piezaService, UsuarioActual usuarioActual) {
         this.piezaService = piezaService;
+        this.usuarioActual = usuarioActual;
     }
 
     @GetMapping
@@ -58,13 +61,12 @@ public class PiezaController {
 
     @PostMapping
     public ResponseEntity<PiezaResponse> crear(@Valid @RequestBody CrearPiezaRequest peticion,
-                                               @RequestParam(required = false) Long usuarioId,
                                                UriComponentsBuilder uriBuilder) {
         Pieza pieza = piezaService.crear(
                 peticion.sku(), peticion.descripcion(), peticion.marca(), peticion.ubicacion(),
                 peticion.stockMinimo(), peticion.precioCoste(), peticion.precioVenta(), peticion.tipoIva(),
                 peticion.proveedorId(), peticion.unidadMedida(), peticion.observaciones(),
-                peticion.stockInicial(), usuarioId);
+                peticion.stockInicial(), usuarioActual.id());
 
         return ResponseEntity
                 .created(uriBuilder.path("/piezas/{id}").build(pieza.getId()))

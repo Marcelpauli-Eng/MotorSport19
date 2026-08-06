@@ -1,0 +1,18 @@
+# Perfil `dev`: clave de firma fija para no tener que definirla en cada arranque.
+#
+# NO USAR FUERA DE DESARROLLO. Esta clave esta en el repositorio, asi que
+# cualquiera que lo lea puede fabricarse un token de administrador.
+motorsport19:
+  seguridad:
+    clave-jwt: clave-solo-para-desarrollo-no-usar-en-produccion-1234567890
+
+    # En local el navegador carga la aplicacion desde el puerto 4200 y el proxy
+    # de Angular reenvia /api al 8080 conservando la cabecera Origin. Sin este
+    # permiso Spring Security responde 403 a todo lo que venga del navegador,
+    # aunque las credenciales sean correctas.
+    #
+    # En produccion no hace falta: tanto Vercel como el nginx del taller
+    # reenvian /api desde el servidor, de modo que la peticion llega sin Origin
+    # y la lista puede seguir vacia. Si algun dia el navegador llamase a la API
+    # en otro dominio, ese dominio iria en MOTORSPORT19_SEGURIDAD_ORIGENES_CORS.
+    origenes-cors: http://localhost:4200,http://127.0.0.1:4200

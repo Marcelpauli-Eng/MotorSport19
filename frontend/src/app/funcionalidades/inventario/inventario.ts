@@ -5,6 +5,7 @@ import { Cargando } from '../../compartido/cargando';
 import { AlertaStock, MovimientoStock, Pieza } from '../../nucleo/modelos/taller';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 
 type Pestana = 'catalogo' | 'alertas' | 'movimientos';
 
@@ -23,6 +24,10 @@ type Pestana = 'catalogo' | 'alertas' | 'movimientos';
 export class Inventario {
   private readonly servicio = inject(InventarioService);
   private readonly notificaciones = inject(NotificacionesService);
+  private readonly sesion = inject(SesionService);
+
+  /** Entradas y ajustes de almacen los reserva la API para direccion. */
+  protected readonly gestionaAlmacen = this.sesion.puede('ADMIN');
 
   protected readonly pestana = signal<Pestana>('catalogo');
   protected readonly cargando = signal(true);

@@ -1,4 +1,7 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 export type Rol = 'ADMIN' | 'MOSTRADOR' | 'TECNICO';
 
@@ -9,52 +12,96 @@ export interface UsuarioSesion {
   rol: Rol;
 }
 
+/** Lo que devuelve POST /auth/login. */
+export interface RespuestaLogin {
+  token: string;
+  tipo: string;
+  duracionSegundos: number;
+  usuario: UsuarioSesion;
+}
+
 const CLAVE_TOKEN = 'motorsport19.token';
+const CLAVE_USUARIO = 'motorsport19.usuario';
 
 /**
  * Estado de la sesión del usuario.
  *
- * La autenticación real llega en la fase 5. De momento este servicio expone la
- * misma interfaz que tendrá entonces, para que las pantallas se escriban una
- * sola vez: cuando exista el login, solo cambia de dónde sale el usuario.
+ * El token y el usuario se guardan en `localStorage` para que al recargar la
+ * página no haya que volver a entrar. Es una decisión consciente: el sitio de
+ * trabajo es el mostrador del taller y ese PC no lo tocan los clientes. Si algún
+ * día se usara desde un equipo compartido habría que pasar a `sessionStorage`,
+ * que se vacía al cerrar la pestaña.
  *
- * Mientras tanto devuelve un usuario de trabajo con rol ADMIN, de forma que la
- * interfaz se pueda usar entera. Es deliberado y provisional: la API tampoco
- * exige credenciales todavía.
+ * Quien manda de verdad es el backend. Lo que se guarda aquí es lo que el
+ * servidor ya ha validado, y el rol solo sirve para no enseñar botones que van a
+ * responder 403. Nunca es una autorización: esa vive en la API.
  */
 @Injectable({ providedIn: 'root' })
 export class SesionService {
-  private readonly _token = signal<string | null>(localStorage.getItem(CLAVE_TOKEN));
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.urlApi}/auth`;
 
-  private readonly _usuario = signal<UsuarioSesion | null>({
-    id: 1,
-    username: 'admin',
-    nombreCompleto: 'Dirección del taller',
-    rol: 'ADMIN',
-  });
+  private readonly _token = signal<string | null>(localStorage.getItem(CLAVE_TOKEN));
+  private readonly _usuario = signal<UsuarioSesion | null>(usuarioGuardado());
 
   readonly token = this._token.asReadonly();
   readonly usuario = this._usuario.asReadonly();
-  readonly autenticado = computed(() => this._usuario() !== null);
+  readonly autenticado = computed(() => this._token() !== null && this._usuario() !== null);
   readonly rol = computed(() => this._usuario()?.rol ?? null);
 
-  /** Identificador que se envía a la API para firmar las operaciones. */
-  readonly usuarioId = computed(() => this._usuario()?.id ?? null);
-
+  /** ¿El usuario tiene alguno de estos roles? Se usa para ocultar acciones. */
   puede(...roles: Rol[]): boolean {
     const rol = this.rol();
     return rol !== null && roles.includes(rol);
   }
 
-  iniciarSesion(token: string, usuario: UsuarioSesion): void {
+  entrar(username: string, password: string): Observable<RespuestaLogin> {
+    return this.http
+      .post<RespuestaLogin>(`${this.base}/login`, { username, password })
+      .pipe(tap((respuesta) => this.guardar(respuesta.token, respuesta.usuario)));
+  }
+
+  /**
+   * Confirma contra el servidor que el token guardado sigue valiendo.
+   *
+   * Se llama al arrancar. Sin esto, un token caducado dejaría la interfaz
+   * montada y el usuario solo se enteraría al pulsar algo y ver un error.
+   */
+  revalidar(): Observable<UsuarioSesion> {
+    return this.http
+      .get<UsuarioSesion>(`${this.base}/yo`)
+      .pipe(tap((usuario) => this.guardar(this._token()!, usuario)));
+  }
+
+  cambiarPassword(passwordActual: string, passwordNueva: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/password`, { passwordActual, passwordNueva });
+  }
+
+  salir(): void {
+    localStorage.removeItem(CLAVE_TOKEN);
+    localStorage.removeItem(CLAVE_USUARIO);
+    this._token.set(null);
+    this._usuario.set(null);
+  }
+
+  private guardar(token: string, usuario: UsuarioSesion): void {
     localStorage.setItem(CLAVE_TOKEN, token);
+    localStorage.setItem(CLAVE_USUARIO, JSON.stringify(usuario));
     this._token.set(token);
     this._usuario.set(usuario);
   }
+}
 
-  cerrarSesion(): void {
-    localStorage.removeItem(CLAVE_TOKEN);
-    this._token.set(null);
-    this._usuario.set(null);
+/** Recupera el usuario guardado, tolerando que el dato esté corrupto. */
+function usuarioGuardado(): UsuarioSesion | null {
+  const crudo = localStorage.getItem(CLAVE_USUARIO);
+  if (!crudo) {
+    return null;
+  }
+  try {
+    return JSON.parse(crudo) as UsuarioSesion;
+  } catch {
+    localStorage.removeItem(CLAVE_USUARIO);
+    return null;
   }
 }

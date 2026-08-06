@@ -1,0 +1,24 @@
+# Plantilla de configuración de rclone para las copias.
+#
+# NO edites este fichero a mano: genera el de verdad en el mini-PC con
+#
+#     docker run --rm -it -v ./infra/respaldo:/config/rclone rclone/rclone config
+#
+# y guárdalo como infra/respaldo/rclone.conf (ese sí está en .gitignore).
+#
+# Ejemplo del resultado con Backblaze B2:
+#
+# [copias]
+# type = b2
+# account = 001abc...
+# key = K001xyz...
+#
+# Ejemplo con Supabase Storage (compatible con S3):
+#
+# [copias]
+# type = s3
+# provider = Other
+# access_key_id = ...
+# secret_access_key = ...
+# endpoint = https://TUPROYECTO.supabase.co/storage/v1/s3
+# region = eu-central-1

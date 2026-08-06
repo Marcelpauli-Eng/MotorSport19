@@ -138,13 +138,9 @@
                 </td>
                 <td class="pequeno">{{ f.codigoOt || '—' }}</td>
                 <td>
-                  <a
-                    class="boton boton--pequeno"
-                    [href]="'/api/facturas/' + f.id + '/pdf'"
-                    target="_blank"
-                    rel="noopener"
-                    >PDF</a
-                  >
+                  <button type="button" class="boton boton--pequeno" (click)="verPdf(f.id)">
+                    PDF
+                  </button>
                 </td>
               </tr>
             }

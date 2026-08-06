@@ -48,26 +48,30 @@ public interface PiezaRepository extends JpaRepository<Pieza, Long> {
 
     // El proveedor se trae con LEFT JOIN FETCH porque la respuesta muestra su
     // nombre y la sesion ya esta cerrada al serializar (open-in-view desactivado).
+    // Los :texto van con CAST explicito. Sin el, cuando la busqueda llega vacia
+    // PostgreSQL recibe un parametro sin tipo y falla con
+    // «function upper(bytea) does not exist»: el listado sin filtro, que es la
+    // vista por defecto, respondia 500.
     @Query(value = """
             SELECT p FROM Pieza p
               LEFT JOIN FETCH p.proveedor
              WHERE (:soloActivas = FALSE OR p.activo = TRUE)
                AND (:soloBajoMinimo = FALSE OR p.stockActual <= p.stockMinimo)
                AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId)
-               AND (:texto IS NULL
-                    OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(p.marca)       LIKE UPPER(CONCAT('%', :texto, '%')))
+               AND (CAST(:texto AS String) IS NULL
+                    OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(p.marca)       LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
             """,
             countQuery = """
             SELECT COUNT(p) FROM Pieza p
              WHERE (:soloActivas = FALSE OR p.activo = TRUE)
                AND (:soloBajoMinimo = FALSE OR p.stockActual <= p.stockMinimo)
                AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId)
-               AND (:texto IS NULL
-                    OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(p.marca)       LIKE UPPER(CONCAT('%', :texto, '%')))
+               AND (CAST(:texto AS String) IS NULL
+                    OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(p.marca)       LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
             """)
     Page<Pieza> buscar(@Param("texto") String texto,
                        @Param("proveedorId") Long proveedorId,

@@ -32,3 +32,8 @@ Thumbs.db
 backend/facturas-pdf/
 backend/exportaciones/
 *.log
+
+# ---------- Configuración del servidor del taller ----------
+# La config real de rclone lleva credenciales del destino de copias.
+infra/respaldo/rclone.conf
+!infra/respaldo/rclone.conf.example

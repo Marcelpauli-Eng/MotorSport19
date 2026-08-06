@@ -19,9 +19,7 @@
           {{ f.numeroRegistro }} del registro
         </p>
       </div>
-      <a class="boton boton--principal" [href]="urlPdf()" target="_blank" rel="noopener">
-        📄 Ver PDF
-      </a>
+      <button type="button" class="boton boton--principal" (click)="verPdf()">📄 Ver PDF</button>
     </div>
 
     <!-- El sello: lo que demuestra que la factura no se ha tocado -->

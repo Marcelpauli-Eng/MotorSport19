@@ -4,12 +4,10 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Pagina } from '../modelos/comunes';
 import { AlertaStock, MovimientoStock, Pieza, Proveedor } from '../modelos/taller';
-import { SesionService } from './sesion.service';
 
 @Injectable({ providedIn: 'root' })
 export class InventarioService {
   private readonly http = inject(HttpClient);
-  private readonly sesion = inject(SesionService);
   private readonly basePiezas = `${environment.urlApi}/piezas`;
   private readonly baseInventario = `${environment.urlApi}/inventario`;
 
@@ -32,7 +30,7 @@ export class InventarioService {
   }
 
   crearPieza(datos: Partial<Pieza> & { stockInicial?: number }): Observable<Pieza> {
-    return this.http.post<Pieza>(this.basePiezas, datos, { params: this.conUsuario() });
+    return this.http.post<Pieza>(this.basePiezas, datos);
   }
 
   /** Piezas que han caído al mínimo o por debajo. */
@@ -60,7 +58,6 @@ export class InventarioService {
     return this.http.post<MovimientoStock>(
       `${this.baseInventario}/piezas/${piezaId}/entradas`,
       datos,
-      { params: this.conUsuario() },
     );
   }
 
@@ -71,7 +68,6 @@ export class InventarioService {
     return this.http.post<MovimientoStock>(
       `${this.baseInventario}/piezas/${piezaId}/salidas`,
       datos,
-      { params: this.conUsuario() },
     );
   }
 
@@ -83,7 +79,6 @@ export class InventarioService {
     return this.http.post<MovimientoStock>(
       `${this.baseInventario}/piezas/${piezaId}/ajustes`,
       datos,
-      { params: this.conUsuario() },
     );
   }
 
@@ -91,10 +86,5 @@ export class InventarioService {
     let params = new HttpParams().set('size', 100);
     if (texto.trim()) params = params.set('texto', texto.trim());
     return this.http.get<Pagina<Proveedor>>(`${environment.urlApi}/proveedores`, { params });
-  }
-
-  private conUsuario(): HttpParams {
-    const usuarioId = this.sesion.usuarioId();
-    return usuarioId ? new HttpParams().set('usuarioId', usuarioId) : new HttpParams();
   }
 }

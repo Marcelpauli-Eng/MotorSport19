@@ -7,11 +7,12 @@ taller de motocicletas en España.
 > datos de demostración, backend de clientes, motos e inventario, órdenes de
 > trabajo con máquina de estados y consumo de almacén, y facturación con cadena
 > de huellas, PDF con QR y exportación, y el frontend Angular completo.
-> 197 tests en verde. Guía de despliegue en [DESPLIEGUE.md](DESPLIEGUE.md).
+> 232 tests en verde.
 >
-> **Todavía no hay autenticación** (fase 5): la API está abierta y no debe
-> exponerse en internet tal cual. Facturación, seguridad y frontend llegan en las
-> fases siguientes; el README definitivo de despliegue se escribe en la fase 7.
+> La API exige identificarse para todo salvo `/actuator/health`, con tokens JWT
+> y tres perfiles (ADMIN, MOSTRADOR, TECNICO). Antes de publicarla hay que
+> definir `MOTORSPORT19_SEGURIDAD_CLAVE_JWT`: sin ella la aplicación no arranca.
+> Ver las guías de despliegue más abajo.
 
 ---
 
@@ -24,6 +25,20 @@ taller de motocicletas en España.
 | Frontend    | Angular 21 (standalone components + signals), SCSS      |
 | Build       | Maven (wrapper incluido) y npm                          |
 | Contenedores| docker-compose: `db`, `api`, `web`                      |
+
+---
+
+## Cómo se despliega
+
+Dos montajes del mismo código, para dos cosas distintas:
+
+| Montaje | Para qué | Guía |
+|---|---|---|
+| **Taller (híbrido)** ⭐ | El destino real: servidor en el local del cliente, copia nocturna cifrada a la nube | [INSTALACION-TALLER.md](INSTALACION-TALLER.md) |
+| **Nube** | Entorno de pruebas y demo: Vercel + Render + Supabase | [DESPLIEGUE.md](DESPLIEGUE.md) |
+
+Para probarlo en tu propio equipo con Docker, la parte A de
+[INSTALACION-TALLER.md](INSTALACION-TALLER.md).
 
 ---
 
@@ -117,16 +132,22 @@ MotorSport19/
 │       │   └── factura/         facturación y cadena de huellas
 │       └── resources/
 │           ├── application.yml
-│           ├── db/migration/    esquema (V1..V7)
+│           ├── db/migration/    esquema (V1..V8)
 │           └── db/demo/         datos de demostración (perfil `demo`)
-└── frontend/
-    ├── Dockerfile
-    ├── nginx.conf
-    └── src/
+├── frontend/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   ├── vercel.json           despliegue en Vercel
+│   └── src/app/
+│       ├── nucleo/           modelos, servicios de API, interceptores
+│       ├── compartido/       componentes y pipes comunes
+│       └── funcionalidades/  panel, órdenes, facturas, clientes, motos, inventario
+└── infra/
+    └── respaldo/             copia cifrada del servidor del taller
 ```
 
-Cada módulo del backend se organiza por dominio, no por capa técnica: la fase 2 y
-siguientes añaden `repository/`, `service/`, `web/` y `dto/` dentro de cada uno.
+Cada módulo del backend se organiza por dominio, no por capa técnica: dentro de
+cada uno están su `domain/`, `repository/`, `service/` y `web/`.
 
 ---
 
@@ -194,8 +215,12 @@ Se cargan con el perfil `demo` y cubren a propósito los casos interesantes:
 | `jortega`   | `tecnico1234`   | TECNICO   |
 | `nsanz`     | `tecnico1234`   | TECNICO   |
 
-Las contraseñas están guardadas con BCrypt y se activarán con la fase 5. **No usar
-el perfil `demo` en producción.**
+Las contraseñas están guardadas con BCrypt. Estas cuatro son **públicas**, así que
+**no uses el perfil `demo` en producción**; y si lo usas para arrancar rápido,
+cámbialas desde *Mi cuenta* antes de meter datos reales.
+
+Sin el perfil `demo`, el primer arranque sobre una base vacía crea un `admin` con
+contraseña aleatoria y la escribe en el log de arranque (busca `PRIMER ARRANQUE`).
 
 ---
 

@@ -16,6 +16,7 @@ import com.motorsport19.taller.factura.web.dto.FacturaResumenResponse;
 import com.motorsport19.taller.factura.web.dto.LineaRectificativaRequest;
 import com.motorsport19.taller.factura.web.dto.RectificarFacturaRequest;
 import com.motorsport19.taller.factura.web.dto.SerieFacturaResponse;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
@@ -53,15 +54,18 @@ public class FacturaController {
     private final GeneradorPdfFactura generadorPdf;
     private final ExportacionFacturacionService exportacionService;
     private final RegistroEventosService registroEventos;
+    private final UsuarioActual usuarioActual;
 
     public FacturaController(FacturacionService facturacionService,
                              GeneradorPdfFactura generadorPdf,
                              ExportacionFacturacionService exportacionService,
-                             RegistroEventosService registroEventos) {
+                             RegistroEventosService registroEventos,
+                             UsuarioActual usuarioActual) {
         this.facturacionService = facturacionService;
         this.generadorPdf = generadorPdf;
         this.exportacionService = exportacionService;
         this.registroEventos = registroEventos;
+        this.usuarioActual = usuarioActual;
     }
 
     // ------------------------------------------------------------------
@@ -109,10 +113,9 @@ public class FacturaController {
 
     @PostMapping
     public ResponseEntity<FacturaResponse> emitir(@Valid @RequestBody EmitirFacturaRequest peticion,
-                                                  @RequestParam(required = false) Long usuarioId,
                                                   UriComponentsBuilder uriBuilder) {
         Factura factura = facturacionService.emitirDesdeOrden(
-                peticion.ordenTrabajoId(), peticion.serieId(), peticion.fechaEmision(), usuarioId);
+                peticion.ordenTrabajoId(), peticion.serieId(), peticion.fechaEmision(), usuarioActual.id());
 
         return ResponseEntity
                 .created(uriBuilder.path("/facturas/{id}").build(factura.getId()))
@@ -123,7 +126,6 @@ public class FacturaController {
     @PostMapping("/{id}/rectificativas")
     public ResponseEntity<FacturaResponse> rectificar(@PathVariable Long id,
                                                       @Valid @RequestBody RectificarFacturaRequest peticion,
-                                                      @RequestParam(required = false) Long usuarioId,
                                                       UriComponentsBuilder uriBuilder) {
         List<LineaAFacturar> lineas = peticion.lineas() == null
                 ? List.of()
@@ -131,7 +133,7 @@ public class FacturaController {
 
         Factura rectificativa = facturacionService.emitirRectificativa(
                 id, peticion.serieId(), peticion.tipoRectificativa(), peticion.motivo(), lineas,
-                peticion.fechaEmision(), usuarioId);
+                peticion.fechaEmision(), usuarioActual.id());
 
         return ResponseEntity
                 .created(uriBuilder.path("/facturas/{id}").build(rectificativa.getId()))
@@ -150,12 +152,11 @@ public class FacturaController {
      * resultado porque todos sus datos estan congelados.
      */
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<Resource> pdf(@PathVariable Long id,
-                                        @RequestParam(required = false) Long usuarioId) {
+    public ResponseEntity<Resource> pdf(@PathVariable Long id) {
         Factura factura = facturacionService.obtener(id);
         byte[] pdf = generadorPdf.generar(factura, factura.getLineas(), factura.getDesgloseIva());
 
-        registroEventos.anotar(factura, TipoEventoFactura.GENERACION_PDF, usuarioId,
+        registroEventos.anotar(factura, TipoEventoFactura.GENERACION_PDF, usuarioActual.id(),
                 "Generacion del PDF de la factura " + factura.getNumeroCompleto(), null, null);
 
         String nombre = "factura-%s.pdf".formatted(factura.getNumeroCompleto().replace('/', '-'));
@@ -176,27 +177,25 @@ public class FacturaController {
      * eliminado desde que se emitio.
      */
     @PostMapping("/verificacion")
-    public InformeVerificacion verificarCadena(@RequestParam(required = false) Long usuarioId) {
-        return facturacionService.verificarCadena(usuarioId);
+    public InformeVerificacion verificarCadena() {
+        return facturacionService.verificarCadena(usuarioActual.id());
     }
 
     @GetMapping(value = "/exportacion/csv", produces = "text/csv")
     public ResponseEntity<Resource> exportarCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-            @RequestParam(required = false) Long usuarioId) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
 
-        byte[] csv = exportacionService.exportarCsv(desde, hasta, usuarioId);
+        byte[] csv = exportacionService.exportarCsv(desde, hasta, usuarioActual.id());
         return descarga(csv, "libro-facturas.csv", "text/csv; charset=UTF-8");
     }
 
     @GetMapping(value = "/exportacion/json", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Resource> exportarJson(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-            @RequestParam(required = false) Long usuarioId) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
 
-        byte[] json = exportacionService.exportarJson(desde, hasta, usuarioId);
+        byte[] json = exportacionService.exportarJson(desde, hasta, usuarioActual.id());
         return descarga(json, "libro-facturas.json", MediaType.APPLICATION_JSON_VALUE);
     }
 

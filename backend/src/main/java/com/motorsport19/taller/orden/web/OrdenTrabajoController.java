@@ -17,6 +17,7 @@ import com.motorsport19.taller.orden.web.dto.OrdenTrabajoResponse;
 import com.motorsport19.taller.orden.web.dto.OrdenTrabajoResumenResponse;
 import com.motorsport19.taller.orden.web.dto.PiezaLineaRequest;
 import com.motorsport19.taller.orden.web.dto.ResultadoConsumoResponse;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,9 +52,11 @@ import java.util.List;
 public class OrdenTrabajoController {
 
     private final OrdenTrabajoService ordenService;
+    private final UsuarioActual usuarioActual;
 
-    public OrdenTrabajoController(OrdenTrabajoService ordenService) {
+    public OrdenTrabajoController(OrdenTrabajoService ordenService, UsuarioActual usuarioActual) {
         this.ordenService = ordenService;
+        this.usuarioActual = usuarioActual;
     }
 
     // ------------------------------------------------------------------
@@ -100,11 +103,10 @@ public class OrdenTrabajoController {
 
     @PostMapping
     public ResponseEntity<OrdenTrabajoResponse> abrir(@Valid @RequestBody AbrirOrdenRequest peticion,
-                                                      @RequestParam(required = false) Long usuarioId,
                                                       UriComponentsBuilder uriBuilder) {
         OrdenTrabajo orden = ordenService.abrir(
                 peticion.motoId(), peticion.problemaReportado(), peticion.kmEntrada(),
-                peticion.fechaEstimadaSalida(), peticion.tecnicoId(), peticion.observaciones(), usuarioId);
+                peticion.fechaEstimadaSalida(), peticion.tecnicoId(), peticion.observaciones(), usuarioActual.id());
 
         return ResponseEntity
                 .created(uriBuilder.path("/ordenes/{id}").build(orden.getId()))
@@ -153,9 +155,8 @@ public class OrdenTrabajoController {
     /** Devuelve al almacen piezas que la linea ya habia consumido. */
     @PostMapping("/{id}/lineas/{lineaId}/devoluciones")
     public LineaOTResponse devolverPieza(@PathVariable Long id, @PathVariable Long lineaId,
-                                         @Valid @RequestBody DevolucionLineaRequest peticion,
-                                         @RequestParam(required = false) Long usuarioId) {
-        ordenService.devolverPiezaDeLinea(id, lineaId, peticion.cantidad(), peticion.motivo(), usuarioId);
+                                         @Valid @RequestBody DevolucionLineaRequest peticion) {
+        ordenService.devolverPiezaDeLinea(id, lineaId, peticion.cantidad(), peticion.motivo(), usuarioActual.id());
         return ordenService.lineasDe(id).stream()
                 .filter(l -> l.getId().equals(lineaId))
                 .findFirst()
@@ -169,30 +170,26 @@ public class OrdenTrabajoController {
 
     @PostMapping("/{id}/diagnostico")
     public OrdenTrabajoResponse iniciarDiagnostico(@PathVariable Long id,
-                                                   @RequestParam(required = false) Long tecnicoId,
-                                                   @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.iniciarDiagnostico(id, tecnicoId, usuarioId));
+                                                   @RequestParam(required = false) Long tecnicoId) {
+        return detalle(ordenService.iniciarDiagnostico(id, tecnicoId, usuarioActual.id()));
     }
 
     @PostMapping("/{id}/presupuesto")
-    public OrdenTrabajoResponse presupuestar(@PathVariable Long id,
-                                             @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.presupuestar(id, usuarioId));
+    public OrdenTrabajoResponse presupuestar(@PathVariable Long id) {
+        return detalle(ordenService.presupuestar(id, usuarioActual.id()));
     }
 
     @PostMapping("/{id}/aprobacion")
     public OrdenTrabajoResponse aprobar(@PathVariable Long id,
-                                        @Valid @RequestBody(required = false) AprobacionRequest peticion,
-                                        @RequestParam(required = false) Long usuarioId) {
+                                        @Valid @RequestBody(required = false) AprobacionRequest peticion) {
         String aprobadoPor = peticion == null ? null : peticion.aprobadoPor();
-        return detalle(ordenService.aprobar(id, aprobadoPor, usuarioId));
+        return detalle(ordenService.aprobar(id, aprobadoPor, usuarioActual.id()));
     }
 
     @PostMapping("/{id}/rechazo")
     public OrdenTrabajoResponse rechazar(@PathVariable Long id,
-                                         @Valid @RequestBody MotivoRequest peticion,
-                                         @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.rechazar(id, peticion.motivo(), usuarioId));
+                                         @Valid @RequestBody MotivoRequest peticion) {
+        return detalle(ordenService.rechazar(id, peticion.motivo(), usuarioActual.id()));
     }
 
     /**
@@ -203,37 +200,32 @@ public class OrdenTrabajoController {
      * error, es el resultado normal de que el almacen este corto.
      */
     @PostMapping("/{id}/reparacion")
-    public ResultadoConsumoResponse iniciarReparacion(@PathVariable Long id,
-                                                      @RequestParam(required = false) Long usuarioId) {
-        ResultadoConsumo resultado = ordenService.iniciarReparacion(id, usuarioId);
+    public ResultadoConsumoResponse iniciarReparacion(@PathVariable Long id) {
+        ResultadoConsumo resultado = ordenService.iniciarReparacion(id, usuarioActual.id());
         return ResultadoConsumoResponse.de(resultado);
     }
 
     /** Reintenta el material que faltaba cuando llega el pedido del proveedor. */
     @PostMapping("/{id}/reanudacion")
-    public ResultadoConsumoResponse reanudarReparacion(@PathVariable Long id,
-                                                       @RequestParam(required = false) Long usuarioId) {
-        return ResultadoConsumoResponse.de(ordenService.reanudarReparacion(id, usuarioId));
+    public ResultadoConsumoResponse reanudarReparacion(@PathVariable Long id) {
+        return ResultadoConsumoResponse.de(ordenService.reanudarReparacion(id, usuarioActual.id()));
     }
 
     @PostMapping("/{id}/espera-piezas")
     public OrdenTrabajoResponse bloquearPorFaltaDePiezas(@PathVariable Long id,
-                                                         @Valid @RequestBody MotivoRequest peticion,
-                                                         @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.bloquearPorFaltaDePiezas(id, peticion.motivo(), usuarioId));
+                                                         @Valid @RequestBody MotivoRequest peticion) {
+        return detalle(ordenService.bloquearPorFaltaDePiezas(id, peticion.motivo(), usuarioActual.id()));
     }
 
     @PostMapping("/{id}/lista")
-    public OrdenTrabajoResponse marcarLista(@PathVariable Long id,
-                                            @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.marcarLista(id, usuarioId));
+    public OrdenTrabajoResponse marcarLista(@PathVariable Long id) {
+        return detalle(ordenService.marcarLista(id, usuarioActual.id()));
     }
 
     /** Entrega al cliente. A partir de aqui la orden queda congelada. */
     @PostMapping("/{id}/entrega")
-    public OrdenTrabajoResponse entregar(@PathVariable Long id,
-                                         @RequestParam(required = false) Long usuarioId) {
-        return detalle(ordenService.entregar(id, usuarioId));
+    public OrdenTrabajoResponse entregar(@PathVariable Long id) {
+        return detalle(ordenService.entregar(id, usuarioActual.id()));
     }
 
     // ------------------------------------------------------------------

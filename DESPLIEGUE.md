@@ -18,27 +18,55 @@ del backend fuera del código del frontend.
 
 ---
 
-## ⚠️ Antes de empezar: esto todavía no tiene contraseña
+## ⚠️ Antes de empezar: la clave de firma y las contraseñas
 
-La API **no tiene autenticación** (eso es la fase 5). Si la publicas tal cual,
-cualquiera con la URL puede ver los datos de tus clientes —nombre, NIF,
-dirección, teléfono— y modificarlos. Son datos personales bajo RGPD.
+La API pide usuario y contraseña para todo (salvo `/actuator/health`). Dos cosas
+hay que hacer bien antes de publicar nada.
 
-Tres opciones, de menos a más recomendable:
+**1. La clave de firma de las sesiones.** Es la variable
+`MOTORSPORT19_SEGURIDAD_CLAVE_JWT`. La API **se niega a arrancar** sin ella o si
+tiene menos de 32 caracteres: es a propósito, para que nadie se deje una clave de
+ejemplo puesta. En Render la genera el propio `render.yaml` (`generateValue`), así
+que no hay que hacer nada. Fuera de Render:
 
-1. **Terminar la fase 5 primero.** Es la siguiente y es la que cierra esto.
-2. **Publicar con acceso restringido.** Vercel permite proteger el despliegue con
-   contraseña (Settings → Deployment Protection). Sirve para enseñarlo a
-   alguien concreto sin dejarlo abierto.
-3. **Publicar con datos de prueba.** Despliega con el perfil `demo` y sin datos
-   reales de clientes hasta que exista el login.
+```bash
+openssl rand -base64 48
+```
+
+Si la cambias, todas las sesiones abiertas dejan de valer. Eso no es un problema:
+es exactamente lo que hay que hacer si sospechas que se ha filtrado.
+
+**2. Las contraseñas de fábrica.** Los datos de demostración traen cuatro
+usuarios con contraseñas **públicas** (están en este repositorio):
+
+| Usuario     | Contraseña      | Perfil    |
+|-------------|-----------------|-----------|
+| `admin`     | `admin1234`     | ADMIN     |
+| `mostrador` | `mostrador1234` | MOSTRADOR |
+| `jortega`   | `tecnico1234`   | TECNICO   |
+| `nsanz`     | `tecnico1234`   | TECNICO   |
+
+Sirven para enseñar el programa. **No publiques con datos reales de clientes sin
+cambiarlas antes**, una por una, desde *Mi cuenta* en la propia aplicación. Son
+datos personales bajo RGPD y esas contraseñas las conoce cualquiera que lea el
+repositorio.
+
+Sin el perfil `demo` no se crea ninguno de esos usuarios. En su lugar, el primer
+arranque sobre una base vacía crea un `admin` con contraseña aleatoria y la
+escribe en el log (en Render: pestaña **Logs**, busca `PRIMER ARRANQUE`).
+Apúntala y cámbiala al entrar.
 
 ---
 
 ## 1. Base de datos en Supabase
 
 1. En [supabase.com](https://supabase.com) → **New project**. Región
-   **eu-west-3 (París)** o similar: cuanto más cerca de Render, mejor.
+   **Central EU (Frankfurt)** — la misma que Render.
+
+   Esto importa más de lo que parece: cada pantalla hace entre 3 y 10 consultas
+   a la base de datos. Con las dos piezas en Frankfurt cada consulta cuesta
+   ~2 ms; con Supabase en París y Render en Frankfurt, ~15 ms. En la pantalla
+   más pesada son 130 ms de diferencia por cada clic.
 2. Anota la contraseña de la base de datos; no se vuelve a mostrar.
 3. Ve a **Project Settings → Database → Connection string → Session pooler**.
 
@@ -47,7 +75,7 @@ Tres opciones, de menos a más recomendable:
    pooler en modo *transaction* (puerto 6543) rompe las migraciones de Flyway.
 
    ```
-   Host:     aws-0-eu-west-3.pooler.supabase.com
+   Host:     aws-0-eu-central-1.pooler.supabase.com
    Puerto:   5432
    Usuario:  postgres.abcdefghijklmnop
    Base:     postgres
@@ -66,7 +94,7 @@ migración `V8` cierra el acceso directo desde la API pública de Supabase.
 3. Te pedirá las tres variables marcadas como `sync: false`:
 
    ```
-   SPRING_DATASOURCE_URL       jdbc:postgresql://aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require
+   SPRING_DATASOURCE_URL       jdbc:postgresql://aws-0-eu-central-1.pooler.supabase.com:5432/postgres?sslmode=require
    SPRING_DATASOURCE_USERNAME  postgres.abcdefghijklmnop
    SPRING_DATASOURCE_PASSWORD  (la de Supabase)
    ```
@@ -89,11 +117,24 @@ Si quieres arrancar con datos de ejemplo, cambia en Render la variable
 `SPRING_PROFILES_ACTIVE` a `supabase,demo` y vuelve a desplegar. **No lo dejes
 así con datos reales**: el perfil `demo` crea usuarios con contraseñas conocidas.
 
-### El plan gratuito se duerme
+### El plan gratuito se duerme (esto sí que se nota)
 
-Render apaga los servicios gratuitos tras 15 minutos sin tráfico, y la siguiente
-petición tarda unos 50 segundos en despertarlo. Para enseñarlo va bien; para el
-día a día del taller, el plan más barato (7 $/mes) evita esa espera.
+Render apaga los servicios gratuitos tras **15 minutos sin tráfico**, y la
+siguiente petición tarda unos **50 segundos** en despertarlo.
+
+En la práctica: llegas al taller a las 9, abres la aplicación y esperas casi un
+minuto mirando la pantalla. Y otra vez después de comer. Para enseñárselo a
+alguien va perfecto; para trabajar a diario, no.
+
+El plan **Starter (7 $/mes)** no se duerme. Es la única parte de todo esto que
+recomiendo pagar desde el principio.
+
+### Memoria
+
+El plan gratuito da 512 MB y la aplicación consume unos 270 MB con datos
+cargados. Entra, pero justo. El `Dockerfile` ya está ajustado para eso: heap al
+55 %, recolector serie y metaspace limitado. Si vieras reinicios inesperados en
+los logs de Render, es esto y se arregla subiendo de plan.
 
 ---
 
@@ -137,6 +178,8 @@ Si algo falla, en este orden:
 | «No se ha podido contactar con el servidor» | ¿Está despierto Render? Prueba la URL `/api/actuator/health` |
 | Error 500 al cargar | Logs de Render: casi siempre es la cadena de conexión |
 | Migraciones fallando | Comprueba que usas el pooler en modo **session**, puerto 5432 |
+| Primera carga lentísima | Normal en el plan gratuito de Render: está despertando |
+| Reinicios en los logs | Falta de memoria: sube al plan Starter |
 
 ### Errores frecuentes con Supabase
 
@@ -169,7 +212,7 @@ Supabase hace copias automáticas diarias en el plan de pago. En el gratuito **n
 hay copias automáticas**, así que descarga una tú de vez en cuando:
 
 ```bash
-pg_dump "postgresql://postgres.TUPROYECTO:CONTRASENA@aws-0-eu-west-3.pooler.supabase.com:5432/postgres" \
+pg_dump "postgresql://postgres.TUPROYECTO:CONTRASENA@aws-0-eu-central-1.pooler.supabase.com:5432/postgres" \
   --no-owner --no-privileges -f copia-$(date +%F).sql
 ```
 

@@ -147,4 +147,9 @@ export class ListaFacturas {
   private aIso(fecha: Date): string {
     return fecha.toISOString().slice(0, 10);
   }
+
+  /** Abre el PDF de una factura. Va por HttpClient para que lleve el token. */
+  protected verPdf(id: number): void {
+    this.facturas.abrirPdf(id);
+  }
 }

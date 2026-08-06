@@ -59,3 +59,35 @@ logging:
   level:
     com.motorsport19.taller: INFO
     org.flywaydb: INFO
+
+# ---------------------------------------------------------------------------
+# Seguridad
+# ---------------------------------------------------------------------------
+motorsport19:
+  seguridad:
+    # Clave con la que se firman los tokens. SIN VALOR POR DEFECTO a proposito:
+    # una clave por defecto acaba siempre en produccion, y con ella cualquiera
+    # puede fabricarse un token de administrador.
+    #
+    #   Genérela con:  openssl rand -base64 48
+    #   Variable de entorno: MOTORSPORT19_SEGURIDAD_CLAVE_JWT
+    clave-jwt: ${MOTORSPORT19_SEGURIDAD_CLAVE_JWT:}
+
+    # Duracion de la sesion. Una jornada de taller.
+    duracion-token: PT8H
+
+    # Freno a los intentos de adivinar contrasenas.
+    max-intentos-login: 5
+    bloqueo-login: PT15M
+
+    # Origenes permitidos para peticiones desde otro dominio, separados por comas.
+    # Vacio = ninguno. Con el montaje recomendado (nginx en el taller, proxy en
+    # Vercel) no hace falta, porque frontend y API comparten dominio.
+    origenes-cors: ${MOTORSPORT19_SEGURIDAD_ORIGENES_CORS:}
+
+  # Primer administrador, solo cuando la base no tiene ningun usuario. Si se deja
+  # la contrasena vacia se genera una al azar y se escribe en el log de arranque:
+  # asi no hay ninguna contrasena por defecto en el repositorio.
+  admin-inicial:
+    username: ${MOTORSPORT19_ADMIN_USUARIO:admin}
+    password: ${MOTORSPORT19_ADMIN_PASSWORD:}

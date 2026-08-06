@@ -33,9 +33,9 @@ export class DetalleFactura {
     queueMicrotask(() => this.cargar());
   }
 
-  protected urlPdf(): string {
+  protected verPdf(): void {
     const f = this.factura();
-    return f ? this.servicio.urlPdf(f.id) : '';
+    if (f) this.servicio.abrirPdf(f.id);
   }
 
   private cargar(): void {

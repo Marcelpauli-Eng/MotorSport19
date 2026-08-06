@@ -11,7 +11,11 @@ services:
   - type: web
     name: motorsport19-api
     runtime: docker
-    region: frankfurt          # el mas cercano a Espana
+    # IMPORTANTE: crea el proyecto de Supabase en la MISMA ciudad
+    # (eu-central-1, Frankfurt). Cada pantalla hace entre 3 y 10 consultas, y
+    # con las dos piezas en la misma region cada una cuesta ~2 ms en vez de
+    # ~15 ms. En la pantalla mas pesada eso son 130 ms de diferencia.
+    region: frankfurt
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
@@ -35,6 +39,16 @@ services:
 
       # Origen permitido para CORS. Se deja preparado por si algun dia el
       # frontend llama a la API directamente en vez de a traves del proxy de
-      # Vercel; con el proxy no hace falta.
-      - key: CORS_ORIGENES
+      # Vercel; con el proxy no hace falta, porque la peticion sale del servidor
+      # de Vercel y no lleva cabecera Origin.
+      - key: MOTORSPORT19_SEGURIDAD_ORIGENES_CORS
         sync: false
+
+      # Clave con la que se firman los tokens de sesion. La API se niega a
+      # arrancar sin ella, y tambien si tiene menos de 32 caracteres.
+      #
+      # `generateValue` hace que Render genere una al crear el servicio y no la
+      # guarda nadie en el repositorio. Cambiarla invalida todas las sesiones
+      # abiertas, que es justo lo que se quiere si alguna vez se filtra.
+      - key: MOTORSPORT19_SEGURIDAD_CLAVE_JWT
+        generateValue: true

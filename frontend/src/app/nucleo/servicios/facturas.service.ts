@@ -11,7 +11,6 @@ import {
   SerieFactura,
   TipoRectificativa,
 } from '../modelos/facturacion';
-import { SesionService } from './sesion.service';
 
 export interface FiltroFacturas {
   tipo?: string | null;
@@ -25,7 +24,6 @@ export interface FiltroFacturas {
 @Injectable({ providedIn: 'root' })
 export class FacturasService {
   private readonly http = inject(HttpClient);
-  private readonly sesion = inject(SesionService);
   private readonly base = `${environment.urlApi}/facturas`;
 
   buscar(filtro: FiltroFacturas = {}): Observable<Pagina<FacturaResumen>> {
@@ -54,9 +52,7 @@ export class FacturasService {
   }
 
   emitir(ordenTrabajoId: number, serieId: number, fechaEmision?: string): Observable<Factura> {
-    return this.http.post<Factura>(this.base, { ordenTrabajoId, serieId, fechaEmision }, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<Factura>(this.base, { ordenTrabajoId, serieId, fechaEmision });
   }
 
   rectificar(
@@ -68,25 +64,50 @@ export class FacturasService {
     return this.http.post<Factura>(
       `${this.base}/${facturaId}/rectificativas`,
       { serieId, tipoRectificativa, motivo, lineas: [] },
-      { params: this.conUsuario() },
     );
   }
 
   /** Recorre el registro comprobando la cadena de huellas de extremo a extremo. */
   verificarCadena(): Observable<InformeVerificacion> {
-    return this.http.post<InformeVerificacion>(`${this.base}/verificacion`, null, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<InformeVerificacion>(`${this.base}/verificacion`, null);
   }
 
-  urlPdf(id: number): string {
-    const usuarioId = this.sesion.usuarioId();
-    return `${this.base}/${id}/pdf${usuarioId ? `?usuarioId=${usuarioId}` : ''}`;
+  /**
+   * Abre el PDF de una factura en otra pestaña.
+   *
+   * No se puede usar un enlace normal: el token viaja en una cabecera que pone
+   * el interceptor, y un `<a href>` no la lleva, de modo que el servidor
+   * responderia 401. Se descarga por HttpClient y se muestra desde memoria.
+   *
+   * La pestaña se abre antes de pedir el PDF, todavia dentro del clic: si se
+   * abriera al recibir la respuesta, el navegador la tomaria por una ventana
+   * emergente y la bloquearia.
+   */
+  abrirPdf(id: number): void {
+    const pestana = window.open('', '_blank');
+
+    this.http.get(`${this.base}/${id}/pdf`, { responseType: 'blob' }).subscribe({
+      next: (pdf) => {
+        const url = URL.createObjectURL(pdf);
+        if (pestana) {
+          pestana.location.href = url;
+        } else {
+          // Emergentes bloqueadas: se descarga, que siempre funciona.
+          const enlace = document.createElement('a');
+          enlace.href = url;
+          enlace.download = `factura-${id}.pdf`;
+          enlace.click();
+        }
+        // Se libera con holgura: revocarla de inmediato dejaria la pestana en blanco.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => pestana?.close(),
+    });
   }
 
   /** Descarga el libro registro en el formato indicado. */
   exportar(formato: 'csv' | 'json', desde?: string | null, hasta?: string | null): Observable<Blob> {
-    let params = this.conUsuario();
+    let params = new HttpParams();
     if (desde) params = params.set('desde', desde);
     if (hasta) params = params.set('hasta', hasta);
 
@@ -106,11 +127,5 @@ export class FacturasService {
     return this.http.get<Pagina<EventoFactura>>(`${environment.urlApi}/facturacion/eventos`, {
       params: new HttpParams().set('size', tamano),
     });
-  }
-
-  /** El backend firma cada operación con el usuario que la hace. */
-  private conUsuario(): HttpParams {
-    const usuarioId = this.sesion.usuarioId();
-    return usuarioId ? new HttpParams().set('usuarioId', usuarioId) : new HttpParams();
   }
 }

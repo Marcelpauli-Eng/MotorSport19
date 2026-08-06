@@ -8,6 +8,7 @@ import { SerieFactura } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 
 /** Acción que puede lanzarse desde la ficha, según el estado actual. */
 interface Accion {
@@ -34,6 +35,7 @@ export class DetalleOrden {
   private readonly facturas = inject(FacturasService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly router = inject(Router);
+  private readonly sesion = inject(SesionService);
 
   readonly id = input.required<string>();
 
@@ -55,22 +57,69 @@ export class DetalleOrden {
     RECHAZADA: 'El cliente rechaza',
   };
 
-  /** Botones que tienen sentido ahora mismo. */
+  /** Facturar es cosa de mostrador y dirección. */
+  protected readonly puedeFacturar = this.sesion.puede('ADMIN', 'MOSTRADOR');
+
+  /**
+   * ¿Puede el usuario en curso trabajar esta orden?
+   *
+   * Un técnico solo la suya, o una que aún no sea de nadie: eso último es cómo
+   * se hace cargo de un trabajo nuevo. Mostrador y dirección, todas. Es el mismo
+   * criterio que aplica el backend, replicado aquí solo para no enseñar botones
+   * que van a devolver 403.
+   */
+  protected readonly puedeTrabajarla = computed(() => {
+    const o = this.orden();
+    if (!o) return false;
+    if (!this.sesion.puede('TECNICO')) return true;
+    return o.tecnicoId === null || o.tecnicoId === this.sesion.usuario()?.id;
+  });
+
+  /**
+   * Transiciones que el backend reserva a mostrador y dirección.
+   *
+   * Aprobar y rechazar los decide el cliente por teléfono o en el mostrador, y
+   * entregar la moto implica cobrar: nada de eso pasa por el taller.
+   */
+  private static readonly SOLO_MOSTRADOR: EstadoOT[] = ['APROBADA', 'RECHAZADA', 'ENTREGADA'];
+
+  /**
+   * La orden admite cambios, pero ninguno lo puede hacer este usuario.
+   *
+   * Distinguirlo importa: decirle a un técnico que la orden «ya no admite
+   * cambios» cuando en realidad está esperando que el cliente conteste seria
+   * mentirle, y acabaria preguntando por que no le funciona el programa.
+   */
+  protected readonly esperaAMostrador = computed(() => {
+    const o = this.orden();
+    return !!o && this.puedeTrabajarla() && o.estadosPosibles.length > 0
+      && this.acciones().length === 0;
+  });
+
+  /** Botones que tienen sentido ahora mismo para este usuario. */
   protected readonly acciones = computed<Accion[]>(() => {
     const o = this.orden();
-    if (!o) return [];
-    return o.estadosPosibles.map((destino) => ({
-      destino,
-      texto: DetalleOrden.TEXTOS[destino] ?? destino,
-      principal: destino !== 'RECHAZADA' && destino !== 'ESPERANDO_PIEZAS',
-    }));
+    if (!o || !this.puedeTrabajarla()) return [];
+
+    const esTecnico = this.sesion.puede('TECNICO');
+    return o.estadosPosibles
+      .filter((destino) => !esTecnico || !DetalleOrden.SOLO_MOSTRADOR.includes(destino))
+      .map((destino) => ({
+        destino,
+        texto: DetalleOrden.TEXTOS[destino] ?? destino,
+        principal: destino !== 'RECHAZADA' && destino !== 'ESPERANDO_PIEZAS',
+      }));
   });
 
   constructor() {
     queueMicrotask(() => this.cargar());
-    this.facturas.series().subscribe((series) => {
-      this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
-    });
+    // Un técnico no puede consultar las series: pedirlas le provocaría un aviso
+    // de permisos nada más abrir cualquier orden.
+    if (this.puedeFacturar) {
+      this.facturas.series().subscribe((series) => {
+        this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
+      });
+    }
   }
 
   protected ejecutar(destino: EstadoOT): void {

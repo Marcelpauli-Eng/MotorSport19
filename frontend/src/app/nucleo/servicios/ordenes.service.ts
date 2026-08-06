@@ -10,7 +10,6 @@ import {
   OrdenTrabajoResumen,
   ResultadoConsumo,
 } from '../modelos/taller';
-import { SesionService } from './sesion.service';
 
 export interface FiltroOrdenes {
   estado?: EstadoOT | null;
@@ -25,7 +24,6 @@ export interface FiltroOrdenes {
 @Injectable({ providedIn: 'root' })
 export class OrdenesService {
   private readonly http = inject(HttpClient);
-  private readonly sesion = inject(SesionService);
   private readonly base = `${environment.urlApi}/ordenes`;
 
   buscar(filtro: FiltroOrdenes = {}): Observable<Pagina<OrdenTrabajoResumen>> {
@@ -58,7 +56,7 @@ export class OrdenesService {
     tecnicoId?: number | null;
     observaciones?: string | null;
   }): Observable<OrdenTrabajo> {
-    return this.http.post<OrdenTrabajo>(this.base, datos, { params: this.conUsuario() });
+    return this.http.post<OrdenTrabajo>(this.base, datos);
   }
 
   registrarDiagnostico(id: number, diagnostico: string): Observable<OrdenTrabajo> {
@@ -86,22 +84,19 @@ export class OrdenesService {
   // ----- Transiciones de estado -----
 
   iniciarDiagnostico(id: number, tecnicoId?: number | null): Observable<OrdenTrabajo> {
-    let params = this.conUsuario();
+    let params = new HttpParams();
     if (tecnicoId) params = params.set('tecnicoId', tecnicoId);
     return this.http.post<OrdenTrabajo>(`${this.base}/${id}/diagnostico`, null, { params });
   }
 
   presupuestar(id: number): Observable<OrdenTrabajo> {
-    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/presupuesto`, null, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/presupuesto`, null);
   }
 
   aprobar(id: number, aprobadoPor?: string): Observable<OrdenTrabajo> {
     return this.http.post<OrdenTrabajo>(
       `${this.base}/${id}/aprobacion`,
       { aprobadoPor: aprobadoPor ?? null },
-      { params: this.conUsuario() },
     );
   }
 
@@ -109,7 +104,6 @@ export class OrdenesService {
     return this.http.post<OrdenTrabajo>(
       `${this.base}/${id}/rechazo`,
       { motivo },
-      { params: this.conUsuario() },
     );
   }
 
@@ -120,31 +114,18 @@ export class OrdenesService {
    * queda en ESPERANDO_PIEZAS y el resultado detalla qué hay que pedir.
    */
   iniciarReparacion(id: number): Observable<ResultadoConsumo> {
-    return this.http.post<ResultadoConsumo>(`${this.base}/${id}/reparacion`, null, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<ResultadoConsumo>(`${this.base}/${id}/reparacion`, null);
   }
 
   reanudarReparacion(id: number): Observable<ResultadoConsumo> {
-    return this.http.post<ResultadoConsumo>(`${this.base}/${id}/reanudacion`, null, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<ResultadoConsumo>(`${this.base}/${id}/reanudacion`, null);
   }
 
   marcarLista(id: number): Observable<OrdenTrabajo> {
-    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/lista`, null, {
-      params: this.conUsuario(),
-    });
+    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/lista`, null);
   }
 
   entregar(id: number): Observable<OrdenTrabajo> {
-    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/entrega`, null, {
-      params: this.conUsuario(),
-    });
-  }
-
-  private conUsuario(): HttpParams {
-    const usuarioId = this.sesion.usuarioId();
-    return usuarioId ? new HttpParams().set('usuarioId', usuarioId) : new HttpParams();
+    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/entrega`, null);
   }
 }

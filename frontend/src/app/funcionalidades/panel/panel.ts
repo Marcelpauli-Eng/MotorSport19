@@ -7,6 +7,7 @@ import { FacturaResumen } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 
 /**
  * Pantalla de inicio: lo que hay que mirar nada más abrir el programa.
@@ -24,6 +25,10 @@ export class Panel {
   private readonly ordenes = inject(OrdenesService);
   private readonly inventario = inject(InventarioService);
   private readonly facturas = inject(FacturasService);
+  protected readonly sesion = inject(SesionService);
+
+  /** Facturar es cosa de mostrador y dirección: al técnico ni se le pide. */
+  protected readonly veFacturacion = this.sesion.puede('ADMIN', 'MOSTRADOR');
 
   protected readonly ordenesAbiertas = signal<OrdenTrabajoResumen[]>([]);
   protected readonly alertas = signal<AlertaStock[]>([]);
@@ -36,7 +41,11 @@ export class Panel {
       this.totalAbiertas.set(p.totalItems);
     });
     this.inventario.alertas().subscribe((a) => this.alertas.set(a));
-    this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
+    // Sin esta comprobación el panel de un técnico pediría facturas, recibiría
+    // un 403 y le saltaría un aviso de permisos cada vez que abre el programa.
+    if (this.veFacturacion) {
+      this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
+    }
   }
 
   /** Órdenes agrupadas por estado, para el tablero. */

@@ -1,0 +1,151 @@
+# Montaje HÍBRIDO: servidor en el taller + copia nocturna cifrada a la nube.
+#
+#   docker compose -f docker-compose.taller.yml up -d
+#
+# Todo corre en el mini-PC del taller:
+#   db         PostgreSQL con los datos
+#   api        Spring Boot
+#   web        Angular servido por nginx
+#   respaldo   copia cifrada cada noche, subida fuera del local
+#   tunel      acceso desde fuera sin abrir puertos en el router (opcional)
+#
+# Los datos NUNCA salen del taller salvo cifrados en la copia de seguridad.
+services:
+
+  db:
+    image: postgres:17-alpine
+    container_name: motorsport19-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-motorsport19}
+      POSTGRES_USER: ${POSTGRES_USER:-taller}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}
+      TZ: ${TZ:-Europe/Madrid}
+      PGTZ: ${TZ:-Europe/Madrid}
+    volumes:
+      - db_datos:/var/lib/postgresql/data
+    # Sin `ports`: la base de datos NO se expone ni siquiera en la red local
+    # del taller. Solo la alcanzan los otros contenedores.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taller} -d ${POSTGRES_DB:-motorsport19}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+    networks: [interna]
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: motorsport19-api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-motorsport19}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-taller}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Clave de firma de los tokens de sesion. Sin ella la API no arranca; es
+      # deliberado, para que nadie deje el taller con una clave por defecto.
+      MOTORSPORT19_SEGURIDAD_CLAVE_JWT: ${CLAVE_JWT:?Falta CLAVE_JWT en .env. Generala con: openssl rand -base64 48}
+
+      TZ: ${TZ:-Europe/Madrid}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/api/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    networks: [interna]
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: motorsport19-web
+    restart: always
+    depends_on:
+      - api
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    # Este SÍ se publica: es por donde entran los ordenadores y tablets del
+    # taller, en http://IP-DEL-MINIPC
+    ports:
+      - "${PUERTO_WEB:-80}:80"
+    networks: [interna]
+
+  # ------------------------------------------------------------------------
+  # Copia de seguridad cifrada
+  # ------------------------------------------------------------------------
+  respaldo:
+    build:
+      context: ./infra/respaldo
+    container_name: motorsport19-respaldo
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER:-taller}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB:-motorsport19}
+      TZ: ${TZ:-Europe/Madrid}
+
+      # Clave con la que se cifra la copia. SIN ESTO NO HAY COPIAS.
+      # Guárdala en un gestor de contraseñas: si se pierde, las copias son
+      # ficheros ilegibles para siempre.
+      CLAVE_CIFRADO: ${CLAVE_CIFRADO:?define CLAVE_CIFRADO en el .env}
+
+      HORA_COPIA: ${HORA_COPIA:-03}
+      MINUTO_COPIA: ${MINUTO_COPIA:-30}
+      COPIA_AL_ARRANCAR: ${COPIA_AL_ARRANCAR:-false}
+      DIAS_RETENCION_LOCAL: ${DIAS_RETENCION_LOCAL:-7}
+
+      # Para exportar también el libro de facturas en JSON.
+      URL_API: http://api:8080/api
+
+      # Destino remoto (Supabase Storage, Backblaze B2, lo que sea).
+      # Sin esto la copia se queda dentro del taller, que no protege de un
+      # incendio ni de un robo.
+      RCLONE_DESTINO: ${RCLONE_DESTINO:-}
+    volumes:
+      - copias:/copias
+      # Configuración de rclone generada con `rclone config` en el mini-PC.
+      - ${RCLONE_CONFIG_HOST:-./infra/respaldo/rclone.conf}:/root/.config/rclone/rclone.conf:ro
+    networks: [interna]
+
+  # ------------------------------------------------------------------------
+  # Acceso desde fuera del taller (opcional pero recomendado)
+  # ------------------------------------------------------------------------
+  #
+  # El túnel abre una conexión SALIENTE hacia Cloudflare, así que no hay que
+  # tocar el router ni tener IP fija, y funciona aunque el operador use CGNAT.
+  # Con Cloudflare Access delante, además, nadie llega a la aplicación sin
+  # pasar antes por un login por email.
+  tunel:
+    image: cloudflare/cloudflared:latest
+    container_name: motorsport19-tunel
+    restart: always
+    depends_on:
+      - web
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      TZ: ${TZ:-Europe/Madrid}
+    profiles: ["tunel"]   # se activa con: --profile tunel
+    networks: [interna]
+
+volumes:
+  db_datos:
+    name: motorsport19_db_datos
+  copias:
+    name: motorsport19_copias
+
+networks:
+  interna:
+    name: motorsport19_interna

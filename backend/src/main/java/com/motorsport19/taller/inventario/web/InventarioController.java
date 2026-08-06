@@ -9,6 +9,7 @@ import com.motorsport19.taller.inventario.web.dto.AlertaStockResponse;
 import com.motorsport19.taller.inventario.web.dto.EntradaStockRequest;
 import com.motorsport19.taller.inventario.web.dto.MovimientoStockResponse;
 import com.motorsport19.taller.inventario.web.dto.SalidaStockRequest;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,9 +39,11 @@ import java.util.List;
 public class InventarioController {
 
     private final InventarioService inventarioService;
+    private final UsuarioActual usuarioActual;
 
-    public InventarioController(InventarioService inventarioService) {
+    public InventarioController(InventarioService inventarioService, UsuarioActual usuarioActual) {
         this.inventarioService = inventarioService;
+        this.usuarioActual = usuarioActual;
     }
 
     /** Piezas que han caido al minimo o por debajo. */
@@ -79,33 +82,30 @@ public class InventarioController {
     @ResponseStatus(HttpStatus.CREATED)
     public MovimientoStockResponse registrarEntrada(
             @PathVariable Long piezaId,
-            @Valid @RequestBody EntradaStockRequest peticion,
-            @RequestParam(required = false) Long usuarioId) {
+            @Valid @RequestBody EntradaStockRequest peticion) {
 
         return MovimientoStockResponse.de(inventarioService.registrarEntrada(
                 piezaId, peticion.cantidad(), peticion.documentoProveedor(),
-                peticion.precioCosteUnitario(), peticion.motivo(), usuarioId));
+                peticion.precioCosteUnitario(), peticion.motivo(), usuarioActual.id()));
     }
 
     @PostMapping("/piezas/{piezaId}/salidas")
     @ResponseStatus(HttpStatus.CREATED)
     public MovimientoStockResponse registrarSalida(
             @PathVariable Long piezaId,
-            @Valid @RequestBody SalidaStockRequest peticion,
-            @RequestParam(required = false) Long usuarioId) {
+            @Valid @RequestBody SalidaStockRequest peticion) {
 
         return MovimientoStockResponse.de(inventarioService.registrarSalida(
-                piezaId, peticion.cantidad(), peticion.motivo(), usuarioId));
+                piezaId, peticion.cantidad(), peticion.motivo(), usuarioActual.id()));
     }
 
     @PostMapping("/piezas/{piezaId}/ajustes")
     @ResponseStatus(HttpStatus.CREATED)
     public MovimientoStockResponse registrarAjuste(
             @PathVariable Long piezaId,
-            @Valid @RequestBody AjusteStockRequest peticion,
-            @RequestParam(required = false) Long usuarioId) {
+            @Valid @RequestBody AjusteStockRequest peticion) {
 
         return MovimientoStockResponse.de(inventarioService.registrarAjuste(
-                piezaId, peticion.cantidad(), peticion.motivo(), usuarioId));
+                piezaId, peticion.cantidad(), peticion.motivo(), usuarioActual.id()));
     }
 }

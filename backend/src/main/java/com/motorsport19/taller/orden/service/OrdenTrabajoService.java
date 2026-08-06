@@ -23,6 +23,7 @@ import com.motorsport19.taller.orden.repository.CambioEstadoOTRepository;
 import com.motorsport19.taller.orden.repository.ContadorOtRepository;
 import com.motorsport19.taller.orden.repository.LineaOTRepository;
 import com.motorsport19.taller.orden.repository.OrdenTrabajoRepository;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -62,6 +63,7 @@ public class OrdenTrabajoService {
     private final UsuarioRepository usuarioRepository;
     private final TipoIvaRepository tipoIvaRepository;
     private final ConfiguracionTallerRepository configuracionRepository;
+    private final UsuarioActual usuarioActual;
 
     public OrdenTrabajoService(OrdenTrabajoRepository ordenRepository,
                                LineaOTRepository lineaRepository,
@@ -73,7 +75,8 @@ public class OrdenTrabajoService {
                                InventarioService inventarioService,
                                UsuarioRepository usuarioRepository,
                                TipoIvaRepository tipoIvaRepository,
-                               ConfiguracionTallerRepository configuracionRepository) {
+                               ConfiguracionTallerRepository configuracionRepository,
+                               UsuarioActual usuarioActual) {
         this.ordenRepository = ordenRepository;
         this.lineaRepository = lineaRepository;
         this.contadorRepository = contadorRepository;
@@ -85,6 +88,7 @@ public class OrdenTrabajoService {
         this.usuarioRepository = usuarioRepository;
         this.tipoIvaRepository = tipoIvaRepository;
         this.configuracionRepository = configuracionRepository;
+        this.usuarioActual = usuarioActual;
     }
 
     // ==================================================================
@@ -104,10 +108,65 @@ public class OrdenTrabajoService {
                         "No existe la orden de trabajo %s.".formatted(codigo)));
     }
 
+    /**
+     * Busca ordenes de trabajo.
+     *
+     * <p>A un TECNICO se le fuerza el filtro a sus propias ordenes. Es una
+     * restriccion de datos, no de rutas: la ruta es la misma para todos, pero un
+     * tecnico no ve el tablero completo del taller.
+     *
+     * <p>La ficha individual ({@link #obtener}) si es accesible para cualquier
+     * tecnico: en un taller pequeno se cubren entre ellos y necesitan poder
+     * consultar la orden de un companero. Lo que no pueden es trabajarla.
+     */
     @Transactional(readOnly = true)
     public Page<OrdenTrabajo> buscar(EstadoOT estado, Long tecnicoId, Long clienteId, Long motoId,
                                      boolean soloAbiertas, Pageable pageable) {
-        return ordenRepository.buscar(estado, tecnicoId, clienteId, motoId, soloAbiertas, pageable);
+        Long filtroTecnico = usuarioActual.esTecnico() ? usuarioActual.id() : tecnicoId;
+        return ordenRepository.buscar(estado, filtroTecnico, clienteId, motoId, soloAbiertas, pageable);
+    }
+
+    /**
+     * Comprueba que el usuario puede modificar esta orden.
+     *
+     * <p>Un tecnico solo trabaja sus ordenes. Mostrador y administracion pueden
+     * con todas, porque son quienes reasignan y cierran.
+     */
+    private void exigirPermisoDeTrabajo(OrdenTrabajo orden) {
+        if (!usuarioActual.esTecnico()) {
+            return;
+        }
+        Long tecnicoAsignado = idDelTecnico(orden);
+        if (tecnicoAsignado == null) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "La orden %s no tiene tecnico asignado. Pasala a diagnostico para hacerte cargo."
+                            .formatted(orden.codigoVisible()));
+        }
+        if (!tecnicoAsignado.equals(usuarioActual.id())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "La orden %s esta asignada a otro tecnico.".formatted(orden.codigoVisible()));
+        }
+    }
+
+    /**
+     * Variante mas laxa: deja pasar la orden sin asignar, rechaza la de otro.
+     *
+     * <p>Se usa solo al entrar en diagnostico, que es el momento en que un tecnico
+     * se hace cargo de una orden que aun no era de nadie.
+     */
+    private void exigirQueNoSeaDeOtroTecnico(OrdenTrabajo orden) {
+        if (!usuarioActual.esTecnico()) {
+            return;
+        }
+        Long tecnicoAsignado = idDelTecnico(orden);
+        if (tecnicoAsignado != null && !tecnicoAsignado.equals(usuarioActual.id())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "La orden %s esta asignada a otro tecnico.".formatted(orden.codigoVisible()));
+        }
+    }
+
+    private Long idDelTecnico(OrdenTrabajo orden) {
+        return orden.getTecnico() == null ? null : orden.getTecnico().getId();
     }
 
     @Transactional(readOnly = true)
@@ -174,9 +233,17 @@ public class OrdenTrabajoService {
     // Transiciones
     // ==================================================================
 
+    /**
+     * Pasa la orden a diagnostico, asignando tecnico si se indica.
+     *
+     * <p>Aqui no vale {@link #exigirPermisoDeTrabajo}: coger una orden todavia sin
+     * asignar es justo lo que hace un tecnico al empezar el dia. Lo que se impide
+     * es quitarsela a un companero.
+     */
     @Transactional
     public OrdenTrabajo iniciarDiagnostico(Long id, Long tecnicoId, Long usuarioId) {
         OrdenTrabajo orden = obtener(id);
+        exigirQueNoSeaDeOtroTecnico(orden);
         orden.iniciarDiagnostico(cargarUsuario(tecnicoId), cargarUsuario(usuarioId));
         return orden;
     }
@@ -184,6 +251,7 @@ public class OrdenTrabajoService {
     @Transactional
     public OrdenTrabajo registrarDiagnostico(Long id, String diagnostico) {
         OrdenTrabajo orden = obtener(id);
+        exigirPermisoDeTrabajo(orden);
         orden.registrarDiagnostico(diagnostico);
         return orden;
     }
@@ -191,6 +259,7 @@ public class OrdenTrabajoService {
     @Transactional
     public OrdenTrabajo presupuestar(Long id, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
+        exigirPermisoDeTrabajo(orden);
         orden.presupuestar(cargarUsuario(usuarioId));
         return orden;
     }
@@ -226,6 +295,7 @@ public class OrdenTrabajoService {
     @Transactional
     public ResultadoConsumo iniciarReparacion(Long id, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
+        exigirPermisoDeTrabajo(orden);
         exigirEstado(orden, EstadoOT.APROBADA, EstadoOT.ESPERANDO_PIEZAS);
         return consumirMaterialYResolverEstado(orden, usuarioId);
     }
@@ -239,6 +309,7 @@ public class OrdenTrabajoService {
     @Transactional
     public ResultadoConsumo reanudarReparacion(Long id, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
+        exigirPermisoDeTrabajo(orden);
         exigirEstado(orden, EstadoOT.ESPERANDO_PIEZAS);
         return consumirMaterialYResolverEstado(orden, usuarioId);
     }
@@ -247,6 +318,7 @@ public class OrdenTrabajoService {
     @Transactional
     public OrdenTrabajo bloquearPorFaltaDePiezas(Long id, String motivo, Long usuarioId) {
         OrdenTrabajo orden = obtener(id);
+        exigirPermisoDeTrabajo(orden);
         orden.bloquearPorFaltaDePiezas(motivo, cargarUsuario(usuarioId));
         return orden;
     }
@@ -254,6 +326,7 @@ public class OrdenTrabajoService {
     @Transactional
     public OrdenTrabajo marcarLista(Long id, Long usuarioId) {
         OrdenTrabajo orden = obtener(id);
+        exigirPermisoDeTrabajo(orden);
         orden.marcarLista(cargarUsuario(usuarioId));
         log.info("Orden {} lista para entregar", orden.codigoVisible());
         return orden;
@@ -282,6 +355,7 @@ public class OrdenTrabajoService {
     public LineaOT anadirManoDeObra(Long ordenId, String descripcion, BigDecimal horas,
                                     BigDecimal descuentoPct, String codigoTipoIva) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
         TipoIva tipoIva = cargarTipoIva(codigoTipoIva);
         return orden.anadirManoDeObra(descripcion, horas, descuentoPct, tipoIva.getCodigo(),
                 tipoIva.getPorcentaje());
@@ -296,6 +370,7 @@ public class OrdenTrabajoService {
     @Transactional
     public LineaOT anadirPieza(Long ordenId, Long piezaId, BigDecimal cantidad, BigDecimal descuentoPct) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
         Pieza pieza = piezaService.obtener(piezaId);
         TipoIva tipoIva = cargarTipoIva(pieza.getTipoIva());
         return orden.anadirPieza(pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
@@ -304,6 +379,7 @@ public class OrdenTrabajoService {
     @Transactional
     public LineaOT cambiarCantidadDeLinea(Long ordenId, Long lineaId, BigDecimal cantidad) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         linea.cambiarCantidad(cantidad, consumoDe(linea));
         return linea;
@@ -319,6 +395,7 @@ public class OrdenTrabajoService {
     @Transactional
     public void quitarLinea(Long ordenId, Long lineaId) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
 
         BigDecimal consumido = consumoDe(linea);
@@ -336,6 +413,7 @@ public class OrdenTrabajoService {
     public void devolverPiezaDeLinea(Long ordenId, Long lineaId, BigDecimal cantidad, String motivo,
                                      Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
 
         if (!linea.esDePieza()) {

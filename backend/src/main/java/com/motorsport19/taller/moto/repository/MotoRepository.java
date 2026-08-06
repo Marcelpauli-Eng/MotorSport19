@@ -35,14 +35,18 @@ public interface MotoRepository extends JpaRepository<Moto, Long> {
     @Query("SELECT m FROM Moto m WHERE m.cliente.id = :clienteId AND (:soloActivas = FALSE OR m.activo = TRUE) ORDER BY m.matricula")
     List<Moto> buscarPorCliente(@Param("clienteId") Long clienteId, @Param("soloActivas") boolean soloActivas);
 
+    // Los :texto van con CAST explicito. Sin el, cuando la busqueda llega vacia
+    // PostgreSQL recibe un parametro sin tipo y falla con
+    // «function upper(bytea) does not exist»: el listado sin filtro, que es la
+    // vista por defecto, respondia 500.
     @Query("""
             SELECT m FROM Moto m
              WHERE (:soloActivas = FALSE OR m.activo = TRUE)
-               AND (:texto IS NULL
-                    OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(m.marca)          LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(m.modelo)         LIKE UPPER(CONCAT('%', :texto, '%'))
-                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', :texto, '%')))
+               AND (CAST(:texto AS String) IS NULL
+                    OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.marca)          LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.modelo)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
             """)
     Page<Moto> buscar(@Param("texto") String texto,
                       @Param("soloActivas") boolean soloActivas,

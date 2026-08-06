@@ -101,14 +101,18 @@
                   <td class="num silenciado">{{ p.stockMinimo | number: '1.0-3' : 'es' }}</td>
                   <td class="num">{{ p.precioVenta | number: '1.2-2' : 'es' }} €</td>
                   <td>
-                    <div class="fila" style="gap: 0.3rem; flex-wrap: nowrap">
-                      <button type="button" class="boton boton--pequeno" (click)="registrarEntrada(p)">
-                        + Entrada
-                      </button>
-                      <button type="button" class="boton boton--pequeno" (click)="registrarAjuste(p)">
-                        Ajuste
-                      </button>
-                    </div>
+                    <!-- Mover el almacen es cosa de direccion: al resto no se le
+                         ensena un boton que la API va a rechazar. -->
+                    @if (gestionaAlmacen) {
+                      <div class="fila" style="gap: 0.3rem; flex-wrap: nowrap">
+                        <button type="button" class="boton boton--pequeno" (click)="registrarEntrada(p)">
+                          + Entrada
+                        </button>
+                        <button type="button" class="boton boton--pequeno" (click)="registrarAjuste(p)">
+                          Ajuste
+                        </button>
+                      </div>
+                    }
                   </td>
                 </tr>
               }

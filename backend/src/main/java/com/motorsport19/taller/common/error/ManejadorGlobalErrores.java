@@ -6,11 +6,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
@@ -45,9 +47,34 @@ public class ManejadorGlobalErrores {
         return construir(HttpStatus.NOT_FOUND, "Recurso no encontrado", ex.getMessage(), req);
     }
 
+    /**
+     * Ruta que no existe. Cae aqui como {@code NoResourceFoundException} porque
+     * Spring intenta servirla como recurso estatico; sin este manejador acababa
+     * en el generico y una URL mal escrita devolvia un 500.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<RespuestaError> rutaInexistente(NoResourceFoundException ex, HttpServletRequest req) {
+        return construir(HttpStatus.NOT_FOUND, "Ruta no encontrada",
+                "La ruta %s %s no existe.".formatted(req.getMethod(), req.getRequestURI()), req);
+    }
+
     @ExceptionHandler(ConflictoException.class)
     public ResponseEntity<RespuestaError> conflicto(ConflictoException ex, HttpServletRequest req) {
         return construir(HttpStatus.CONFLICT, "Conflicto", ex.getMessage(), req);
+    }
+
+    /**
+     * Permiso denegado decidido dentro del servicio, no en la cadena de filtros.
+     *
+     * <p>Es el caso de «esta orden es de otro tecnico»: la ruta si esta permitida
+     * para su rol, lo que no le pertenece es ese registro concreto. Sin este
+     * manejador la excepcion caia en el generico y el usuario recibia un 500 con
+     * un mensaje inutil.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<RespuestaError> accesoDenegado(AccessDeniedException ex, HttpServletRequest req) {
+        log.warn("Acceso denegado en {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
+        return construir(HttpStatus.FORBIDDEN, "Acceso denegado", ex.getMessage(), req);
     }
 
     @ExceptionHandler(ReglaNegocioException.class)

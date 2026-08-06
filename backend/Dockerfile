@@ -25,4 +25,17 @@ RUN chown taller:taller /app/app.jar
 USER taller
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# Ajustes pensados para contenedores pequenos (el plan gratuito de Render son
+# 512 MB). Con el 75% por defecto, el heap se come 384 MB y entre metaspace,
+# hilos y la generacion de PDF el contenedor se pasa de 512 MB y lo matan.
+#
+#   MaxRAMPercentage=55  deja sitio para todo lo que la JVM usa fuera del heap.
+#   SerialGC             gasta bastante menos memoria que G1 en heaps pequenos,
+#                        y con un solo usuario a la vez no se nota en pausas.
+#   MaxMetaspaceSize     evita que Spring/Hibernate lo hagan crecer sin limite.
+ENTRYPOINT ["java", \
+  "-XX:MaxRAMPercentage=55", \
+  "-XX:+UseSerialGC", \
+  "-XX:MaxMetaspaceSize=128m", \
+  "-XX:+ExitOnOutOfMemoryError", \
+  "-jar", "/app/app.jar"]

@@ -1,51 +1,54 @@
-<div class="armazon" [class.armazon--menu-abierto]="menuAbierto()">
-  <header class="cabecera">
-    <button
-      type="button"
-      class="cabecera__menu"
-      (click)="alternarMenu()"
-      aria-label="Abrir menú de navegación"
-    >
-      ☰
-    </button>
-    <a routerLink="/panel" class="cabecera__marca">
-      MotorSport19
-      <span class="cabecera__sub">Gestión del taller</span>
-    </a>
-    <div class="crece"></div>
-    @if (sesion.usuario(); as usuario) {
-      <div class="cabecera__usuario">
-        <span class="negrita">{{ usuario.nombreCompleto }}</span>
-        <span class="etiqueta etiqueta--azul">{{ usuario.rol }}</span>
-      </div>
-    }
-  </header>
-
-  <nav class="navegacion" (click)="cerrarMenu()">
-    <ul>
-      @for (enlace of enlaces; track enlace.ruta) {
-        <li>
-          <a
-            [routerLink]="enlace.ruta"
-            routerLinkActive="activo"
-            [routerLinkActiveOptions]="{ exact: false }"
-          >
-            <span class="navegacion__icono" aria-hidden="true">{{ enlace.icono }}</span>
-            {{ enlace.texto }}
-          </a>
-        </li>
+@if (sesion.autenticado()) {
+  <div class="armazon" [class.armazon--menu-abierto]="menuAbierto()">
+    <header class="cabecera">
+      <button
+        type="button"
+        class="cabecera__menu"
+        (click)="alternarMenu()"
+        aria-label="Abrir menú de navegación"
+      >
+        ☰
+      </button>
+      <a routerLink="/panel" class="cabecera__marca">
+        MotorSport19
+        <span class="cabecera__sub">Gestión del taller</span>
+      </a>
+      <div class="crece"></div>
+      @if (sesion.usuario(); as usuario) {
+        <a routerLink="/mi-cuenta" class="cabecera__usuario">
+          <span class="negrita">{{ usuario.nombreCompleto }}</span>
+          <span class="etiqueta etiqueta--azul">{{ usuario.rol }}</span>
+        </a>
+        <button type="button" class="boton boton--pequeno" (click)="salir()">Salir</button>
       }
-    </ul>
-    <p class="navegacion__aviso pequeno">
-      Sin autenticación todavía (fase&nbsp;5). No publicar en internet.
-    </p>
-  </nav>
+    </header>
 
-  <main class="contenido">
-    <router-outlet />
-  </main>
+    <nav class="navegacion" (click)="cerrarMenu()">
+      <ul>
+        @for (enlace of enlaces(); track enlace.ruta) {
+          <li>
+            <a
+              [routerLink]="enlace.ruta"
+              routerLinkActive="activo"
+              [routerLinkActiveOptions]="{ exact: false }"
+            >
+              <span class="navegacion__icono" aria-hidden="true">{{ enlace.icono }}</span>
+              {{ enlace.texto }}
+            </a>
+          </li>
+        }
+      </ul>
+    </nav>
 
-  <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
-</div>
+    <main class="contenido">
+      <router-outlet />
+    </main>
+
+    <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
+  </div>
+} @else {
+  <!-- Sin sesión solo se pinta la pantalla de entrada, sin menús alrededor. -->
+  <router-outlet />
+}
 
 <app-avisos />

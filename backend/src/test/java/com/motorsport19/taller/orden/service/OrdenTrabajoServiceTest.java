@@ -3,6 +3,7 @@ package com.motorsport19.taller.orden.service;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
+import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.repository.MovimientoStockRepository;
@@ -19,8 +20,11 @@ import com.motorsport19.taller.orden.repository.CambioEstadoOTRepository;
 import com.motorsport19.taller.orden.repository.ContadorOtRepository;
 import com.motorsport19.taller.orden.repository.LineaOTRepository;
 import com.motorsport19.taller.orden.repository.OrdenTrabajoRepository;
+import com.motorsport19.taller.seguridad.UsuarioActual;
 import com.motorsport19.taller.support.OrdenesDePrueba;
 import com.motorsport19.taller.support.PiezasDePrueba;
+import com.motorsport19.taller.usuario.domain.Rol;
+import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +35,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
@@ -69,6 +74,8 @@ class OrdenTrabajoServiceTest {
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private TipoIvaRepository tipoIvaRepository;
     @Mock private ConfiguracionTallerRepository configuracionRepository;
+    /** Por defecto no es tecnico, asi que no se aplica el filtro por asignacion. */
+    @Mock private UsuarioActual usuarioActual;
 
     @InjectMocks
     private OrdenTrabajoService ordenService;
@@ -389,6 +396,115 @@ class OrdenTrabajoServiceTest {
                     new BigDecimal("1")))
                     .isInstanceOf(com.motorsport19.taller.common.error.ReglaNegocioException.class)
                     .hasMessageContaining("Devuelvalas");
+        }
+    }
+
+    // ==================================================================
+
+    @Nested
+    @DisplayName("Un tecnico solo trabaja sus ordenes")
+    class PermisosDeTecnico {
+
+        /** Tipo de IVA general, que es lo unico que necesita anadir una linea. */
+        private TipoIva ivaGeneral() {
+            TipoIva iva = org.springframework.beans.BeanUtils.instantiateClass(TipoIva.class);
+            ReflectionTestUtils.setField(iva, "codigo", "GENERAL");
+            ReflectionTestUtils.setField(iva, "porcentaje", OrdenesDePrueba.IVA_GENERAL);
+            return iva;
+        }
+
+        /** Pone al usuario actual como TECNICO con el id indicado. */
+        private void comoTecnico(long id) {
+            when(usuarioActual.esTecnico()).thenReturn(true);
+            when(usuarioActual.id()).thenReturn(id);
+        }
+
+        /** Deja la orden asignada a un tecnico concreto. */
+        private void asignada(OrdenTrabajo orden, long tecnicoId) {
+            Usuario tecnico = Usuario.crear("nsanz", "hash", "Nuria Sanz Belmonte",
+                    null, null, Rol.TECNICO);
+            ReflectionTestUtils.setField(tecnico, "id", tecnicoId);
+            orden.asignarTecnico(tecnico);
+        }
+
+        @Test
+        @DisplayName("no puede anadir mano de obra a la orden de otro")
+        void manoDeObraEnOrdenAjena() {
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            asignada(orden, 4L);
+            dadaLaOrden(orden);
+            comoTecnico(3L);
+
+            assertThatThrownBy(() -> ordenService.anadirManoDeObra(1L, "Intruso",
+                    BigDecimal.ONE, BigDecimal.ZERO, "GENERAL"))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("otro tecnico");
+        }
+
+        @Test
+        @DisplayName("no puede anadir piezas a la orden de otro, ni tocar el almacen")
+        void piezaEnOrdenAjena() {
+            Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            asignada(orden, 4L);
+            dadaLaOrden(orden);
+            comoTecnico(3L);
+
+            assertThatThrownBy(() -> ordenService.anadirPieza(1L, aceite.getId(),
+                    BigDecimal.ONE, BigDecimal.ZERO))
+                    .isInstanceOf(AccessDeniedException.class);
+            verify(piezaService, never()).obtener(anyLong());
+        }
+
+        @Test
+        @DisplayName("si puede trabajar la orden que tiene asignada")
+        void ordenPropia() {
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            asignada(orden, 3L);
+            dadaLaOrden(orden);
+            comoTecnico(3L);
+            when(tipoIvaRepository.findById("GENERAL")).thenReturn(Optional.of(ivaGeneral()));
+
+            assertThat(ordenService.anadirManoDeObra(1L, "Sustitucion de pastillas",
+                    BigDecimal.ONE, BigDecimal.ZERO, "GENERAL")).isNotNull();
+        }
+
+        @Test
+        @DisplayName("puede hacerse cargo de una orden que aun no es de nadie")
+        void cogeOrdenSinAsignar() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            when(ordenRepository.buscarConDetalle(1L)).thenReturn(Optional.of(orden));
+            comoTecnico(3L);
+
+            ordenService.iniciarDiagnostico(1L, null, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.EN_DIAGNOSTICO);
+        }
+
+        @Test
+        @DisplayName("no puede quitarle a un companero una orden ya asignada")
+        void noRobaOrdenAsignada() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            asignada(orden, 4L);
+            when(ordenRepository.buscarConDetalle(1L)).thenReturn(Optional.of(orden));
+            comoTecnico(3L);
+
+            assertThatThrownBy(() -> ordenService.iniciarDiagnostico(1L, 3L, null))
+                    .isInstanceOf(AccessDeniedException.class)
+                    .hasMessageContaining("otro tecnico");
+        }
+
+        @Test
+        @DisplayName("mostrador y administracion no tienen esta restriccion")
+        void mostradorSinRestriccion() {
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            asignada(orden, 4L);
+            dadaLaOrden(orden);
+            when(usuarioActual.esTecnico()).thenReturn(false);
+            when(tipoIvaRepository.findById("GENERAL")).thenReturn(Optional.of(ivaGeneral()));
+
+            assertThat(ordenService.anadirManoDeObra(1L, "Ajuste de presupuesto",
+                    BigDecimal.ONE, BigDecimal.ZERO, "GENERAL")).isNotNull();
         }
     }
 }

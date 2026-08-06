@@ -5,9 +5,9 @@ import { SesionService } from '../servicios/sesion.service';
 /**
  * Adjunta el token de sesión a cada petición.
  *
- * Se deja montado desde ya aunque la autenticación llegue en la fase 5: así
- * cuando exista el login no hay que tocar ni una pantalla, solo empezar a
- * guardar el token. Mientras no haya token, el interceptor no hace nada.
+ * Mientras no haya token no hace nada, que es lo que corresponde en la pantalla
+ * de entrada. El resto de la aplicación no sabe que existe: ningún servicio se
+ * ocupa de la autenticación.
  */
 export const authInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
   const sesion = inject(SesionService);

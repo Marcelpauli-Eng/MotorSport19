@@ -1,0 +1,42 @@
+.cuenta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  align-items: start;
+  /* Sin esto una tarjeta ancha estiraria toda la pagina en tablet. */
+  min-width: 0;
+}
+
+.cuenta > * {
+  min-width: 0;
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.datos dt {
+  color: var(--gris-500);
+  font-size: 0.9rem;
+}
+
+.datos dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.cuenta__aviso {
+  margin: 0 0 0.9rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  color: var(--ambar);
+  background: var(--ambar-claro);
+  border-radius: var(--radio);
+}
+
+.cuenta__nota {
+  margin-top: 0.9rem;
+}
