@@ -287,6 +287,19 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
   color: var(--gris-700);
 }
 
+/* Separa los bloques de un formulario largo. Sin esto, veinte campos seguidos
+   se leen como una lista y hay que buscar dónde acaba una cosa y empieza otra. */
+.bloque-titulo {
+  margin: var(--e5) 0 var(--e3);
+  padding-top: var(--e3);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gris-500);
+  border-top: var(--borde);
+}
+
 input, select, textarea {
   min-height: var(--alto-control);
   width: 100%;
@@ -366,6 +379,39 @@ select {
   display: grid;
   gap: var(--e4);
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+
+/* ---------- Pestañas ---------- */
+
+.pestanas {
+  display: flex;
+  gap: var(--e1);
+  border-bottom: var(--borde);
+}
+
+.pestana {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 var(--e3);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gris-500);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.pestana:hover { color: var(--gris-900); }
+
+.pestana--activa {
+  color: var(--azul);
+  border-bottom-color: var(--azul);
 }
 
 /*

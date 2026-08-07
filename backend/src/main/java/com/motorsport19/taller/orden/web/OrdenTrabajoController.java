@@ -7,6 +7,7 @@ import com.motorsport19.taller.orden.service.OrdenTrabajoService;
 import com.motorsport19.taller.orden.service.ResultadoConsumo;
 import com.motorsport19.taller.orden.web.dto.AbrirOrdenRequest;
 import com.motorsport19.taller.orden.web.dto.AprobacionRequest;
+import com.motorsport19.taller.orden.web.dto.AsignarTecnicoRequest;
 import com.motorsport19.taller.orden.web.dto.CantidadRequest;
 import com.motorsport19.taller.orden.web.dto.DevolucionLineaRequest;
 import com.motorsport19.taller.orden.web.dto.DiagnosticoRequest;
@@ -111,6 +112,13 @@ public class OrdenTrabajoController {
         return ResponseEntity
                 .created(uriBuilder.path("/ordenes/{id}").build(orden.getId()))
                 .body(detalle(orden));
+    }
+
+    /** Pone o cambia el tecnico que lleva la orden, sin tocar su estado. */
+    @PutMapping("/{id}/tecnico")
+    public OrdenTrabajoResponse asignarTecnico(@PathVariable Long id,
+                                               @RequestBody AsignarTecnicoRequest peticion) {
+        return detalle(ordenService.asignarTecnico(id, peticion.tecnicoId()));
     }
 
     @PutMapping("/{id}/diagnostico")

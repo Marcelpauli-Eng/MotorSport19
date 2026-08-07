@@ -5,12 +5,15 @@ import { Router, RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { Icono } from '../../compartido/icono';
+import { FormularioOrden } from './formulario-orden';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { OrdenTrabajo } from '../../nucleo/modelos/taller';
 import { EstadoOT, OrdenTrabajoResumen } from '../../nucleo/modelos/taller';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 
 @Component({
   selector: 'app-lista-ordenes',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, ColorEstadoPipe, Icono],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormularioOrden],
   templateUrl: './lista-ordenes.html',
   styleUrl: './lista-ordenes.scss',
 })
@@ -26,6 +29,16 @@ export class ListaOrdenes {
 
   protected readonly estado = signal<string>('');
   protected readonly soloAbiertas = signal(true);
+  protected readonly mostrarFormulario = signal(false);
+
+  /** Abrir órdenes es cosa de mostrador: es quien recibe la moto. */
+  protected readonly puedeAbrir = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  /** Recién abierta, se va directo a su ficha para empezar a trabajarla. */
+  protected trasAbrir(orden: OrdenTrabajo): void {
+    this.mostrarFormulario.set(false);
+    void this.router.navigate(['/ordenes', orden.id]);
+  }
 
   /**
    * El desplegable enseñaba el nombre del enum en crudo (`EN_DIAGNOSTICO`).

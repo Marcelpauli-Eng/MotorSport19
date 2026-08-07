@@ -7,6 +7,7 @@ import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { Icono } from '../../compartido/icono';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { FormularioPieza } from './formulario-pieza';
 
 type Pestana = 'catalogo' | 'alertas' | 'movimientos';
 
@@ -18,7 +19,7 @@ type Pestana = 'catalogo' | 'alertas' | 'movimientos';
  */
 @Component({
   selector: 'app-inventario',
-  imports: [CommonModule, FormsModule, Cargando, Icono],
+  imports: [CommonModule, FormsModule, Cargando, Icono, FormularioPieza],
   templateUrl: './inventario.html',
   styleUrl: './inventario.scss',
 })
@@ -37,9 +38,29 @@ export class Inventario {
   protected readonly alertas = signal<AlertaStock[]>([]);
   protected readonly movimientos = signal<MovimientoStock[]>([]);
   protected readonly texto = signal('');
+  protected readonly familia = signal('');
+  protected readonly familias = signal<string[]>([]);
+
+  protected readonly creando = signal(false);
+  protected readonly editando = signal<Pieza | null>(null);
 
   constructor() {
     this.cargarCatalogo();
+    this.servicio.alertas().subscribe((a) => this.alertas.set(a));
+    this.servicio.familias().subscribe((f) => this.familias.set(f));
+  }
+
+  /** Filtra por grupo del almacén: es como se busca una pieza en la estantería. */
+  protected filtrarPorFamilia(familia: string): void {
+    this.familia.set(familia);
+    this.cargarCatalogo();
+  }
+
+  protected trasGuardarPieza(): void {
+    this.creando.set(false);
+    this.editando.set(null);
+    this.cargarCatalogo();
+    this.servicio.familias().subscribe((f) => this.familias.set(f));
     this.servicio.alertas().subscribe((a) => this.alertas.set(a));
   }
 
@@ -52,7 +73,7 @@ export class Inventario {
 
   protected cargarCatalogo(): void {
     this.cargando.set(true);
-    this.servicio.buscarPiezas(this.texto(), { tamano: 100 }).subscribe({
+    this.servicio.buscarPiezas(this.texto(), { familia: this.familia() || null, tamano: 100 }).subscribe({
       next: (p) => {
         this.piezas.set(p.contenido);
         this.cargando.set(false);

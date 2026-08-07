@@ -1,36 +1,3 @@
-/* ---------- Pestañas ---------- */
-
-.pestanas {
-  display: flex;
-  gap: var(--e1);
-  border-bottom: var(--borde);
-}
-
-.pestana {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 0 var(--e3);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--gris-500);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  cursor: pointer;
-  transition: color 0.12s, border-color 0.12s;
-}
-
-.pestana:hover { color: var(--gris-900); }
-
-.pestana--activa {
-  color: var(--azul);
-  border-bottom-color: var(--azul);
-}
-
 /* El contador de reposición avisa sin gritar: en rojo pleno competía con las
    propias filas en alerta de la tabla de abajo. */
 .contador--alerta {

@@ -27,6 +27,9 @@ public record ActualizarPiezaRequest(
         @Size(max = 50, message = "La ubicacion no puede superar los 50 caracteres")
         String ubicacion,
 
+        @Size(max = 60, message = "La familia no puede superar los 60 caracteres")
+        String familia,
+
         @NotNull(message = "El stock minimo es obligatorio")
         @DecimalMin(value = "0.0", message = "El stock minimo no puede ser negativo")
         BigDecimal stockMinimo,

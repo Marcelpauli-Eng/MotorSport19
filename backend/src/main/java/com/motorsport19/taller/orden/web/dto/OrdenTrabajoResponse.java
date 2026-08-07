@@ -35,6 +35,8 @@ public record OrdenTrabajoResponse(
         String descripcionMoto,
         Long clienteId,
         String clienteNombre,
+        /** Para mandarle el presupuesto por WhatsApp sin abrir su ficha. */
+        String clienteTelefono,
 
         Instant fechaEntrada,
         LocalDate fechaEstimadaSalida,
@@ -88,6 +90,7 @@ public record OrdenTrabajoResponse(
                 orden.getMoto().descripcion(),
                 orden.getCliente().getId(),
                 orden.getCliente().nombreCompleto(),
+                orden.getCliente().getTelefono(),
 
                 orden.getFechaEntrada(),
                 orden.getFechaEstimadaSalida(),

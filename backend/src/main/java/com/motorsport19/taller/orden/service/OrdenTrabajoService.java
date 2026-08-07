@@ -248,6 +248,22 @@ public class OrdenTrabajoService {
         return orden;
     }
 
+    /**
+     * Pone (o quita) el tecnico que lleva la orden.
+     *
+     * <p>Se admite en cualquier momento mientras la orden siga viva, y no solo al
+     * entrar en diagnostico: en el taller las motos cambian de manos cuando uno
+     * libra o se atasca con otra. Un tecnico puede cogerse una que no sea de
+     * nadie, pero no quitarsela a un companero: eso lo decide el mostrador.
+     */
+    @Transactional
+    public OrdenTrabajo asignarTecnico(Long id, Long tecnicoId) {
+        OrdenTrabajo orden = obtener(id);
+        exigirQueNoSeaDeOtroTecnico(orden);
+        orden.asignarTecnico(cargarUsuario(tecnicoId));
+        return orden;
+    }
+
     @Transactional
     public OrdenTrabajo registrarDiagnostico(Long id, String diagnostico) {
         OrdenTrabajo orden = obtener(id);

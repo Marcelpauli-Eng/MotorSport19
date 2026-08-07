@@ -1,0 +1,81 @@
+<app-dialogo
+  [titulo]="esEdicion() ? 'Editar cliente' : 'Nuevo cliente'"
+  subtitulo="Los datos fiscales solo hacen falta para poder facturarle"
+  (cerrar)="cerrar.emit()"
+>
+  @if (error(); as e) {
+    <p class="dialogo__error">{{ e }}</p>
+  }
+
+  <p class="etiqueta-campo" style="margin-bottom: 8px">Contacto</p>
+  <div class="rejilla">
+    <div class="campo">
+      <label for="nombre">Nombre <span class="silenciado">(obligatorio)</span></label>
+      <input id="nombre" [ngModel]="nombre()" (ngModelChange)="nombre.set($event)" autofocus />
+    </div>
+    <div class="campo">
+      <label for="apellidos">Apellidos</label>
+      <input id="apellidos" [ngModel]="apellidos()" (ngModelChange)="apellidos.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="telefono">Teléfono</label>
+      <input id="telefono" type="tel" [ngModel]="telefono()" (ngModelChange)="telefono.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="email">Email</label>
+      <input id="email" type="email" [ngModel]="email()" (ngModelChange)="email.set($event)" />
+    </div>
+  </div>
+
+  <p class="etiqueta-campo" style="margin: 16px 0 8px">
+    Datos fiscales <span class="silenciado">— solo para facturar</span>
+  </p>
+  <div class="rejilla">
+    <div class="campo">
+      <label for="tipoDoc">Tipo de documento</label>
+      <select id="tipoDoc" [ngModel]="tipoDocumento()" (ngModelChange)="tipoDocumento.set($event)">
+        <option value="">Sin especificar</option>
+        @for (t of tiposDocumento; track t.valor) {
+          <option [value]="t.valor">{{ t.texto }}</option>
+        }
+      </select>
+    </div>
+    <div class="campo">
+      <label for="documento">Número</label>
+      <input
+        id="documento"
+        [ngModel]="documento()"
+        (ngModelChange)="documento.set($event)"
+        placeholder="12345678Z"
+      />
+    </div>
+    <div class="campo">
+      <label for="direccion">Dirección</label>
+      <input id="direccion" [ngModel]="direccion()" (ngModelChange)="direccion.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="cp">Código postal</label>
+      <input id="cp" [ngModel]="codigoPostal()" (ngModelChange)="codigoPostal.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="ciudad">Ciudad</label>
+      <input id="ciudad" [ngModel]="ciudad()" (ngModelChange)="ciudad.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="provincia">Provincia</label>
+      <input id="provincia" [ngModel]="provincia()" (ngModelChange)="provincia.set($event)" />
+    </div>
+  </div>
+
+  <div class="campo" style="margin-top: 16px">
+    <label for="obs">Observaciones</label>
+    <textarea id="obs" [ngModel]="observaciones()" (ngModelChange)="observaciones.set($event)"></textarea>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button type="button" class="boton boton--principal" [disabled]="!puedeGuardar()" (click)="guardar()">
+      {{ enviando() ? 'Guardando…' : esEdicion() ? 'Guardar cambios' : 'Dar de alta' }}
+    </button>
+  </ng-container>
+</app-dialogo>

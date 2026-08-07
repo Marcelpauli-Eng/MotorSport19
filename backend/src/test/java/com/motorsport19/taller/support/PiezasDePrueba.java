@@ -26,6 +26,7 @@ public final class PiezasDePrueba {
                 "Pieza de prueba " + sku,
                 "MarcaTest",
                 "A1-01",
+                "Familia de prueba",
                 new BigDecimal(stockMinimo),
                 new BigDecimal("10.0000"),
                 new BigDecimal("20.0000"),

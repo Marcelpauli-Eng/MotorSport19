@@ -4,13 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
+import { FormularioCliente } from './formulario-cliente';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { ClienteResumen } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
 
 @Component({
   selector: 'app-lista-clientes',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioCliente],
   template: `
+    @if (mostrarFormulario()) {
+      <app-formulario-cliente (cerrar)="mostrarFormulario.set(false)" (guardado)="trasGuardar()" />
+    }
+
     <div class="pagina-cabecera">
       <div class="pagina-cabecera__texto">
         <h1>Clientes</h1>
@@ -18,6 +24,12 @@ import { ClientesService } from '../../nucleo/servicios/clientes.service';
           {{ totalItems() }} {{ totalItems() === 1 ? 'cliente' : 'clientes' }}
         </p>
       </div>
+      @if (puedeEditar) {
+        <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+          <app-icono nombre="mas" [tamano]="16" />
+          Nuevo cliente
+        </button>
+      }
     </div>
 
     <div class="filtros">
@@ -137,6 +149,15 @@ export class ListaClientes {
   protected readonly totalPaginas = signal(0);
   protected readonly texto = signal('');
   protected readonly soloActivos = signal(true);
+  protected readonly mostrarFormulario = signal(false);
+
+  /** Dar de alta clientes es cosa de mostrador y dirección. */
+  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  protected trasGuardar(): void {
+    this.mostrarFormulario.set(false);
+    this.cargar();
+  }
 
   constructor() {
     this.cargar();

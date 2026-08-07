@@ -121,3 +121,30 @@
   color: var(--gris-500);
   font-size: 0.8125rem;
 }
+
+/* Fila para dar de alta una línea, dentro de la propia tarjeta del
+   presupuesto: no merece una modal porque son dos campos y se encadenan varias
+   seguidas. */
+.alta-linea {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  margin-bottom: var(--e3);
+  padding: var(--e3);
+  background: var(--azul-suave);
+  border: 1px solid var(--azul-borde);
+  border-radius: var(--radio);
+}
+
+.alta-linea .campo { margin-bottom: 0; }
+.alta-linea .crece { flex: 1 1 240px; min-width: 0; }
+
+/* El técnico se cambia en el sitio donde se lee, sin abrir nada: reasignar una
+   moto a otro compañero pasa a diario y no merece un formulario aparte. */
+.selector-tecnico {
+  width: 100%;
+  max-width: 220px;
+  padding: 3px var(--e2);
+  font-size: 0.875rem;
+}

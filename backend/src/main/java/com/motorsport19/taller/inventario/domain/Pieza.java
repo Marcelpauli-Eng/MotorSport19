@@ -57,6 +57,16 @@ public class Pieza extends EntidadAuditable {
     private String ubicacion;
 
     /**
+     * Grupo al que pertenece: Frenos, Transmision, Filtros...
+     *
+     * <p>Texto libre y opcional. Sirve para no tener que recorrer un desplegable
+     * de cientos de referencias al montar un presupuesto: primero se elige el
+     * grupo y luego la pieza.
+     */
+    @Column(name = "familia", length = 60)
+    private String familia;
+
+    /**
      * Existencias actuales. DERIVADO de los movimientos de stock: la base de
      * datos lo inicializa a cero y a partir de ahi solo lo modifica el trigger
      * {@code tg_movimiento_stock_aplicar}.
@@ -105,12 +115,13 @@ public class Pieza extends EntidadAuditable {
      * libro de movimientos explique cada unidad del almacen.
      */
     public static Pieza registrar(String sku, String descripcion, String marca, String ubicacion,
+                                  String familia,
                                   BigDecimal stockMinimo, BigDecimal precioCoste, BigDecimal precioVenta,
                                   String tipoIva, Proveedor proveedor, String unidadMedida,
                                   String observaciones) {
         Pieza pieza = new Pieza();
-        pieza.aplicarDatos(sku, descripcion, marca, ubicacion, stockMinimo, tipoIva, proveedor, unidadMedida,
-                observaciones);
+        pieza.aplicarDatos(sku, descripcion, marca, ubicacion, familia, stockMinimo, tipoIva, proveedor,
+                unidadMedida, observaciones);
         pieza.aplicarPrecios(precioCoste, precioVenta);
         pieza.activo = true;
         return pieza;
@@ -121,11 +132,12 @@ public class Pieza extends EntidadAuditable {
     // ------------------------------------------------------------------
 
     public void actualizarDatos(String sku, String descripcion, String marca, String ubicacion,
+                                String familia,
                                 BigDecimal stockMinimo, String tipoIva, Proveedor proveedor,
                                 String unidadMedida, String observaciones) {
         comprobarActiva();
-        aplicarDatos(sku, descripcion, marca, ubicacion, stockMinimo, tipoIva, proveedor, unidadMedida,
-                observaciones);
+        aplicarDatos(sku, descripcion, marca, ubicacion, familia, stockMinimo, tipoIva, proveedor,
+                unidadMedida, observaciones);
     }
 
     /**
@@ -180,6 +192,7 @@ public class Pieza extends EntidadAuditable {
     // ------------------------------------------------------------------
 
     private void aplicarDatos(String sku, String descripcion, String marca, String ubicacion,
+                              String familia,
                               BigDecimal stockMinimo, String tipoIva, Proveedor proveedor,
                               String unidadMedida, String observaciones) {
         String skuLimpio = textoONulo(sku);
@@ -194,6 +207,7 @@ public class Pieza extends EntidadAuditable {
         }
 
         this.sku = skuLimpio.toUpperCase();
+        this.familia = textoONulo(familia);
         this.descripcion = textoONulo(descripcion);
         this.marca = textoONulo(marca);
         this.ubicacion = textoONulo(ubicacion);

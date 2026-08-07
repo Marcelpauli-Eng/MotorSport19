@@ -9,7 +9,29 @@ import { SerieFactura } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
+import { InventarioService } from '../../nucleo/servicios/inventario.service';
+import { Pieza } from '../../nucleo/modelos/taller';
+import { FormsModule } from '@angular/forms';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { Tecnico } from '../../nucleo/modelos/configuracion';
+import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
+
+/**
+ * Deja el teléfono como lo quiere wa.me: solo dígitos y con prefijo de país.
+ *
+ * Los teléfonos del taller se apuntan como se dicen («656 12 34 56»), sin
+ * prefijo. Se asume España cuando son nueve dígitos, que es el caso normal; si
+ * ya viene con prefijo internacional se respeta.
+ */
+function numeroParaWhatsapp(telefono: string | null): string | null {
+  if (!telefono) return null;
+
+  const internacional = telefono.trim().startsWith('+') || telefono.trim().startsWith('00');
+  const digitos = telefono.replace(/\D/g, '').replace(/^00/, '');
+
+  if (internacional) return digitos.length >= 10 ? digitos : null;
+  return digitos.length === 9 ? `34${digitos}` : null;
+}
 
 /** Acción que puede lanzarse desde la ficha, según el estado actual. */
 interface Accion {
@@ -27,7 +49,7 @@ interface Accion {
  */
 @Component({
   selector: 'app-detalle-orden',
-  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono],
+  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormsModule],
   templateUrl: './detalle-orden.html',
   styleUrl: './detalle-orden.scss',
 })
@@ -37,6 +59,8 @@ export class DetalleOrden {
   private readonly notificaciones = inject(NotificacionesService);
   private readonly router = inject(Router);
   private readonly sesion = inject(SesionService);
+  private readonly inventario = inject(InventarioService);
+  private readonly usuarios = inject(UsuariosService);
 
   readonly id = input.required<string>();
 
@@ -114,13 +138,194 @@ export class DetalleOrden {
 
   constructor() {
     queueMicrotask(() => this.cargar());
-    // Un técnico no puede consultar las series: pedirlas le provocaría un aviso
-    // de permisos nada más abrir cualquier orden.
+    // Un técnico no puede consultar las series ni el listado de técnicos:
+    // pedirlas le provocaría un aviso de permisos nada más abrir cualquier orden.
     if (this.puedeFacturar) {
       this.facturas.series().subscribe((series) => {
         this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
       });
+      this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
     }
+  }
+
+  // ----- Técnico asignado -----
+
+  protected readonly tecnicos = signal<Tecnico[]>([]);
+
+  /**
+   * Quién puede repartir el trabajo.
+   *
+   * Mostrador y dirección eligen a cualquiera. Un técnico no reasigna nada: lo
+   * único que puede es cogerse una orden que todavía no es de nadie, y eso se
+   * ofrece aparte.
+   */
+  protected readonly puedeReasignar = this.puedeFacturar;
+
+  protected readonly puedeCogerLaOrden = computed(
+    () => this.sesion.puede('TECNICO') && this.orden()?.tecnicoId === null,
+  );
+
+  protected asignarTecnico(tecnicoId: number | null): void {
+    const o = this.orden();
+    if (!o || tecnicoId === o.tecnicoId) return;
+
+    this.trabajando.set(true);
+    this.servicio.asignarTecnico(o.id, tecnicoId).subscribe({
+      next: (actualizada) => {
+        this.orden.set(actualizada);
+        this.trabajando.set(false);
+        this.notificaciones.exito(
+          actualizada.tecnicoNombre
+            ? `La orden pasa a ${actualizada.tecnicoNombre}.`
+            : 'La orden queda sin asignar.',
+        );
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
+
+  protected cogerLaOrden(): void {
+    const yo = this.sesion.usuario();
+    if (yo) this.asignarTecnico(yo.id);
+  }
+
+  // ----- Diagnóstico -----
+
+  protected readonly editandoDiagnostico = signal(false);
+  protected readonly borradorDiagnostico = signal('');
+
+  protected empezarDiagnostico(): void {
+    this.borradorDiagnostico.set(this.orden()?.diagnostico ?? '');
+    this.editandoDiagnostico.set(true);
+  }
+
+  protected guardarDiagnostico(): void {
+    const o = this.orden();
+    const texto = this.borradorDiagnostico().trim();
+    if (!o || !texto) return;
+
+    this.trabajando.set(true);
+    this.servicio.registrarDiagnostico(o.id, texto).subscribe({
+      next: (actualizada) => {
+        this.orden.set(actualizada);
+        this.editandoDiagnostico.set(false);
+        this.trabajando.set(false);
+        this.notificaciones.exito('Diagnóstico guardado.');
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
+
+  // ----- Líneas del presupuesto -----
+
+  protected readonly anadiendo = signal<'mano-obra' | 'pieza' | null>(null);
+  protected readonly piezas = signal<Pieza[]>([]);
+  protected readonly familias = signal<string[]>([]);
+  protected readonly familia = signal<string>('');
+
+  protected readonly descripcionTrabajo = signal('');
+  protected readonly horas = signal<number | null>(null);
+  protected readonly piezaId = signal<number | null>(null);
+  protected readonly cantidad = signal<number>(1);
+  /** Descuento de la línea, en porcentaje. Se pacta con el cliente concepto a concepto. */
+  protected readonly descuento = signal<number>(0);
+
+  /**
+   * Solo se pueden tocar las líneas mientras la orden lo permita, y solo si es
+   * tuya. `permiteEditarLineas` lo decide el backend según el estado: una vez
+   * entregada, ni la aplicación ni nadie puede cambiarlas.
+   */
+  protected readonly puedeEditarLineas = computed(
+    () => !!this.orden()?.permiteEditarLineas && this.puedeTrabajarla(),
+  );
+
+  protected abrirAlta(tipo: 'mano-obra' | 'pieza'): void {
+    this.descripcionTrabajo.set('');
+    this.horas.set(null);
+    this.piezaId.set(null);
+    this.cantidad.set(1);
+    this.descuento.set(0);
+    this.anadiendo.set(tipo);
+
+    if (tipo === 'pieza') {
+      if (!this.familias().length) {
+        this.inventario.familias().subscribe((f) => this.familias.set(f));
+      }
+      this.cargarPiezas();
+    }
+  }
+
+  /**
+   * El almacén se elige en dos pasos: primero el grupo y después la pieza.
+   *
+   * Con un solo desplegable hay que recorrer cientos de referencias para llegar
+   * a «pastillas delanteras». Con el grupo delante, la segunda lista se queda en
+   * unas pocas, que es como está ordenado el almacén de verdad.
+   */
+  protected elegirFamilia(familia: string): void {
+    this.familia.set(familia);
+    this.piezaId.set(null);
+    this.cargarPiezas();
+  }
+
+  private cargarPiezas(): void {
+    this.inventario
+      .buscarPiezas('', { familia: this.familia() || null, tamano: 300 })
+      .subscribe((p) => this.piezas.set(p.contenido));
+  }
+
+  protected anadirManoDeObra(): void {
+    const o = this.orden();
+    const horas = this.horas();
+    if (!o || !horas || !this.descripcionTrabajo().trim()) return;
+
+    this.trabajando.set(true);
+    this.servicio
+      .anadirManoDeObra(o.id, {
+        descripcion: this.descripcionTrabajo().trim(),
+        horas,
+        descuentoPct: this.descuento() || undefined,
+      })
+      .subscribe({
+        next: () => this.trasCambiarLineas('Mano de obra añadida.'),
+        error: () => this.trabajando.set(false),
+      });
+  }
+
+  protected anadirPieza(): void {
+    const o = this.orden();
+    const pieza = this.piezaId();
+    if (!o || !pieza || this.cantidad() <= 0) return;
+
+    this.trabajando.set(true);
+    this.servicio
+      .anadirPieza(o.id, {
+        piezaId: pieza,
+        cantidad: this.cantidad(),
+        descuentoPct: this.descuento() || undefined,
+      })
+      .subscribe({
+        next: () => this.trasCambiarLineas('Pieza añadida al presupuesto.'),
+        error: () => this.trabajando.set(false),
+      });
+  }
+
+  protected quitarLinea(lineaId: number): void {
+    const o = this.orden();
+    if (!o) return;
+
+    this.trabajando.set(true);
+    this.servicio.quitarLinea(o.id, lineaId).subscribe({
+      next: () => this.trasCambiarLineas('Línea retirada.'),
+      error: () => this.trabajando.set(false),
+    });
+  }
+
+  private trasCambiarLineas(mensaje: string): void {
+    this.anadiendo.set(null);
+    this.notificaciones.exito(mensaje);
+    // Se recarga entera: los totales los recalcula el servidor.
+    this.cargar();
   }
 
   protected ejecutar(destino: EstadoOT): void {
@@ -215,6 +420,48 @@ export class DetalleOrden {
       },
       error: () => this.trabajando.set(false),
     });
+  }
+
+  // ----- Enviar el presupuesto al cliente -----
+
+  /**
+   * Abre WhatsApp con el presupuesto escrito y el número del cliente puesto.
+   *
+   * No envía nada por su cuenta: deja el mensaje redactado en WhatsApp y lo
+   * manda la persona, que es quien decide si además le cuenta algo. Tampoco hace
+   * falta ninguna cuenta de empresa ni integración con la API de WhatsApp.
+   */
+  protected enviarPorWhatsapp(): void {
+    const o = this.orden();
+    if (!o) return;
+
+    const telefono = numeroParaWhatsapp(o.clienteTelefono);
+    if (!telefono) {
+      this.notificaciones.info(
+        `${o.clienteNombre} no tiene un teléfono válido en su ficha. Añádalo y vuelva a intentarlo.`,
+      );
+      return;
+    }
+
+    const euros = (importe: number) =>
+      importe.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const lineas = o.lineas.map(
+      (l) => `• ${l.descripcion} (x${l.cantidad}): ${euros(l.total)} €`,
+    );
+
+    const mensaje = [
+      `Presupuesto ${o.codigo}`,
+      `${o.descripcionMoto} · ${o.matricula}`,
+      '',
+      ...lineas,
+      '',
+      `TOTAL (IVA incluido): ${euros(o.total)} €`,
+      '',
+      '¿Nos confirma si seguimos adelante?',
+    ].join('\n');
+
+    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
   }
 
   private cargar(): void {

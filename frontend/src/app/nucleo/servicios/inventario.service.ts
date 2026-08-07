@@ -13,7 +13,13 @@ export class InventarioService {
 
   buscarPiezas(
     texto = '',
-    opciones: { soloActivas?: boolean; soloBajoMinimo?: boolean; pagina?: number; tamano?: number } = {},
+    opciones: {
+      familia?: string | null;
+      soloActivas?: boolean;
+      soloBajoMinimo?: boolean;
+      pagina?: number;
+      tamano?: number;
+    } = {},
   ): Observable<Pagina<Pieza>> {
     let params = new HttpParams()
       .set('page', opciones.pagina ?? 0)
@@ -21,8 +27,14 @@ export class InventarioService {
       .set('soloActivas', opciones.soloActivas ?? true)
       .set('soloBajoMinimo', opciones.soloBajoMinimo ?? false);
     if (texto.trim()) params = params.set('texto', texto.trim());
+    if (opciones.familia) params = params.set('familia', opciones.familia);
 
     return this.http.get<Pagina<Pieza>>(this.basePiezas, { params });
+  }
+
+  /** Familias que ya existen en el catálogo, para el desplegable de dos pasos. */
+  familias(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.basePiezas}/familias`);
   }
 
   obtenerPieza(id: number): Observable<Pieza> {
@@ -31,6 +43,18 @@ export class InventarioService {
 
   crearPieza(datos: Partial<Pieza> & { stockInicial?: number }): Observable<Pieza> {
     return this.http.post<Pieza>(this.basePiezas, datos);
+  }
+
+  actualizarPieza(id: number, datos: Partial<Pieza>): Observable<Pieza> {
+    return this.http.put<Pieza>(`${this.basePiezas}/${id}`, datos);
+  }
+
+  /** Los precios van aparte: cambiarlos no afecta a las órdenes ya abiertas. */
+  actualizarPrecios(
+    id: number,
+    datos: { precioCoste: number; precioVenta: number },
+  ): Observable<Pieza> {
+    return this.http.put<Pieza>(`${this.basePiezas}/${id}/precios`, datos);
   }
 
   /** Piezas que han caído al mínimo o por debajo. */

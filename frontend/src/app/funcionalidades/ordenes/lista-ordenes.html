@@ -1,3 +1,7 @@
+@if (mostrarFormulario()) {
+  <app-formulario-orden (cerrar)="mostrarFormulario.set(false)" (abierta)="trasAbrir($event)" />
+}
+
 <div class="pagina-cabecera">
   <div class="pagina-cabecera__texto">
     <h1>Órdenes de trabajo</h1>
@@ -6,6 +10,12 @@
       {{ soloAbiertas() ? 'abiertas' : 'en total' }}
     </p>
   </div>
+  @if (puedeAbrir) {
+    <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+      <app-icono nombre="mas" [tamano]="16" />
+      Nueva orden
+    </button>
+  }
 </div>
 
 <div class="filtros">

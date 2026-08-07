@@ -106,6 +106,16 @@ export const routes: Routes = [
           import('./funcionalidades/inventario/inventario').then((m) => m.Inventario),
       },
 
+      // Los datos de la empresa que van impresos en la factura, la tarifa por
+      // hora y quién entra en el programa. Mostrador los consulta; solo
+      // dirección los cambia, y eso lo decide la propia pantalla.
+      {
+        path: 'ajustes',
+        title: 'Ajustes · MotorSport19',
+        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        loadComponent: () => import('./funcionalidades/ajustes/ajustes').then((m) => m.Ajustes),
+      },
+
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta · MotorSport19',

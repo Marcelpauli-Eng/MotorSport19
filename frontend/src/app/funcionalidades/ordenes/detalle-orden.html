@@ -117,7 +117,33 @@
           <dt>Salida estimada</dt>
           <dd>{{ o.fechaEstimadaSalida ? (o.fechaEstimadaSalida | date: "d 'de' MMMM" : undefined : 'es') : '—' }}</dd>
           <dt>Técnico</dt>
-          <dd [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</dd>
+          <dd>
+            @if (puedeReasignar) {
+              <select
+                class="selector-tecnico"
+                [ngModel]="o.tecnicoId"
+                (ngModelChange)="asignarTecnico($event)"
+                [disabled]="trabajando()"
+                aria-label="Técnico que lleva la orden"
+              >
+                <option [ngValue]="null">Sin asignar</option>
+                @for (t of tecnicos(); track t.id) {
+                  <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
+                }
+              </select>
+            } @else if (puedeCogerLaOrden()) {
+              <button
+                type="button"
+                class="boton boton--pequeno boton--principal"
+                [disabled]="trabajando()"
+                (click)="cogerLaOrden()"
+              >
+                Hacerme cargo
+              </button>
+            } @else {
+              <span [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</span>
+            }
+          </dd>
           <dt>Tarifa/hora</dt>
           <dd>{{ o.tarifaHora | number: '1.2-2' : 'es' }} € <span class="pequeno silenciado">(congelada)</span></dd>
         </dl>
@@ -127,10 +153,40 @@
         <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
         <p class="etiqueta-campo">Lo que cuenta el cliente</p>
         <p class="prosa">{{ o.problemaReportado }}</p>
-        <p class="etiqueta-campo prosa__titulo">Diagnóstico del técnico</p>
-        <p class="prosa" [class.silenciado]="!o.diagnostico">
-          {{ o.diagnostico || 'Pendiente de diagnosticar.' }}
-        </p>
+        <div class="fila prosa__titulo" style="justify-content: space-between">
+          <span class="etiqueta-campo">Diagnóstico del técnico</span>
+          @if (puedeTrabajarla() && !editandoDiagnostico()) {
+            <button type="button" class="boton boton--pequeno" (click)="empezarDiagnostico()">
+              {{ o.diagnostico ? 'Corregir' : 'Escribir diagnóstico' }}
+            </button>
+          }
+        </div>
+
+        @if (editandoDiagnostico()) {
+          <textarea
+            [ngModel]="borradorDiagnostico()"
+            (ngModelChange)="borradorDiagnostico.set($event)"
+            placeholder="Pastillas delanteras al límite y disco con alabeo leve."
+            autofocus
+          ></textarea>
+          <div class="fila fila--fin" style="margin-top: 8px">
+            <button type="button" class="boton boton--pequeno" (click)="editandoDiagnostico.set(false)">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="boton boton--pequeno boton--principal"
+              [disabled]="trabajando() || !borradorDiagnostico().trim()"
+              (click)="guardarDiagnostico()"
+            >
+              Guardar
+            </button>
+          </div>
+        } @else {
+          <p class="prosa" [class.silenciado]="!o.diagnostico">
+            {{ o.diagnostico || 'Pendiente de diagnosticar.' }}
+          </p>
+        }
         @if (o.motivoRechazo) {
           <p class="etiqueta-campo prosa__titulo">Motivo del rechazo</p>
           <p class="prosa">{{ o.motivoRechazo }}</p>
@@ -142,10 +198,144 @@
     <section class="tarjeta">
       <div class="tarjeta__titulo">
         <h2>Presupuesto</h2>
-        @if (!o.permiteEditarLineas) {
-          <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
-        }
+        <div class="fila">
+          @if (puedeFacturar && o.lineas.length) {
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              (click)="enviarPorWhatsapp()"
+              title="Abrir WhatsApp con el presupuesto escrito"
+            >
+              <app-icono nombre="whatsapp" [tamano]="14" />
+              Enviar por WhatsApp
+            </button>
+          }
+          @if (puedeEditarLineas()) {
+            <button type="button" class="boton boton--pequeno" (click)="abrirAlta('mano-obra')">
+              <app-icono nombre="mas" [tamano]="14" />
+              Mano de obra
+            </button>
+            <button type="button" class="boton boton--pequeno" (click)="abrirAlta('pieza')">
+              <app-icono nombre="mas" [tamano]="14" />
+              Pieza
+            </button>
+          } @else if (!o.permiteEditarLineas) {
+            <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
+          }
+        </div>
       </div>
+
+      @if (anadiendo() === 'mano-obra') {
+        <div class="alta-linea">
+          <div class="campo crece">
+            <label for="descTrabajo">Trabajo realizado</label>
+            <input
+              id="descTrabajo"
+              [ngModel]="descripcionTrabajo()"
+              (ngModelChange)="descripcionTrabajo.set($event)"
+              placeholder="Sustitución de pastillas y purga del circuito"
+            />
+          </div>
+          <div class="campo" style="width: 110px">
+            <label for="horas">Horas</label>
+            <input
+              id="horas"
+              type="number"
+              step="0.5"
+              min="0"
+              [ngModel]="horas()"
+              (ngModelChange)="horas.set($event === '' || $event === null ? null : +$event)"
+            />
+          </div>
+          <div class="campo" style="width: 110px">
+            <label for="dtoManoObra">Descuento %</label>
+            <input
+              id="dtoManoObra"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              [ngModel]="descuento()"
+              (ngModelChange)="descuento.set(+$event || 0)"
+            />
+          </div>
+          <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
+          <button
+            type="button"
+            class="boton boton--principal"
+            [disabled]="trabajando() || !horas() || !descripcionTrabajo().trim()"
+            (click)="anadirManoDeObra()"
+          >
+            Añadir
+          </button>
+        </div>
+        <p class="pequeno silenciado" style="margin: 4px 0 0">
+          Se cobra a la tarifa congelada de esta orden: {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h.
+        </p>
+      }
+
+      @if (anadiendo() === 'pieza') {
+        <div class="alta-linea">
+          <div class="campo" style="min-width: 180px">
+            <label for="familia">Grupo</label>
+            <select id="familia" [ngModel]="familia()" (ngModelChange)="elegirFamilia($event)">
+              <option value="">Todos los grupos</option>
+              @for (f of familias(); track f) {
+                <option [value]="f">{{ f }}</option>
+              }
+            </select>
+          </div>
+          <div class="campo crece">
+            <label for="pieza">Pieza</label>
+            <select id="pieza" [ngModel]="piezaId()" (ngModelChange)="piezaId.set($event ? +$event : null)">
+              <option [ngValue]="null">
+                {{ familia() ? 'Elige la pieza de ' + familia() + '…' : 'Elige del almacén…' }}
+              </option>
+              @for (p of piezas(); track p.id) {
+                <option [ngValue]="p.id">
+                  {{ p.sku }} · {{ p.descripcion }} — {{ p.precioVenta | number: '1.2-2' : 'es' }} €
+                  (quedan {{ p.stockActual | number: '1.0-2' : 'es' }})
+                </option>
+              }
+            </select>
+          </div>
+          <div class="campo" style="width: 110px">
+            <label for="cantidad">Cantidad</label>
+            <input
+              id="cantidad"
+              type="number"
+              step="1"
+              min="1"
+              [ngModel]="cantidad()"
+              (ngModelChange)="cantidad.set(+$event || 1)"
+            />
+          </div>
+          <div class="campo" style="width: 110px">
+            <label for="dtoPieza">Descuento %</label>
+            <input
+              id="dtoPieza"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              [ngModel]="descuento()"
+              (ngModelChange)="descuento.set(+$event || 0)"
+            />
+          </div>
+          <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
+          <button
+            type="button"
+            class="boton boton--principal"
+            [disabled]="trabajando() || !piezaId()"
+            (click)="anadirPieza()"
+          >
+            Añadir
+          </button>
+        </div>
+        <p class="pequeno silenciado" style="margin: 4px 0 0">
+          Añadirla al presupuesto no la saca del almacén: eso ocurre al entrar en reparación.
+        </p>
+      }
 
       @if (!o.lineas.length) {
         <p class="vacio pequeno">Todavía no se ha añadido ningún concepto.</p>
@@ -159,8 +349,10 @@
                 <th>Ref.</th>
                 <th class="num">Cant.</th>
                 <th class="num">Precio</th>
+                <th class="num">Dto.</th>
                 <th class="num">IVA</th>
                 <th class="num">Importe</th>
+                @if (puedeEditarLineas()) { <th></th> }
               </tr>
             </thead>
             <tbody>
@@ -174,8 +366,26 @@
                   <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
                   <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
                   <td class="num">{{ l.precioUnitario | number: '1.2-4' : 'es' }}</td>
+                  <td class="num" [class.silenciado]="!l.descuentoPct">
+                    {{ l.descuentoPct ? (l.descuentoPct | number: '1.0-2' : 'es') + '%' : '—' }}
+                  </td>
                   <td class="num">{{ l.porcentajeIva | number: '1.0-2' : 'es' }}%</td>
-                  <td class="num negrita">{{ l.baseImponible | number: '1.2-2' : 'es' }}</td>
+                  <td class="num importe importe--fuerte">
+                    {{ l.baseImponible | number: '1.2-2' : 'es' }}
+                  </td>
+                  @if (puedeEditarLineas()) {
+                    <td class="num">
+                      <button
+                        type="button"
+                        class="boton boton--pequeno boton--plano"
+                        [disabled]="trabajando()"
+                        (click)="quitarLinea(l.id)"
+                        title="Quitar del presupuesto"
+                      >
+                        <app-icono nombre="cerrar" [tamano]="14" />
+                      </button>
+                    </td>
+                  }
                 </tr>
               }
             </tbody>

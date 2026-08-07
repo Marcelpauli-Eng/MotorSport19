@@ -89,9 +89,15 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // ----- Usuarios: solo el administrador -----
+                // Mostrador necesita saber a que tecnico asignar el trabajo; el
+                // resto de la gestion de usuarios sigue siendo de direccion.
+                .requestMatchers(HttpMethod.GET, "/usuarios/tecnicos").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/usuarios/**").hasRole(ADMIN)
 
                 // ----- Configuracion fiscal y precios: solo el administrador -----
+                // Leerla si la abre mostrador: son los datos que van impresos en
+                // cada factura, y los necesita para comprobar antes de emitir.
+                .requestMatchers(HttpMethod.GET, "/configuracion").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/configuracion/**").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.PUT, "/piezas/*/precios").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.POST, "/piezas").hasRole(ADMIN)

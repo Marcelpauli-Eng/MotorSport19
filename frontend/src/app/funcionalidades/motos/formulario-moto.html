@@ -1,0 +1,94 @@
+<app-dialogo
+  [titulo]="esEdicion() ? 'Editar moto' : 'Nueva moto'"
+  [subtitulo]="esEdicion() ? '' : 'Toda moto pertenece a un cliente'"
+  (cerrar)="cerrar.emit()"
+>
+  @if (!esEdicion() && !clienteFijado()) {
+    <div class="campo">
+      <label for="cliente">Propietario <span class="silenciado">(obligatorio)</span></label>
+      <select
+        id="cliente"
+        [ngModel]="clienteId()"
+        (ngModelChange)="clienteId.set($event ? +$event : null)"
+      >
+        <option [ngValue]="null">Elige un cliente…</option>
+        @for (c of listaClientes(); track c.id) {
+          <option [ngValue]="c.id">{{ c.nombreCompleto }}</option>
+        }
+      </select>
+    </div>
+  }
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="matricula">Matrícula <span class="silenciado">(obligatorio)</span></label>
+      <input
+        id="matricula"
+        [ngModel]="matricula()"
+        (ngModelChange)="matricula.set($event)"
+        placeholder="1234 ABC"
+        autofocus
+      />
+    </div>
+    <div class="campo">
+      <label for="marca">Marca <span class="silenciado">(obligatorio)</span></label>
+      <input id="marca" [ngModel]="marca()" (ngModelChange)="marca.set($event)" placeholder="Yamaha" />
+    </div>
+    <div class="campo">
+      <label for="modelo">Modelo <span class="silenciado">(obligatorio)</span></label>
+      <input id="modelo" [ngModel]="modelo()" (ngModelChange)="modelo.set($event)" placeholder="MT-07" />
+    </div>
+    <div class="campo">
+      <label for="anio">Año</label>
+      <input
+        id="anio"
+        type="number"
+        [ngModel]="anio()"
+        (ngModelChange)="anio.set($event ? +$event : null)"
+      />
+    </div>
+    <div class="campo">
+      <label for="cc">Cilindrada (cc)</label>
+      <input
+        id="cc"
+        type="number"
+        [ngModel]="cilindrada()"
+        (ngModelChange)="cilindrada.set($event ? +$event : null)"
+      />
+    </div>
+    <div class="campo">
+      <label for="km">Kilómetros</label>
+      <input
+        id="km"
+        type="number"
+        [ngModel]="kmActual()"
+        (ngModelChange)="kmActual.set($event ? +$event : null)"
+      />
+    </div>
+    <div class="campo">
+      <label for="color">Color</label>
+      <input id="color" [ngModel]="color()" (ngModelChange)="color.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="bastidor">Nº de bastidor</label>
+      <input id="bastidor" [ngModel]="numeroBastidor()" (ngModelChange)="numeroBastidor.set($event)" />
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="obsMoto">Observaciones</label>
+    <textarea
+      id="obsMoto"
+      [ngModel]="observaciones()"
+      (ngModelChange)="observaciones.set($event)"
+      placeholder="Manillar de recambio, tornillo del carenado pasado…"
+    ></textarea>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button type="button" class="boton boton--principal" [disabled]="!puedeGuardar()" (click)="guardar()">
+      {{ enviando() ? 'Guardando…' : esEdicion() ? 'Guardar cambios' : 'Dar de alta' }}
+    </button>
+  </ng-container>
+</app-dialogo>

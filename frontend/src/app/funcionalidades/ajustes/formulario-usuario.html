@@ -1,0 +1,91 @@
+<app-dialogo
+  [titulo]="esAlta() ? 'Nuevo usuario' : 'Editar usuario'"
+  [subtitulo]="esAlta() ? 'Alguien más que entra en el programa' : username()"
+  (cerrar)="cerrar.emit()"
+>
+  <div class="campo">
+    <label for="nombreUsuario">Nombre y apellidos <span class="silenciado">(obligatorio)</span></label>
+    <input
+      id="nombreUsuario"
+      [ngModel]="nombreCompleto()"
+      (ngModelChange)="nombreCompleto.set($event)"
+      placeholder="Javier Ortega Marín"
+    />
+  </div>
+
+  <div class="rejilla">
+    @if (esAlta()) {
+      <div class="campo">
+        <label for="usuarioAcceso">Usuario <span class="silenciado">(obligatorio)</span></label>
+        <input
+          id="usuarioAcceso"
+          autocomplete="off"
+          [ngModel]="username()"
+          (ngModelChange)="username.set($event)"
+          placeholder="jortega"
+        />
+        <span class="pequeno silenciado">No se puede cambiar después: firma el historial.</span>
+      </div>
+    }
+
+    <div class="campo">
+      <label for="rolUsuario">Perfil</label>
+      <select id="rolUsuario" [ngModel]="rol()" (ngModelChange)="rol.set($event)">
+        <option value="TECNICO">Taller — trabaja sus órdenes</option>
+        <option value="MOSTRADOR">Mostrador — clientes, presupuestos y facturas</option>
+        <option value="ADMIN">Dirección — todo, incluidos precios y usuarios</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="passwordUsuario">
+      {{ esAlta() ? 'Contraseña' : 'Contraseña nueva' }}
+      <span class="silenciado">{{ esAlta() ? '(obligatorio)' : '(solo si la ha perdido)' }}</span>
+    </label>
+    <input
+      id="passwordUsuario"
+      type="password"
+      autocomplete="new-password"
+      [ngModel]="password()"
+      (ngModelChange)="password.set($event)"
+    />
+    @if (problema(); as aviso) {
+      <span class="pequeno" style="color: var(--rojo)">{{ aviso }}</span>
+    } @else {
+      <span class="pequeno silenciado">Mínimo 8 caracteres. Nadie puede leer la anterior.</span>
+    }
+  </div>
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="emailUsuario">Correo</label>
+      <input
+        id="emailUsuario"
+        type="email"
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+      />
+    </div>
+    <div class="campo">
+      <label for="telefonoUsuario">Teléfono</label>
+      <input
+        id="telefonoUsuario"
+        [ngModel]="telefono()"
+        (ngModelChange)="telefono.set($event)"
+      />
+    </div>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button
+      type="button"
+      class="boton boton--principal"
+      [disabled]="!puedeGuardar()"
+      (click)="guardar()"
+    >
+      {{ enviando() ? 'Guardando…' : 'Guardar' }}
+    </button>
+  </ng-container>
+</app-dialogo>

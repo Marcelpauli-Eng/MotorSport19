@@ -32,6 +32,12 @@ public class UsuarioService {
         this.codificador = codificador;
     }
 
+    /** Tecnicos activos, ordenados por nombre. */
+    @Transactional(readOnly = true)
+    public List<Usuario> tecnicosActivos() {
+        return usuarioRepository.buscarPorRol(Rol.TECNICO);
+    }
+
     @Transactional(readOnly = true)
     public List<Usuario> listar() {
         return usuarioRepository.findAll();

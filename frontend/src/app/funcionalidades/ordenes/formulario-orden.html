@@ -1,0 +1,84 @@
+<app-dialogo
+  titulo="Nueva orden de trabajo"
+  subtitulo="Entra una moto en el taller"
+  (cerrar)="cerrar.emit()"
+>
+  @if (!motoFijada()) {
+    <div class="campo">
+      <label for="moto">Moto <span class="silenciado">(obligatorio)</span></label>
+      <select id="moto" [ngModel]="motoId()" (ngModelChange)="elegirMoto($event ? +$event : null)">
+        <option [ngValue]="null">Elige la moto…</option>
+        @for (m of listaMotos(); track m.id) {
+          <option [ngValue]="m.id">
+            {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
+          </option>
+        }
+      </select>
+    </div>
+  }
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="km">Kilómetros de entrada <span class="silenciado">(obligatorio)</span></label>
+      <input
+        id="km"
+        type="number"
+        [ngModel]="kmEntrada()"
+        (ngModelChange)="kmEntrada.set($event === '' || $event === null ? null : +$event)"
+      />
+    </div>
+    <div class="campo">
+      <label for="salida">Salida estimada</label>
+      <input
+        id="salida"
+        type="date"
+        [ngModel]="fechaEstimada()"
+        (ngModelChange)="fechaEstimada.set($event)"
+      />
+    </div>
+  </div>
+
+  @if (reparteTrabajo) {
+    <div class="campo">
+      <label for="tecnicoOrden">Técnico</label>
+      <select id="tecnicoOrden" [ngModel]="tecnicoId()" (ngModelChange)="tecnicoId.set($event)">
+        <option [ngValue]="null">Sin asignar, se reparte luego</option>
+        @for (t of tecnicos(); track t.id) {
+          <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
+        }
+      </select>
+    </div>
+  }
+
+  <div class="campo">
+    <label for="problema">
+      Lo que cuenta el cliente <span class="silenciado">(obligatorio)</span>
+    </label>
+    <textarea
+      id="problema"
+      [ngModel]="problema()"
+      (ngModelChange)="problema.set($event)"
+      placeholder="Hace un ruido metálico al frenar en frío y el freno trasero va blando."
+    ></textarea>
+    <span class="pequeno silenciado">
+      Con sus palabras. El diagnóstico lo escribe después el técnico.
+    </span>
+  </div>
+
+  <div class="campo">
+    <label for="obsOrden">Observaciones internas</label>
+    <textarea
+      id="obsOrden"
+      [ngModel]="observaciones()"
+      (ngModelChange)="observaciones.set($event)"
+      placeholder="Deja el casco en el taller. Avisar al móvil, no al fijo."
+    ></textarea>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button type="button" class="boton boton--principal" [disabled]="!puedeGuardar()" (click)="guardar()">
+      {{ enviando() ? 'Abriendo…' : 'Abrir orden' }}
+    </button>
+  </ng-container>
+</app-dialogo>

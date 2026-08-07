@@ -52,11 +52,18 @@ public class PiezaService {
                         "No hay ninguna pieza con SKU %s.".formatted(sku)));
     }
 
+    /** Familias en uso, para los desplegables. */
     @Transactional(readOnly = true)
-    public Page<Pieza> buscar(String texto, Long proveedorId, boolean soloActivas, boolean soloBajoMinimo,
+    public java.util.List<String> familias() {
+        return piezaRepository.familias();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<Pieza> buscar(String texto, String familia, Long proveedorId, boolean soloActivas, boolean soloBajoMinimo,
                               Pageable pageable) {
         String filtro = (texto == null || texto.isBlank()) ? null : texto.trim();
-        return piezaRepository.buscar(filtro, proveedorId, soloActivas, soloBajoMinimo, pageable);
+        String grupo = (familia == null || familia.isBlank()) ? null : familia.trim();
+        return piezaRepository.buscar(filtro, grupo, proveedorId, soloActivas, soloBajoMinimo, pageable);
     }
 
     /**
@@ -67,7 +74,7 @@ public class PiezaService {
      * asiento en el libro.
      */
     @Transactional
-    public Pieza crear(String sku, String descripcion, String marca, String ubicacion, BigDecimal stockMinimo,
+    public Pieza crear(String sku, String descripcion, String marca, String ubicacion, String familia, BigDecimal stockMinimo,
                        BigDecimal precioCoste, BigDecimal precioVenta, String tipoIva, Long proveedorId,
                        String unidadMedida, String observaciones, BigDecimal stockInicial, Long usuarioId) {
         if (piezaRepository.existeConSku(sku)) {
@@ -76,7 +83,7 @@ public class PiezaService {
         comprobarTipoIva(tipoIva);
         Proveedor proveedor = proveedorId == null ? null : proveedorService.obtener(proveedorId);
 
-        Pieza pieza = Pieza.registrar(sku, descripcion, marca, ubicacion, stockMinimo, precioCoste,
+        Pieza pieza = Pieza.registrar(sku, descripcion, marca, ubicacion, familia, stockMinimo, precioCoste,
                 precioVenta, tipoIva, proveedor, unidadMedida, observaciones);
         Pieza guardada = piezaRepository.saveAndFlush(pieza);
 
@@ -88,7 +95,7 @@ public class PiezaService {
     }
 
     @Transactional
-    public Pieza actualizar(Long id, String sku, String descripcion, String marca, String ubicacion,
+    public Pieza actualizar(Long id, String sku, String descripcion, String marca, String ubicacion, String familia,
                             BigDecimal stockMinimo, String tipoIva, Long proveedorId, String unidadMedida,
                             String observaciones) {
         Pieza pieza = obtener(id);
@@ -98,7 +105,7 @@ public class PiezaService {
         comprobarTipoIva(tipoIva);
         Proveedor proveedor = proveedorId == null ? null : proveedorService.obtener(proveedorId);
 
-        pieza.actualizarDatos(sku, descripcion, marca, ubicacion, stockMinimo, tipoIva, proveedor,
+        pieza.actualizarDatos(sku, descripcion, marca, ubicacion, familia, stockMinimo, tipoIva, proveedor,
                 unidadMedida, observaciones);
         return pieza;
     }

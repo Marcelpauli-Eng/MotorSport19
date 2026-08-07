@@ -39,13 +39,20 @@ public class PiezaController {
     @GetMapping
     public PaginaResponse<PiezaResponse> buscar(
             @RequestParam(required = false) String texto,
+            @RequestParam(required = false) String familia,
             @RequestParam(required = false) Long proveedorId,
             @RequestParam(defaultValue = "true") boolean soloActivas,
             @RequestParam(defaultValue = "false") boolean soloBajoMinimo,
             @PageableDefault(size = 20, sort = "sku", direction = Sort.Direction.ASC) Pageable pageable) {
 
-        Page<Pieza> pagina = piezaService.buscar(texto, proveedorId, soloActivas, soloBajoMinimo, pageable);
+        Page<Pieza> pagina = piezaService.buscar(texto, familia, proveedorId, soloActivas, soloBajoMinimo, pageable);
         return PaginaResponse.de(pagina, PiezaResponse::de);
+    }
+
+    /** Familias que ya existen, para el desplegable de dos pasos. */
+    @GetMapping("/familias")
+    public java.util.List<String> familias() {
+        return piezaService.familias();
     }
 
     @GetMapping("/{id}")
@@ -63,7 +70,7 @@ public class PiezaController {
     public ResponseEntity<PiezaResponse> crear(@Valid @RequestBody CrearPiezaRequest peticion,
                                                UriComponentsBuilder uriBuilder) {
         Pieza pieza = piezaService.crear(
-                peticion.sku(), peticion.descripcion(), peticion.marca(), peticion.ubicacion(),
+                peticion.sku(), peticion.descripcion(), peticion.marca(), peticion.ubicacion(), peticion.familia(),
                 peticion.stockMinimo(), peticion.precioCoste(), peticion.precioVenta(), peticion.tipoIva(),
                 peticion.proveedorId(), peticion.unidadMedida(), peticion.observaciones(),
                 peticion.stockInicial(), usuarioActual.id());
@@ -77,7 +84,7 @@ public class PiezaController {
     public PiezaResponse actualizar(@PathVariable Long id,
                                     @Valid @RequestBody ActualizarPiezaRequest peticion) {
         return PiezaResponse.de(piezaService.actualizar(
-                id, peticion.sku(), peticion.descripcion(), peticion.marca(), peticion.ubicacion(),
+                id, peticion.sku(), peticion.descripcion(), peticion.marca(), peticion.ubicacion(), peticion.familia(),
                 peticion.stockMinimo(), peticion.tipoIva(), peticion.proveedorId(), peticion.unidadMedida(),
                 peticion.observaciones()));
     }

@@ -42,6 +42,23 @@ public class UsuarioController {
         return usuarioService.listar().stream().map(UsuarioResponse::de).toList();
     }
 
+    /**
+     * Tecnicos activos, para asignarlos a una orden.
+     *
+     * <p>Va aparte del listado de usuarios porque ese es solo de direccion, y
+     * mostrador necesita saber a quien puede asignar el trabajo. Solo devuelve
+     * el nombre: ni correos, ni telefonos, ni cuando entro por ultima vez.
+     */
+    @GetMapping("/tecnicos")
+    public List<TecnicoResponse> tecnicos() {
+        return usuarioService.tecnicosActivos().stream()
+                .map(u -> new TecnicoResponse(u.getId(), u.getNombreCompleto()))
+                .toList();
+    }
+
+    public record TecnicoResponse(Long id, String nombreCompleto) {
+    }
+
     @GetMapping("/{id}")
     public UsuarioResponse obtener(@PathVariable Long id) {
         return UsuarioResponse.de(usuarioService.obtener(id));

@@ -32,15 +32,29 @@ public interface MotoRepository extends JpaRepository<Moto, Long> {
     boolean existeOtraConBastidor(@Param("bastidor") String bastidor, @Param("idExcluido") Long idExcluido);
 
     /** Motos de un cliente. Se usa al abrir una OT desde la ficha del cliente. */
-    @Query("SELECT m FROM Moto m WHERE m.cliente.id = :clienteId AND (:soloActivas = FALSE OR m.activo = TRUE) ORDER BY m.matricula")
+    @Query("SELECT m FROM Moto m JOIN FETCH m.cliente WHERE m.cliente.id = :clienteId AND (:soloActivas = FALSE OR m.activo = TRUE) ORDER BY m.matricula")
     List<Moto> buscarPorCliente(@Param("clienteId") Long clienteId, @Param("soloActivas") boolean soloActivas);
 
     // Los :texto van con CAST explicito. Sin el, cuando la busqueda llega vacia
     // PostgreSQL recibe un parametro sin tipo y falla con
     // «function upper(bytea) does not exist»: el listado sin filtro, que es la
     // vista por defecto, respondia 500.
-    @Query("""
+    // El cliente se trae con JOIN FETCH: el listado muestra su nombre y la
+    // sesion ya esta cerrada al serializar (open-in-view desactivado). Con la
+    // consulta paginada hace falta ademas un countQuery propio, porque el
+    // JOIN FETCH no puede aparecer en un COUNT.
+    @Query(value = """
             SELECT m FROM Moto m
+              JOIN FETCH m.cliente
+             WHERE (:soloActivas = FALSE OR m.activo = TRUE)
+               AND (CAST(:texto AS String) IS NULL
+                    OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.marca)          LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.modelo)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
+            """,
+            countQuery = """
+            SELECT COUNT(m) FROM Moto m
              WHERE (:soloActivas = FALSE OR m.activo = TRUE)
                AND (CAST(:texto AS String) IS NULL
                     OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))

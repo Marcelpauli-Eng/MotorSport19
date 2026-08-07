@@ -1,0 +1,218 @@
+<app-dialogo
+  [titulo]="esAlta() ? 'Nueva pieza' : 'Editar pieza'"
+  [subtitulo]="esAlta() ? 'Se da de alta en el catálogo del almacén' : sku()"
+  (cerrar)="cerrar.emit()"
+>
+  <div class="rejilla">
+    <div class="campo">
+      <label for="skuPieza">Referencia (SKU) <span class="silenciado">(obligatorio)</span></label>
+      <input
+        id="skuPieza"
+        [ngModel]="sku()"
+        (ngModelChange)="sku.set($event)"
+        placeholder="PAS-BRE-001"
+      />
+    </div>
+    <div class="campo">
+      <label for="familiaPieza">Grupo</label>
+      <input
+        id="familiaPieza"
+        list="familiasConocidas"
+        [ngModel]="familia()"
+        (ngModelChange)="familia.set($event)"
+        placeholder="Frenos"
+      />
+      <datalist id="familiasConocidas">
+        @for (f of familias(); track f) {
+          <option [value]="f"></option>
+        }
+      </datalist>
+      <span class="pequeno silenciado">
+        Elija uno de los que ya usa o escriba uno nuevo. Es como se busca luego la pieza.
+      </span>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="descPieza">Descripción <span class="silenciado">(obligatorio)</span></label>
+    <input
+      id="descPieza"
+      [ngModel]="descripcion()"
+      (ngModelChange)="descripcion.set($event)"
+      placeholder="Juego de pastillas delanteras"
+    />
+  </div>
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="marcaPieza">Marca</label>
+      <input id="marcaPieza" [ngModel]="marca()" (ngModelChange)="marca.set($event)" />
+    </div>
+    <div class="campo">
+      <label for="ubicacionPieza">Ubicación en el almacén</label>
+      <input
+        id="ubicacionPieza"
+        [ngModel]="ubicacion()"
+        (ngModelChange)="ubicacion.set($event)"
+        placeholder="Estantería B, cajón 3"
+      />
+    </div>
+  </div>
+
+  <!-- Los precios se pueden escribir con IVA o sin él: la factura del proveedor
+       viene con IVA y el precio que se le dice al cliente también. -->
+  <h3 class="bloque-titulo">Lo que cuesta y a cuánto se vende</h3>
+
+  <div class="campo">
+    <label for="ivaPieza">Tipo de IVA</label>
+    <select id="ivaPieza" [ngModel]="tipoIva()" (ngModelChange)="tipoIva.set($event)">
+      @for (t of tiposIva(); track t.codigo) {
+        <option [value]="t.codigo">
+          {{ t.descripcion }} — {{ t.porcentaje | number: '1.0-2' : 'es' }}%
+        </option>
+      }
+    </select>
+  </div>
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="costeSinIva">Coste sin IVA</label>
+      <input
+        id="costeSinIva"
+        type="number"
+        step="0.01"
+        min="0"
+        [ngModel]="precioCoste()"
+        (ngModelChange)="precioCoste.set(+$event || 0)"
+      />
+    </div>
+    <div class="campo">
+      <label for="costeConIva">Coste con IVA <span class="silenciado">(lo que le cobra el proveedor)</span></label>
+      <input
+        id="costeConIva"
+        type="number"
+        step="0.01"
+        min="0"
+        [ngModel]="costeConIva()"
+        (ngModelChange)="fijarCosteConIva(+$event || 0)"
+      />
+    </div>
+  </div>
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="ventaSinIva">Venta sin IVA</label>
+      <input
+        id="ventaSinIva"
+        type="number"
+        step="0.01"
+        min="0"
+        [ngModel]="precioVenta()"
+        (ngModelChange)="precioVenta.set(+$event || 0)"
+      />
+    </div>
+    <div class="campo">
+      <label for="ventaConIva">PVP con IVA <span class="silenciado">(lo que paga el cliente)</span></label>
+      <input
+        id="ventaConIva"
+        type="number"
+        step="0.01"
+        min="0"
+        [ngModel]="ventaConIva()"
+        (ngModelChange)="fijarVentaConIva(+$event || 0)"
+      />
+    </div>
+  </div>
+
+  <div class="fila" style="align-items: center; gap: var(--e2)">
+    <span class="pequeno silenciado">
+      @if (margen(); as m) {
+        Margen: <strong>{{ m | number: '1.0-1' : 'es' }}%</strong>
+        ({{ precioVenta() - precioCoste() | number: '1.2-2' : 'es' }} € por unidad)
+      } @else {
+        Ponga el coste para ver el margen.
+      }
+    </span>
+    <span class="pequeno silenciado">·</span>
+    <button type="button" class="boton boton--pequeno" (click)="aplicarMargen(30)">+30%</button>
+    <button type="button" class="boton boton--pequeno" (click)="aplicarMargen(50)">+50%</button>
+    <button type="button" class="boton boton--pequeno" (click)="aplicarMargen(100)">×2</button>
+  </div>
+
+  <h3 class="bloque-titulo">Almacén</h3>
+
+  <div class="rejilla">
+    <div class="campo">
+      <label for="minimoPieza">Stock mínimo</label>
+      <input
+        id="minimoPieza"
+        type="number"
+        step="1"
+        min="0"
+        [ngModel]="stockMinimo()"
+        (ngModelChange)="stockMinimo.set(+$event || 0)"
+      />
+      <span class="pequeno silenciado">Por debajo de aquí sale en la lista de reposición.</span>
+    </div>
+
+    @if (esAlta()) {
+      <div class="campo">
+        <label for="inicialPieza">Unidades que hay ahora</label>
+        <input
+          id="inicialPieza"
+          type="number"
+          step="1"
+          min="0"
+          [ngModel]="stockInicial()"
+          (ngModelChange)="stockInicial.set(+$event || 0)"
+        />
+        <span class="pequeno silenciado">Queda anotado como una entrada de almacén.</span>
+      </div>
+    } @else {
+      <div class="campo">
+        <label for="unidadPieza">Unidad de medida</label>
+        <input
+          id="unidadPieza"
+          [ngModel]="unidadMedida()"
+          (ngModelChange)="unidadMedida.set($event)"
+          placeholder="UD"
+        />
+      </div>
+    }
+  </div>
+
+  <div class="campo">
+    <label for="proveedorPieza">Proveedor habitual</label>
+    <select
+      id="proveedorPieza"
+      [ngModel]="proveedorId()"
+      (ngModelChange)="proveedorId.set($event)"
+    >
+      <option [ngValue]="null">Sin proveedor fijo</option>
+      @for (p of proveedores(); track p.id) {
+        <option [ngValue]="p.id">{{ p.nombre }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="campo">
+    <label for="obsPieza">Observaciones</label>
+    <textarea
+      id="obsPieza"
+      [ngModel]="observaciones()"
+      (ngModelChange)="observaciones.set($event)"
+    ></textarea>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button
+      type="button"
+      class="boton boton--principal"
+      [disabled]="!puedeGuardar()"
+      (click)="guardar()"
+    >
+      {{ enviando() ? 'Guardando…' : esAlta() ? 'Dar de alta' : 'Guardar' }}
+    </button>
+  </ng-container>
+</app-dialogo>

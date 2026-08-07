@@ -59,6 +59,11 @@ export class OrdenesService {
     return this.http.post<OrdenTrabajo>(this.base, datos);
   }
 
+  /** Pone o cambia el técnico que lleva la orden. `null` la deja sin asignar. */
+  asignarTecnico(id: number, tecnicoId: number | null): Observable<OrdenTrabajo> {
+    return this.http.put<OrdenTrabajo>(`${this.base}/${id}/tecnico`, { tecnicoId });
+  }
+
   registrarDiagnostico(id: number, diagnostico: string): Observable<OrdenTrabajo> {
     return this.http.put<OrdenTrabajo>(`${this.base}/${id}/diagnostico`, { diagnostico });
   }

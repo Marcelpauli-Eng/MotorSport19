@@ -8,6 +8,15 @@ spring:
   flyway:
     locations: classpath:db/migration,classpath:db/demo
 
+    # Los datos de demostracion son la migracion V900, por encima de cualquier
+    # cambio de esquema futuro. Sin esto, anadir una V9 a una base que ya tiene
+    # la demo cargada haria que Flyway la rechazara por venir «fuera de orden»,
+    # y habria que borrar la base entera en cada cambio del esquema.
+    #
+    # Solo aqui: en una instalacion real no se carga la demo, las migraciones
+    # van en orden, y esta permisividad no debe estar activa.
+    out-of-order: true
+
 logging:
   level:
     com.motorsport19.taller: DEBUG

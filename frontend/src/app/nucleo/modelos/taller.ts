@@ -55,6 +55,8 @@ export interface MotoResumen {
   descripcion: string;
   anio: number | null;
   kmActual: number;
+  clienteId: number;
+  clienteNombre: string;
   activo: boolean;
 }
 
@@ -70,6 +72,8 @@ export interface Pieza {
   descripcion: string;
   marca: string | null;
   ubicacion: string | null;
+  /** Grupo del almacén: Frenos, Filtros, Transmisión… Texto libre. */
+  familia: string | null;
   stockActual: number;
   stockMinimo: number;
   bajoMinimo: boolean;
@@ -197,6 +201,7 @@ export interface OrdenTrabajo {
   descripcionMoto: string;
   clienteId: number;
   clienteNombre: string;
+  clienteTelefono: string | null;
 
   fechaEntrada: string;
   fechaEstimadaSalida: string | null;

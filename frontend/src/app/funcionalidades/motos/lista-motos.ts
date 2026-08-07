@@ -4,13 +4,19 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
+import { FormularioMoto } from './formulario-moto';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { MotoResumen } from '../../nucleo/modelos/taller';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 
 @Component({
   selector: 'app-lista-motos',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioMoto],
   template: `
+    @if (mostrarFormulario()) {
+      <app-formulario-moto (cerrar)="mostrarFormulario.set(false)" (guardado)="trasGuardar()" />
+    }
+
     <div class="pagina-cabecera">
       <div class="pagina-cabecera__texto">
         <h1>Motos</h1>
@@ -18,6 +24,12 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
           {{ totalItems() }} {{ totalItems() === 1 ? 'moto registrada' : 'motos registradas' }}
         </p>
       </div>
+      @if (puedeEditar) {
+        <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+          <app-icono nombre="mas" [tamano]="16" />
+          Nueva moto
+        </button>
+      }
     </div>
 
     <div class="filtros">
@@ -114,6 +126,13 @@ export class ListaMotos {
   protected readonly pagina = signal(0);
   protected readonly totalPaginas = signal(0);
   protected readonly texto = signal('');
+  protected readonly mostrarFormulario = signal(false);
+  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  protected trasGuardar(): void {
+    this.mostrarFormulario.set(false);
+    this.cargar();
+  }
 
   constructor() {
     this.cargar();

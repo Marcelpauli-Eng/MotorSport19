@@ -1,0 +1,92 @@
+.velo-dialogo {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--e4);
+  background: rgb(11 17 32 / 45%);
+  overflow-y: auto;
+}
+
+.dialogo {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100dvh - var(--e8));
+  background: var(--blanco);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-g);
+}
+
+.dialogo--ancho { max-width: 720px; }
+
+.dialogo__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e4);
+  padding: var(--e5) var(--e5) var(--e3);
+  border-bottom: var(--borde);
+}
+
+.dialogo__cabecera h2 { margin: 0; }
+
+.dialogo__sub {
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
+
+.dialogo__cerrar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  color: var(--gris-500);
+  background: none;
+  border: none;
+  border-radius: var(--radio-s);
+  cursor: pointer;
+}
+
+.dialogo__cerrar:hover { color: var(--gris-900); background: var(--gris-100); }
+
+/* El cuerpo es lo único que se desplaza: cabecera y pie quedan fijos, así el
+   botón de guardar siempre está a la vista en un formulario largo. */
+.dialogo__cuerpo {
+  padding: var(--e5);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dialogo__pie {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e2);
+  padding: var(--e3) var(--e5);
+  border-top: var(--borde);
+  background: var(--gris-50);
+  border-radius: 0 0 var(--radio-g) var(--radio-g);
+}
+
+/* Aviso de error dentro de un formulario. */
+.dialogo__error {
+  margin: 0 0 var(--e4);
+  padding: var(--e2) var(--e3);
+  font-size: 0.8125rem;
+  color: var(--rojo);
+  background: var(--rojo-suave);
+  border: 1px solid var(--rojo-borde);
+  border-radius: var(--radio);
+}
+
+@media (max-width: 640px) {
+  .velo-dialogo { padding: 0; align-items: flex-end; }
+  .dialogo { max-width: none; max-height: 92dvh; border-radius: var(--radio-g) var(--radio-g) 0 0; }
+}

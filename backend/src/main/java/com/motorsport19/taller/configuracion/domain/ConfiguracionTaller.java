@@ -78,4 +78,42 @@ public class ConfiguracionTaller extends EntidadAuditable {
     /** URL base que se codifica en el QR de la factura para su verificacion. */
     @Column(name = "url_verificacion_qr", length = 300)
     private String urlVerificacionQr;
+
+    /**
+     * Cambia los datos del taller.
+     *
+     * <p>Los datos del software (nombre, version, NIF) no se tocan desde aqui:
+     * identifican al programa que emite, no al taller, y falsearlos romperia la
+     * trazabilidad de las facturas ya emitidas.
+     *
+     * <p>Cambiar estos datos NO afecta a las facturas antiguas: cada una lleva
+     * dentro una copia de como estaba el taller el dia que se emitio.
+     */
+    public void actualizar(String razonSocial, String nif, String direccion, String codigoPostal,
+                           String ciudad, String provincia, String pais, String telefono,
+                           String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto) {
+        this.razonSocial = exigir(razonSocial, "La razon social es obligatoria.");
+        this.nif = exigir(nif, "El NIF del taller es obligatorio.").toUpperCase();
+        this.direccion = exigir(direccion, "La direccion es obligatoria.");
+        this.codigoPostal = exigir(codigoPostal, "El codigo postal es obligatorio.");
+        this.ciudad = exigir(ciudad, "La ciudad es obligatoria.");
+        this.provincia = provincia;
+        this.pais = pais == null || pais.isBlank() ? "ES" : pais.trim();
+        this.telefono = telefono;
+        this.email = email;
+
+        if (tarifaHoraDefecto == null || tarifaHoraDefecto.signum() <= 0) {
+            throw new com.motorsport19.taller.common.error.ReglaNegocioException(
+                    "La tarifa por hora tiene que ser mayor que cero.");
+        }
+        this.tarifaHoraDefecto = tarifaHoraDefecto;
+        this.tipoIvaDefecto = exigir(tipoIvaDefecto, "El tipo de IVA por defecto es obligatorio.");
+    }
+
+    private static String exigir(String valor, String mensaje) {
+        if (valor == null || valor.isBlank()) {
+            throw new com.motorsport19.taller.common.error.ReglaNegocioException(mensaje);
+        }
+        return valor.trim();
+    }
 }

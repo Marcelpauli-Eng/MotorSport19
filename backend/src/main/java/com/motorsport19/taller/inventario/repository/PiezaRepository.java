@@ -58,6 +58,7 @@ public interface PiezaRepository extends JpaRepository<Pieza, Long> {
              WHERE (:soloActivas = FALSE OR p.activo = TRUE)
                AND (:soloBajoMinimo = FALSE OR p.stockActual <= p.stockMinimo)
                AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId)
+               AND (CAST(:familia AS String) IS NULL OR p.familia = CAST(:familia AS String))
                AND (CAST(:texto AS String) IS NULL
                     OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
@@ -68,16 +69,27 @@ public interface PiezaRepository extends JpaRepository<Pieza, Long> {
              WHERE (:soloActivas = FALSE OR p.activo = TRUE)
                AND (:soloBajoMinimo = FALSE OR p.stockActual <= p.stockMinimo)
                AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId)
+               AND (CAST(:familia AS String) IS NULL OR p.familia = CAST(:familia AS String))
                AND (CAST(:texto AS String) IS NULL
                     OR UPPER(p.sku)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(p.marca)       LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
             """)
     Page<Pieza> buscar(@Param("texto") String texto,
+                       @Param("familia") String familia,
                        @Param("proveedorId") Long proveedorId,
                        @Param("soloActivas") boolean soloActivas,
                        @Param("soloBajoMinimo") boolean soloBajoMinimo,
                        Pageable pageable);
+
+    /**
+     * Familias que ya se usan, para el desplegable.
+     *
+     * <p>Se sacan de las propias piezas y no de un catalogo aparte: cada taller
+     * agrupa a su manera, y asi la lista se construye sola segun se dan de alta.
+     */
+    @Query("SELECT DISTINCT p.familia FROM Pieza p WHERE p.familia IS NOT NULL AND p.activo = TRUE ORDER BY p.familia")
+    List<String> familias();
 
     /** Carga la pieza con su proveedor resuelto, para devolverla en la respuesta. */
     @Query("SELECT p FROM Pieza p LEFT JOIN FETCH p.proveedor WHERE p.id = :id")

@@ -1,0 +1,269 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Ajustes</h1>
+    <p class="pagina-cabecera__sub">
+      Los datos de la empresa se copian dentro de cada factura al emitirla: cambiarlos aquí no
+      toca las que ya están hechas.
+    </p>
+  </div>
+</div>
+
+<div class="apilado">
+  @if (esAdmin) {
+    <div class="pestanas">
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="pestana() === 'empresa'"
+        (click)="cambiarPestana('empresa')"
+      >
+        Empresa y facturación
+      </button>
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="pestana() === 'usuarios'"
+        (click)="cambiarPestana('usuarios')"
+      >
+        Usuarios
+      </button>
+    </div>
+  }
+
+  @if (pestana() === 'empresa') {
+    @if (cargando()) {
+      <app-cargando mensaje="Cargando los datos del taller…" />
+    } @else if (borrador(); as b) {
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>Datos que salen en la factura</h2>
+        </div>
+
+        <div class="campo">
+          <label for="razonSocial">Razón social <span class="silenciado">(obligatorio)</span></label>
+          <input
+            id="razonSocial"
+            [disabled]="!esAdmin"
+            [ngModel]="b.razonSocial"
+            (ngModelChange)="campo('razonSocial', $event)"
+            placeholder="MotorSport19 S.L."
+          />
+        </div>
+
+        <div class="rejilla">
+          <div class="campo">
+            <label for="nifTaller">NIF <span class="silenciado">(obligatorio)</span></label>
+            <input
+              id="nifTaller"
+              [disabled]="!esAdmin"
+              [ngModel]="b.nif"
+              (ngModelChange)="campo('nif', $event)"
+              placeholder="B12345678"
+            />
+          </div>
+          <div class="campo">
+            <label for="telefonoTaller">Teléfono</label>
+            <input
+              id="telefonoTaller"
+              [disabled]="!esAdmin"
+              [ngModel]="b.telefono"
+              (ngModelChange)="campo('telefono', $event)"
+            />
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="direccionTaller">Dirección <span class="silenciado">(obligatorio)</span></label>
+          <input
+            id="direccionTaller"
+            [disabled]="!esAdmin"
+            [ngModel]="b.direccion"
+            (ngModelChange)="campo('direccion', $event)"
+          />
+        </div>
+
+        <div class="rejilla">
+          <div class="campo">
+            <label for="cpTaller">Código postal <span class="silenciado">(obligatorio)</span></label>
+            <input
+              id="cpTaller"
+              [disabled]="!esAdmin"
+              [ngModel]="b.codigoPostal"
+              (ngModelChange)="campo('codigoPostal', $event)"
+            />
+          </div>
+          <div class="campo">
+            <label for="ciudadTaller">Ciudad <span class="silenciado">(obligatorio)</span></label>
+            <input
+              id="ciudadTaller"
+              [disabled]="!esAdmin"
+              [ngModel]="b.ciudad"
+              (ngModelChange)="campo('ciudad', $event)"
+            />
+          </div>
+          <div class="campo">
+            <label for="provinciaTaller">Provincia</label>
+            <input
+              id="provinciaTaller"
+              [disabled]="!esAdmin"
+              [ngModel]="b.provincia"
+              (ngModelChange)="campo('provincia', $event)"
+            />
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="emailTaller">Correo</label>
+          <input
+            id="emailTaller"
+            type="email"
+            [disabled]="!esAdmin"
+            [ngModel]="b.email"
+            (ngModelChange)="campo('email', $event)"
+          />
+        </div>
+      </section>
+
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>Precios por defecto</h2>
+        </div>
+
+        <div class="rejilla">
+          <div class="campo">
+            <label for="tarifaHora">Precio de la hora de taller</label>
+            <input
+              id="tarifaHora"
+              type="number"
+              step="0.5"
+              min="0"
+              [disabled]="!esAdmin"
+              [ngModel]="b.tarifaHoraDefecto"
+              (ngModelChange)="campo('tarifaHoraDefecto', +$event)"
+            />
+            <span class="pequeno silenciado">
+              Cada orden congela la tarifa que hubiera el día que se abrió. Subirla aquí solo
+              afecta a las órdenes que se abran a partir de ahora.
+            </span>
+          </div>
+          <div class="campo">
+            <label for="ivaDefecto">IVA por defecto</label>
+            <select
+              id="ivaDefecto"
+              [disabled]="!esAdmin"
+              [ngModel]="b.tipoIvaDefecto"
+              (ngModelChange)="campo('tipoIvaDefecto', $event)"
+            >
+              @for (t of b.tiposIva; track t.codigo) {
+                <option [value]="t.codigo">
+                  {{ t.descripcion }} — {{ t.porcentaje | number: '1.0-2' : 'es' }}%
+                </option>
+              }
+            </select>
+          </div>
+        </div>
+
+        @if (esAdmin) {
+          <div class="fila fila--fin" style="margin-top: var(--e3)">
+            <button type="button" class="boton" [disabled]="guardando()" (click)="descartar()">
+              Descartar cambios
+            </button>
+            <button
+              type="button"
+              class="boton boton--principal"
+              [disabled]="!puedeGuardar()"
+              (click)="guardar()"
+            >
+              {{ guardando() ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        }
+
+        <p class="pequeno silenciado" style="margin-top: var(--e3)">
+          Emite {{ b.softwareNombre }} {{ b.softwareVersion }}. Esos datos identifican al programa,
+          no al taller, y no se tocan desde aquí.
+        </p>
+      </section>
+    }
+  }
+
+  @if (pestana() === 'usuarios' && esAdmin) {
+    <section class="tarjeta tarjeta--ajustada">
+      <div class="tarjeta__titulo">
+        <h2>Quién entra en el programa</h2>
+        <button type="button" class="boton boton--pequeno" (click)="creando.set(true)">
+          <app-icono nombre="mas" [tamano]="14" />
+          Nuevo usuario
+        </button>
+      </div>
+
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Usuario</th>
+              <th>Perfil</th>
+              <th>Último acceso</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (u of usuarios(); track u.id) {
+              <tr>
+                <td>
+                  <div class="celda-doble">
+                    <span class="celda-doble__principal">{{ u.nombreCompleto }}</span>
+                    @if (!u.activo) {
+                      <span class="celda-doble__secundario">Dado de baja</span>
+                    }
+                  </div>
+                </td>
+                <td class="mono">{{ u.username }}</td>
+                <td><span class="etiqueta etiqueta--gris">{{ u.rolDescripcion }}</span></td>
+                <td class="pequeno silenciado">
+                  {{ u.ultimoAcceso ? (u.ultimoAcceso | date: 'd MMM · HH:mm' : undefined : 'es') : 'Nunca' }}
+                </td>
+                <td class="num">
+                  <div class="fila" style="gap: 4px; flex-wrap: nowrap; justify-content: flex-end">
+                    <button type="button" class="boton boton--pequeno" (click)="editando.set(u)">
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      class="boton boton--pequeno"
+                      [class.boton--peligro]="u.activo"
+                      (click)="cambiarEstado(u)"
+                    >
+                      {{ u.activo ? 'Dar de baja' : 'Reactivar' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <p class="pequeno silenciado" style="margin-top: var(--e3)">
+        Un usuario nunca se borra: se da de baja. Su nombre sigue firmando las órdenes y los
+        movimientos de almacén que hizo.
+      </p>
+    </section>
+  }
+</div>
+
+@if (creando()) {
+  <app-formulario-usuario
+    (cerrar)="creando.set(false)"
+    (guardado)="trasGuardarUsuario()"
+  />
+}
+
+@if (editando(); as u) {
+  <app-formulario-usuario
+    [usuario]="u"
+    (cerrar)="editando.set(null)"
+    (guardado)="trasGuardarUsuario()"
+  />
+}

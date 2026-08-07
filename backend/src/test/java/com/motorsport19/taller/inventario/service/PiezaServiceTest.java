@@ -51,7 +51,7 @@ class PiezaServiceTest {
         when(piezaRepository.saveAndFlush(any(Pieza.class))).thenAnswer(i -> i.getArgument(0));
 
         Pieza pieza = piezaService.crear("ACE-10W40-1L", "Aceite motor 10W-40", "Motul", "A1-01",
-                new BigDecimal("12"), new BigDecimal("6.20"), new BigDecimal("12.90"), "GENERAL",
+                "Aceites y liquidos", new BigDecimal("12"), new BigDecimal("6.20"), new BigDecimal("12.90"), "GENERAL",
                 null, "L", null, null, null);
 
         // Las existencias no se escriben nunca en la pieza: es la base de datos
@@ -68,7 +68,8 @@ class PiezaServiceTest {
         when(piezaRepository.saveAndFlush(any(Pieza.class)))
                 .thenAnswer(i -> PiezasDePrueba.conStock(7L, "BUJ-CR8E", "0"));
 
-        piezaService.crear("BUJ-CR8E", "Bujia NGK CR8E", "NGK", "A2-01", new BigDecimal("8"),
+        piezaService.crear("BUJ-CR8E", "Bujia NGK CR8E", "NGK", "A2-01", "Encendido",
+                new BigDecimal("8"),
                 new BigDecimal("3.90"), new BigDecimal("8.75"), "GENERAL", null, "UD", null,
                 new BigDecimal("24"), 1L);
 
@@ -82,7 +83,7 @@ class PiezaServiceTest {
     void skuDuplicado() {
         when(piezaRepository.existeConSku("ACE-10W40-1L")).thenReturn(true);
 
-        assertThatThrownBy(() -> piezaService.crear("ACE-10W40-1L", "Aceite", null, null,
+        assertThatThrownBy(() -> piezaService.crear("ACE-10W40-1L", "Aceite", null, null, null,
                 BigDecimal.ONE, BigDecimal.ONE, BigDecimal.TEN, "GENERAL", null, "L", null, null, null))
                 .isInstanceOf(ConflictoException.class)
                 .hasMessageContaining("ACE-10W40-1L");
@@ -94,7 +95,7 @@ class PiezaServiceTest {
         when(piezaRepository.existeConSku(anyString())).thenReturn(false);
         when(tipoIvaRepository.existsById("INVENTADO")).thenReturn(false);
 
-        assertThatThrownBy(() -> piezaService.crear("SKU-1", "Pieza", null, null,
+        assertThatThrownBy(() -> piezaService.crear("SKU-1", "Pieza", null, null, null,
                 BigDecimal.ONE, BigDecimal.ONE, BigDecimal.TEN, "INVENTADO", null, "UD", null, null, null))
                 .isInstanceOf(ConflictoException.class)
                 .hasMessageContaining("INVENTADO");

@@ -40,6 +40,19 @@
 
   @if (pestana() === 'catalogo') {
     <div class="filtros">
+      <div class="campo" style="min-width: 190px">
+        <label for="familiaFiltro">Grupo</label>
+        <select
+          id="familiaFiltro"
+          [ngModel]="familia()"
+          (ngModelChange)="filtrarPorFamilia($event)"
+        >
+          <option value="">Todos los grupos</option>
+          @for (f of familias(); track f) {
+            <option [value]="f">{{ f }}</option>
+          }
+        </select>
+      </div>
       <div class="campo filtros__crece">
         <label for="buscar">Buscar pieza</label>
         <input
@@ -55,6 +68,12 @@
         <app-icono nombre="buscar" [tamano]="16" />
         Buscar
       </button>
+      @if (gestionaAlmacen) {
+        <button type="button" class="boton boton--principal" (click)="creando.set(true)">
+          <app-icono nombre="mas" [tamano]="16" />
+          Nueva pieza
+        </button>
+      }
     </div>
 
     <section class="tarjeta tarjeta--ajustada">
@@ -67,9 +86,10 @@
               <tr>
                 <th>SKU</th>
                 <th>Descripción</th>
-                <th>Ubicación</th>
+                <th>Grupo</th>
                 <th class="num">Stock</th>
                 <th class="num">Mínimo</th>
+                @if (gestionaAlmacen) { <th class="num">Coste</th> }
                 <th class="num">Venta</th>
                 <th></th>
               </tr>
@@ -86,7 +106,14 @@
                       }
                     </div>
                   </td>
-                  <td class="silenciado codigo">{{ p.ubicacion || '—' }}</td>
+                  <td class="silenciado">
+                    <div class="celda-doble">
+                      <span>{{ p.familia || '—' }}</span>
+                      @if (p.ubicacion) {
+                        <span class="celda-doble__secundario">{{ p.ubicacion }}</span>
+                      }
+                    </div>
+                  </td>
                   <td class="num">
                     @if (p.sinExistencias) {
                       <span class="etiqueta etiqueta--rojo">0</span>
@@ -99,6 +126,9 @@
                     }
                   </td>
                   <td class="num silenciado">{{ p.stockMinimo | number: '1.0-3' : 'es' }}</td>
+                  @if (gestionaAlmacen) {
+                    <td class="num importe silenciado">{{ p.precioCoste | number: '1.2-2' : 'es' }} €</td>
+                  }
                   <td class="num importe importe--fuerte">
                     {{ p.precioVenta | number: '1.2-2' : 'es' }} €
                   </td>
@@ -118,6 +148,9 @@
                         </button>
                         <button type="button" class="boton boton--pequeno" (click)="registrarAjuste(p)">
                           Ajuste
+                        </button>
+                        <button type="button" class="boton boton--pequeno" (click)="editando.set(p)">
+                          Editar
                         </button>
                       </div>
                     }
@@ -248,3 +281,15 @@
     </section>
   }
 </div>
+
+@if (creando()) {
+  <app-formulario-pieza (cerrar)="creando.set(false)" (guardado)="trasGuardarPieza()" />
+}
+
+@if (editando(); as p) {
+  <app-formulario-pieza
+    [pieza]="p"
+    (cerrar)="editando.set(null)"
+    (guardado)="trasGuardarPieza()"
+  />
+}
