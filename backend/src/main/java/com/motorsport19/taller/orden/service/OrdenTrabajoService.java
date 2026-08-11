@@ -264,6 +264,21 @@ public class OrdenTrabajoService {
         return orden;
     }
 
+    /**
+     * Cambia el precio de la hora pactado para esta orden.
+     *
+     * <p>Se cargan las lineas porque el dominio revalora con ella las horas ya
+     * apuntadas: sin ellas el presupuesto quedaria a dos precios distintos.
+     */
+    @Transactional
+    public OrdenTrabajo cambiarTarifaHora(Long id, BigDecimal tarifaHora) {
+        OrdenTrabajo orden = cargarConLineas(id);
+        exigirPermisoDeTrabajo(orden);
+        orden.cambiarTarifaHora(tarifaHora);
+        log.info("Tarifa/hora de la orden {} cambiada a {}", orden.codigoVisible(), tarifaHora);
+        return orden;
+    }
+
     @Transactional
     public OrdenTrabajo registrarDiagnostico(Long id, String diagnostico) {
         OrdenTrabajo orden = obtener(id);
@@ -398,6 +413,16 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         linea.cambiarCantidad(cantidad, consumoDe(linea));
+        return linea;
+    }
+
+    /** Pone un precio cerrado a una linea de mano de obra de esta orden. */
+    @Transactional
+    public LineaOT cambiarPrecioDeManoDeObra(Long ordenId, Long lineaId, BigDecimal precioUnitario) {
+        OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
+        LineaOT linea = buscarLinea(orden, lineaId);
+        orden.cambiarPrecioDeManoDeObra(linea, precioUnitario);
         return linea;
     }
 

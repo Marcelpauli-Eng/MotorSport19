@@ -53,7 +53,8 @@ public class ConfiguracionController {
         cfg.actualizar(
                 peticion.razonSocial(), peticion.nif(), peticion.direccion(), peticion.codigoPostal(),
                 peticion.ciudad(), peticion.provincia(), peticion.pais(), peticion.telefono(),
-                peticion.email(), peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto());
+                peticion.email(), peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto(),
+                peticion.capacidadDiariaHoras());
         return ConfiguracionResponse.de(cfg, tiposIva.findAll());
     }
 
@@ -68,6 +69,7 @@ public class ConfiguracionController {
             String razonSocial, String nif, String direccion, String codigoPostal,
             String ciudad, String provincia, String pais, String telefono, String email,
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
+            BigDecimal capacidadDiariaHoras,
             String softwareNombre, String softwareVersion,
             List<TipoIvaResponse> tiposIva
     ) {
@@ -75,7 +77,7 @@ public class ConfiguracionController {
             return new ConfiguracionResponse(
                     c.getRazonSocial(), c.getNif(), c.getDireccion(), c.getCodigoPostal(),
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
-                    c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(),
+                    c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
@@ -113,7 +115,11 @@ public class ConfiguracionController {
             BigDecimal tarifaHoraDefecto,
 
             @NotBlank(message = "El tipo de IVA por defecto es obligatorio")
-            String tipoIvaDefecto
+            String tipoIvaDefecto,
+
+            @NotNull(message = "La capacidad diaria es obligatoria")
+            @Positive(message = "La capacidad diaria tiene que ser mayor que cero")
+            BigDecimal capacidadDiariaHoras
     ) {
     }
 }

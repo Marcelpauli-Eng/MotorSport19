@@ -56,7 +56,8 @@ export class Ajustes {
       !!b.direccion?.trim() &&
       !!b.codigoPostal?.trim() &&
       !!b.ciudad?.trim() &&
-      b.tarifaHoraDefecto > 0
+      b.tarifaHoraDefecto > 0 &&
+      b.capacidadDiariaHoras > 0
     );
   });
 
@@ -104,6 +105,7 @@ export class Ajustes {
         email: b.email,
         tarifaHoraDefecto: b.tarifaHoraDefecto,
         tipoIvaDefecto: b.tipoIvaDefecto,
+        capacidadDiariaHoras: b.capacidadDiariaHoras,
       })
       .subscribe({
         next: (c) => {

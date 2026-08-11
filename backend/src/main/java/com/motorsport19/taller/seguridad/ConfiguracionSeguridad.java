@@ -100,6 +100,12 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.GET, "/configuracion").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/configuracion/**").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.PUT, "/piezas/*/precios").hasRole(ADMIN)
+
+                // El precio de la hora de una orden se negocia con el cliente, y
+                // eso pasa en el mostrador. Un tecnico apunta horas, no las tarifa.
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/tarifa-hora").hasAnyRole(ADMIN, MOSTRADOR)
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/precio").hasAnyRole(ADMIN, MOSTRADOR)
+
                 .requestMatchers(HttpMethod.POST, "/piezas").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.PUT, "/piezas/**").hasRole(ADMIN)
 
@@ -111,6 +117,12 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/salidas").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.POST, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers(HttpMethod.PUT, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
+
+                // ----- Agenda: la consulta todo el taller, la gestiona mostrador -----
+                // Un tecnico necesita ver que entra manana para organizarse el dia;
+                // dar y mover citas es trabajo de quien coge el telefono.
+                .requestMatchers(HttpMethod.GET, "/citas/**").authenticated()
+                .requestMatchers("/citas/**").hasAnyRole(ADMIN, MOSTRADOR)
 
                 // ----- Facturacion: mostrador y administrador -----
                 .requestMatchers("/facturas/**").hasAnyRole(ADMIN, MOSTRADOR)

@@ -32,6 +32,14 @@ export const routes: Routes = [
         loadComponent: () => import('./funcionalidades/panel/panel').then((m) => m.Panel),
       },
 
+      // Lo que va a entrar. La consulta todo el taller —un técnico necesita ver
+      // qué llega mañana— y darla o moverla lo controla la propia pantalla.
+      {
+        path: 'agenda',
+        title: 'Agenda · MotorSport19',
+        loadComponent: () => import('./funcionalidades/agenda/agenda').then((m) => m.Agenda),
+      },
+
       {
         path: 'ordenes',
         title: 'Órdenes de trabajo · MotorSport19',

@@ -240,6 +240,7 @@
                 <th class="num">Cantidad</th>
                 <th class="num">Antes</th>
                 <th class="num">Después</th>
+                <th>Destino</th>
                 <th>Quién</th>
                 <th>Motivo</th>
               </tr>
@@ -270,8 +271,26 @@
                   </td>
                   <td class="num silenciado">{{ m.stockAnterior | number: '1.0-3' : 'es' }}</td>
                   <td class="num">{{ m.stockResultante | number: '1.0-3' : 'es' }}</td>
+                  <!-- Cuando un recuento no cuadra, lo primero que se pregunta no
+                       es cuántas salieron sino a qué moto se fueron. -->
+                  <td class="pequeno">
+                    @if (m.ordenTrabajoId) {
+                      <div class="celda-doble">
+                        <a [routerLink]="['/ordenes', m.ordenTrabajoId]" class="celda-doble__principal">
+                          {{ m.ordenCodigo }}
+                        </a>
+                        <span class="celda-doble__secundario">
+                          {{ m.matricula }}@if (m.descripcionMoto) { · {{ m.descripcionMoto }} }
+                        </span>
+                      </div>
+                    } @else if (m.documentoProveedor) {
+                      <span class="silenciado">Albarán {{ m.documentoProveedor }}</span>
+                    } @else {
+                      <span class="silenciado">—</span>
+                    }
+                  </td>
                   <td class="pequeno">{{ m.usuarioNombre || '—' }}</td>
-                  <td class="pequeno silenciado">{{ m.motivo || m.documentoProveedor || '—' }}</td>
+                  <td class="pequeno silenciado">{{ m.motivo || '—' }}</td>
                 </tr>
               }
             </tbody>

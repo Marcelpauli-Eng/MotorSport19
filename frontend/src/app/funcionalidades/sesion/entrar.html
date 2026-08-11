@@ -1,11 +1,7 @@
 <div class="entrada">
   <form class="entrada__caja" (ngSubmit)="entrar()">
-    <div class="entrada__marca">
-      <span class="entrada__logo" aria-hidden="true">M19</span>
-      <div>
-        <h1>MotorSport19</h1>
-        <p class="pequeno silenciado">Gestión del taller</p>
-      </div>
+    <div class="entrada__marca" style="display: flex; justify-content: center; margin-bottom: 24px;">
+      <img src="/assets/logo-derecha.png" alt="19 Racing Motorsport" style="height: 60px; width: auto; object-fit: contain;" />
     </div>
 
     @if (error(); as mensaje) {

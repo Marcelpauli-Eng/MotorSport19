@@ -144,8 +144,54 @@
               <span [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</span>
             }
           </dd>
-          <dt>Tarifa/hora</dt>
-          <dd>{{ o.tarifaHora | number: '1.2-2' : 'es' }} € <span class="pequeno silenciado">(congelada)</span></dd>
+          <dt>Precio de la hora</dt>
+          <dd>
+            @if (editandoTarifa()) {
+              <div class="fila" style="gap: 6px; flex-wrap: nowrap; align-items: center">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  style="width: 100px"
+                  aria-label="Precio de la hora para esta orden"
+                  [ngModel]="borradorTarifa()"
+                  (ngModelChange)="borradorTarifa.set($event === '' || $event === null ? null : +$event)"
+                />
+                <button
+                  type="button"
+                  class="boton boton--pequeno boton--principal"
+                  [disabled]="trabajando() || !borradorTarifa()"
+                  (click)="guardarTarifa()"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  class="boton boton--pequeno"
+                  (click)="editandoTarifa.set(false)"
+                >
+                  Cancelar
+                </button>
+              </div>
+              <span class="pequeno silenciado">
+                Solo para esta orden. Las horas ya apuntadas se recalculan.
+              </span>
+            } @else {
+              {{ o.tarifaHora | number: '1.2-2' : 'es' }} €
+              @if (puedeCambiarTarifa()) {
+                <button
+                  type="button"
+                  class="boton boton--pequeno boton--plano"
+                  (click)="empezarTarifa()"
+                  title="Cambiar el precio de la hora solo para esta orden"
+                >
+                  Cambiar
+                </button>
+              } @else {
+                <span class="pequeno silenciado">(congelada)</span>
+              }
+            }
+          </dd>
         </dl>
       </section>
 
@@ -270,7 +316,8 @@
           </button>
         </div>
         <p class="pequeno silenciado" style="margin: 4px 0 0">
-          Se cobra a la tarifa congelada de esta orden: {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h.
+          Se cobra a {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h, el precio pactado para esta orden.
+          Se cambia arriba, en «Precio de la hora».
         </p>
       }
 
@@ -365,7 +412,48 @@
                   </td>
                   <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
                   <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
-                  <td class="num">{{ l.precioUnitario | number: '1.2-4' : 'es' }}</td>
+                  <td class="num">
+                    @if (lineaEnPrecio() === l.id) {
+                      <div class="fila" style="gap: 4px; flex-wrap: nowrap; justify-content: flex-end">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          style="width: 84px"
+                          aria-label="Precio de esta línea"
+                          [ngModel]="borradorPrecio()"
+                          (ngModelChange)="borradorPrecio.set($event === '' || $event === null ? null : +$event)"
+                          (keyup.enter)="guardarPrecio(l.id)"
+                        />
+                        <button
+                          type="button"
+                          class="boton boton--pequeno boton--principal"
+                          [disabled]="trabajando() || borradorPrecio() === null"
+                          (click)="guardarPrecio(l.id)"
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          class="boton boton--pequeno boton--plano"
+                          (click)="lineaEnPrecio.set(null)"
+                        >
+                          <app-icono nombre="cerrar" [tamano]="12" />
+                        </button>
+                      </div>
+                    } @else if (puedeEditarLineas() && puedeFacturar && l.tipo === 'MANO_DE_OBRA') {
+                      <button
+                        type="button"
+                        class="boton boton--pequeno boton--plano precio-editable"
+                        (click)="empezarPrecio(l)"
+                        title="Poner un precio cerrado para este trabajo"
+                      >
+                        {{ l.precioUnitario | number: '1.2-4' : 'es' }}
+                      </button>
+                    } @else {
+                      {{ l.precioUnitario | number: '1.2-4' : 'es' }}
+                    }
+                  </td>
                   <td class="num" [class.silenciado]="!l.descuentoPct">
                     {{ l.descuentoPct ? (l.descuentoPct | number: '1.0-2' : 'es') + '%' : '—' }}
                   </td>

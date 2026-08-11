@@ -4,6 +4,7 @@ import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.inventario.domain.MovimientoStock;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.domain.TipoMovimiento;
+import com.motorsport19.taller.inventario.repository.FiltroMovimientos;
 import com.motorsport19.taller.inventario.repository.MovimientoStockRepository;
 import com.motorsport19.taller.inventario.repository.PiezaRepository;
 import com.motorsport19.taller.orden.domain.LineaOT;
@@ -14,7 +15,9 @@ import jakarta.persistence.EntityManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -188,10 +191,23 @@ public class InventarioService {
         return piezaRepository.buscarBajoMinimo();
     }
 
+    /**
+     * Libro de movimientos, con todos los filtros opcionales.
+     *
+     * <p>El orden por defecto es el ultimo movimiento primero, que es como se
+     * mira un libro: lo que acaba de pasar arriba. El {@code id} desempata los
+     * que comparten instante, para que dos consultas seguidas no devuelvan las
+     * mismas filas en distinto orden.
+     */
     @Transactional(readOnly = true)
     public Page<MovimientoStock> consultarMovimientos(Long piezaId, TipoMovimiento tipo, Instant desde,
                                                       Instant hasta, Pageable pageable) {
-        return movimientoRepository.buscar(piezaId, tipo, desde, hasta, pageable);
+        Pageable orden = pageable.getSort().isSorted()
+                ? pageable
+                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(),
+                        Sort.by(Sort.Direction.DESC, "fecha", "id"));
+
+        return movimientoRepository.findAll(FiltroMovimientos.de(piezaId, tipo, desde, hasta), orden);
     }
 
     @Transactional(readOnly = true)

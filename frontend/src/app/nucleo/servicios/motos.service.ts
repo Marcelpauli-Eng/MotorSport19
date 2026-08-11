@@ -48,6 +48,10 @@ export class MotosService {
     return this.http.put<Moto>(`${this.base}/${id}/kilometraje`, { km });
   }
 
+  cambiarPropietario(id: number, nuevoClienteId: number): Observable<Moto> {
+    return this.http.put<Moto>(`${this.base}/${id}/propietario`, { nuevoClienteId });
+  }
+
   darDeBaja(id: number): Observable<Moto> {
     return this.http.post<Moto>(`${this.base}/${id}/baja`, null);
   }

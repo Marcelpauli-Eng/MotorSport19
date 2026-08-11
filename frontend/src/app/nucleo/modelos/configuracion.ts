@@ -24,6 +24,8 @@ export interface ConfiguracionTaller {
   email: string | null;
   tarifaHoraDefecto: number;
   tipoIvaDefecto: string;
+  /** Horas de taller al día. La agenda avisa cuando un día las pasa. */
+  capacidadDiariaHoras: number;
   softwareNombre: string;
   softwareVersion: string;
   tiposIva: TipoIva[];

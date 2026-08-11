@@ -145,6 +145,83 @@ class OrdenTrabajoTest {
         }
 
         @Test
+        @DisplayName("cambiar el precio de la hora revalora las horas ya apuntadas, no las piezas")
+        void cambiarTarifaRevaloraLaManoDeObra() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.iniciarDiagnostico(null, null);
+            Pieza pieza = PiezasDePrueba.conStock(1L, "KIT-TRA-525", "4");
+
+            LineaOT horas = orden.anadirManoDeObra("Revision", new BigDecimal("2"), BigDecimal.ZERO,
+                    "GENERAL", new BigDecimal("21.00"));
+            LineaOT material = orden.anadirPieza(pieza, BigDecimal.ONE, BigDecimal.ZERO,
+                    new BigDecimal("21.00"));
+            BigDecimal precioDelMaterial = material.getPrecioUnitario();
+
+            // Al cliente de siempre se le hace precio en esta orden concreta.
+            orden.cambiarTarifaHora(new BigDecimal("38.00"));
+
+            assertThat(orden.getTarifaHora()).isEqualByComparingTo("38.00");
+            assertThat(horas.getPrecioUnitario())
+                    .as("el presupuesto no puede quedar a dos precios distintos")
+                    .isEqualByComparingTo("38.00");
+            assertThat(material.getPrecioUnitario())
+                    .as("el material sigue el catalogo, no la tarifa del taller")
+                    .isEqualByComparingTo(precioDelMaterial);
+        }
+
+        @Test
+        @DisplayName("una linea de mano de obra admite un precio cerrado")
+        void precioCerradoEnManoDeObra() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.iniciarDiagnostico(null, null);
+            LineaOT linea = orden.anadirManoDeObra("Diagnostico electronico", BigDecimal.ONE,
+                    BigDecimal.ZERO, "GENERAL", new BigDecimal("21.00"));
+
+            // «El diagnostico te lo dejo en 30», sin inventar cuantas horas son.
+            orden.cambiarPrecioDeManoDeObra(linea, new BigDecimal("30.00"));
+
+            assertThat(linea.getPrecioUnitario()).isEqualByComparingTo("30.00");
+            assertThat(orden.getTarifaHora())
+                    .as("un precio suelto no mueve la tarifa de la orden")
+                    .isEqualByComparingTo("45.00");
+        }
+
+        @Test
+        @DisplayName("el precio de una pieza no se toca a mano")
+        void precioDePiezaNoSeRetoca() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.iniciarDiagnostico(null, null);
+            Pieza pieza = PiezasDePrueba.conStock(1L, "KIT-TRA-525", "4");
+            LineaOT material = orden.anadirPieza(pieza, BigDecimal.ONE, BigDecimal.ZERO,
+                    new BigDecimal("21.00"));
+
+            assertThatThrownBy(() -> orden.cambiarPrecioDeManoDeObra(material, new BigDecimal("5.00")))
+                    .isInstanceOf(ReglaNegocioException.class);
+        }
+
+        @Test
+        @DisplayName("no se cambia el precio de la hora de una orden ya cerrada")
+        void tarifaNoSeTocaTrasEntregar() {
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            orden.entrarEnReparacion(null, null);
+            orden.marcarLista(null);
+            orden.entregar(null);
+
+            assertThatThrownBy(() -> orden.cambiarTarifaHora(new BigDecimal("60.00")))
+                    .isInstanceOf(ConflictoException.class);
+        }
+
+        @Test
+        @DisplayName("el precio de la hora tiene que ser mayor que cero")
+        void tarifaPositiva() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.iniciarDiagnostico(null, null);
+
+            assertThatThrownBy(() -> orden.cambiarTarifaHora(BigDecimal.ZERO))
+                    .isInstanceOf(ReglaNegocioException.class);
+        }
+
+        @Test
         @DisplayName("el precio de la pieza se congela al anadirla al presupuesto")
         void precioDePiezaCongelado() {
             OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();

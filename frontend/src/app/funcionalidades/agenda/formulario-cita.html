@@ -1,0 +1,120 @@
+<app-dialogo
+  [titulo]="esAlta() ? 'Nueva cita' : 'Editar cita'"
+  subtitulo="Aparta un hueco. La orden de trabajo se abre cuando la moto llegue."
+  (cerrar)="cerrar.emit()"
+>
+  <div class="rejilla">
+    <div class="campo">
+      <label for="citaFecha">Día y hora <span class="silenciado">(obligatorio)</span></label>
+      <input
+        id="citaFecha"
+        type="datetime-local"
+        [ngModel]="fechaHora()"
+        (ngModelChange)="fechaHora.set($event)"
+      />
+    </div>
+    <div class="campo">
+      <label for="citaDuracion">Horas estimadas</label>
+      <input
+        id="citaDuracion"
+        type="number"
+        step="0.5"
+        min="0.5"
+        max="24"
+        [ngModel]="duracion()"
+        (ngModelChange)="duracion.set(+$event || 1)"
+      />
+      <span class="pequeno silenciado">Lo que ocupará el puesto. Es lo que llena el día.</span>
+    </div>
+  </div>
+
+  <div class="campo">
+    <label for="citaMoto">Moto</label>
+    <select id="citaMoto" [ngModel]="motoId()" (ngModelChange)="motoId.set($event)">
+      <option [ngValue]="null">Todavía no está dada de alta</option>
+      @for (m of listaMotos(); track m.id) {
+        <option [ngValue]="m.id">
+          {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
+        </option>
+      }
+    </select>
+  </div>
+
+  <!-- Media agenda se coge por teléfono de gente que llama por primera vez: se
+       apunta lo justo para reconocerla, y ya se dará de alta al atenderla. -->
+  @if (pideContacto()) {
+    <div class="rejilla">
+      <div class="campo">
+        <label for="citaContacto">Quién la trae <span class="silenciado">(obligatorio)</span></label>
+        <input
+          id="citaContacto"
+          [ngModel]="contactoNombre()"
+          (ngModelChange)="contactoNombre.set($event)"
+          placeholder="Alberto Ruiz Cano"
+        />
+      </div>
+      <div class="campo">
+        <label for="citaTelefono">Teléfono <span class="silenciado">(obligatorio)</span></label>
+        <input
+          id="citaTelefono"
+          [ngModel]="contactoTelefono()"
+          (ngModelChange)="contactoTelefono.set($event)"
+          placeholder="655 44 33 22"
+        />
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="citaDescMoto">Qué moto es</label>
+      <input
+        id="citaDescMoto"
+        [ngModel]="descripcionMoto()"
+        (ngModelChange)="descripcionMoto.set($event)"
+        placeholder="Triumph Street Triple 765"
+      />
+      <span class="pequeno silenciado">Para reconocerla cuando entre por la puerta.</span>
+    </div>
+  }
+
+  <div class="campo">
+    <label for="citaMotivo">A qué viene <span class="silenciado">(obligatorio)</span></label>
+    <textarea
+      id="citaMotivo"
+      [ngModel]="motivo()"
+      (ngModelChange)="motivo.set($event)"
+      placeholder="Revisión de los 20.000 km y cambio de pastillas delanteras."
+    ></textarea>
+  </div>
+
+  <div class="campo">
+    <label for="citaTecnico">Técnico</label>
+    <select id="citaTecnico" [ngModel]="tecnicoId()" (ngModelChange)="tecnicoId.set($event)">
+      <option [ngValue]="null">Sin asignar, se reparte luego</option>
+      @for (t of tecnicos(); track t.id) {
+        <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
+      }
+    </select>
+  </div>
+
+  <div class="campo">
+    <label for="citaObs">Observaciones internas</label>
+    <textarea
+      id="citaObs"
+      [ngModel]="observaciones()"
+      (ngModelChange)="observaciones.set($event)"
+      placeholder="Avisar al móvil, no al fijo. Deja la moto a primera hora."
+    ></textarea>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button
+      type="button"
+      class="boton boton--principal"
+      [disabled]="!puedeGuardar()"
+      (click)="guardar()"
+    >
+      {{ enviando() ? 'Guardando…' : esAlta() ? 'Apuntar cita' : 'Guardar' }}
+    </button>
+  </ng-container>
+</app-dialogo>

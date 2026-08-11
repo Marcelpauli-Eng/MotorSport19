@@ -1,0 +1,132 @@
+<app-dialogo
+  [titulo]="cita().moto || 'Cita'"
+  [subtitulo]="cuando()"
+  (cerrar)="cerrar.emit()"
+>
+  <dl class="datos">
+    <dt>Estado</dt>
+    <dd>
+      <span class="etiqueta">{{ cita().estadoDescripcion }}</span>
+      @if (cita().ordenCodigo) {
+        <a [routerLink]="['/ordenes', cita().ordenTrabajoId]" (click)="cerrar.emit()">
+          {{ cita().ordenCodigo }}
+        </a>
+      }
+    </dd>
+
+    <dt>Quién la trae</dt>
+    <dd>
+      {{ cita().contactoNombre || '—' }}
+      @if (cita().contactoTelefono) {
+        <span class="silenciado">· {{ cita().contactoTelefono }}</span>
+      }
+    </dd>
+
+    <dt>Moto</dt>
+    <dd>
+      @if (cita().motoId) {
+        <a [routerLink]="['/motos', cita().motoId]" (click)="cerrar.emit()">{{ cita().moto }}</a>
+        <span class="silenciado"> · {{ cita().matricula }}</span>
+      } @else {
+        {{ cita().moto || '—' }}
+        <span class="etiqueta etiqueta--ambar pequeno">Sin dar de alta</span>
+      }
+    </dd>
+
+    <dt>Duración estimada</dt>
+    <dd>{{ cita().duracionEstimada | number: '1.0-1' : 'es' }} h</dd>
+
+    <dt>Técnico</dt>
+    <dd [class.silenciado]="!cita().tecnicoNombre">{{ cita().tecnicoNombre || 'Sin asignar' }}</dd>
+  </dl>
+
+  <p class="etiqueta-campo prosa__titulo">A qué viene</p>
+  <p class="prosa">{{ cita().motivo }}</p>
+
+  @if (cita().observaciones) {
+    <p class="etiqueta-campo prosa__titulo">Observaciones</p>
+    <p class="prosa">{{ cita().observaciones }}</p>
+  }
+
+  @if (cita().motivoCancelacion) {
+    <p class="etiqueta-campo prosa__titulo">Motivo</p>
+    <p class="prosa">{{ cita().motivoCancelacion }}</p>
+  }
+
+  <!-- La entrada es lo que cruza la agenda con el taller: abre la orden y cierra
+       la cita. Pide el kilometraje porque es lo único que la orden necesita y la
+       cita no sabía. -->
+  @if (registrandoEntrada()) {
+    <div class="alta-linea" style="margin-top: var(--e4)">
+      @if (cita().motoSinRegistrar) {
+        <div class="campo crece">
+          <label for="entradaMoto">Moto <span class="silenciado">(obligatorio)</span></label>
+          <select
+            id="entradaMoto"
+            [ngModel]="motoParaLaOrden()"
+            (ngModelChange)="motoParaLaOrden.set($event)"
+          >
+            <option [ngValue]="null">Elige la moto ya dada de alta…</option>
+            @for (m of listaMotos(); track m.id) {
+              <option [ngValue]="m.id">
+                {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
+              </option>
+            }
+          </select>
+        </div>
+      }
+      <div class="campo" style="width: 140px">
+        <label for="entradaKm">Kilómetros</label>
+        <input
+          id="entradaKm"
+          type="number"
+          min="0"
+          [ngModel]="kmEntrada()"
+          (ngModelChange)="kmEntrada.set($event === '' || $event === null ? null : +$event)"
+        />
+      </div>
+      <button type="button" class="boton" (click)="registrandoEntrada.set(false)">Cancelar</button>
+      <button
+        type="button"
+        class="boton boton--principal"
+        [disabled]="!puedeAbrirOrden()"
+        (click)="abrirOrden()"
+      >
+        Abrir orden
+      </button>
+    </div>
+    @if (cita().motoSinRegistrar) {
+      <p class="pequeno silenciado" style="margin: 4px 0 0">
+        Esta cita se cogió por teléfono. Dé de alta el cliente y la moto en su pantalla y vuelva
+        aquí a elegirla.
+      </p>
+    }
+  }
+
+  <ng-container pie>
+    @if (estaCerrada()) {
+      <span class="pequeno silenciado">Esta cita ya está cerrada.</span>
+      <button type="button" class="boton" (click)="cerrar.emit()">Cerrar</button>
+    } @else if (gestionaAgenda) {
+      <button type="button" class="boton boton--plano" [disabled]="trabajando()" (click)="noSePresento()">
+        No se presentó
+      </button>
+      <button type="button" class="boton boton--peligro" [disabled]="trabajando()" (click)="cancelar()">
+        Cancelar cita
+      </button>
+      <button type="button" class="boton" (click)="editar.emit()">Editar</button>
+      @if (puedeConfirmar()) {
+        <button type="button" class="boton" [disabled]="trabajando()" (click)="confirmar()">
+          Confirmar
+        </button>
+      }
+      @if (puedeAtender() && !registrandoEntrada()) {
+        <button type="button" class="boton boton--principal" (click)="empezarEntrada()">
+          Ha llegado
+        </button>
+      }
+    } @else {
+      <button type="button" class="boton" (click)="cerrar.emit()">Cerrar</button>
+    }
+  </ng-container>
+</app-dialogo>

@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
-import { EstadoOT, OrdenTrabajo, ResultadoConsumo } from '../../nucleo/modelos/taller';
+import { EstadoOT, LineaOT, OrdenTrabajo, ResultadoConsumo } from '../../nucleo/modelos/taller';
 import { SerieFactura } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
@@ -189,6 +189,49 @@ export class DetalleOrden {
     if (yo) this.asignarTecnico(yo.id);
   }
 
+  // ----- Precio de la hora pactado para esta orden -----
+
+  protected readonly editandoTarifa = signal(false);
+  protected readonly borradorTarifa = signal<number | null>(null);
+
+  /**
+   * El precio de la hora se negocia con el cliente, y eso pasa en el mostrador.
+   * Solo se puede tocar mientras la orden admita cambios en el presupuesto:
+   * después ya se ha cobrado a ese precio.
+   */
+  protected readonly puedeCambiarTarifa = computed(
+    () => this.puedeFacturar && !!this.orden()?.permiteEditarLineas,
+  );
+
+  protected empezarTarifa(): void {
+    this.borradorTarifa.set(this.orden()?.tarifaHora ?? null);
+    this.editandoTarifa.set(true);
+  }
+
+  protected guardarTarifa(): void {
+    const o = this.orden();
+    const tarifa = this.borradorTarifa();
+    if (!o || tarifa === null || tarifa <= 0) return;
+
+    if (tarifa === o.tarifaHora) {
+      this.editandoTarifa.set(false);
+      return;
+    }
+
+    this.trabajando.set(true);
+    this.servicio.cambiarTarifaHora(o.id, tarifa).subscribe({
+      next: (actualizada) => {
+        this.orden.set(actualizada);
+        this.editandoTarifa.set(false);
+        this.trabajando.set(false);
+        this.notificaciones.exito(
+          `Precio de la hora de esta orden: ${tarifa} €. Las horas ya apuntadas se han recalculado.`,
+        );
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
+
   // ----- Diagnóstico -----
 
   protected readonly editandoDiagnostico = signal(false);
@@ -310,6 +353,40 @@ export class DetalleOrden {
       });
   }
 
+  // ----- Precio cerrado de una línea de mano de obra -----
+
+  protected readonly lineaEnPrecio = signal<number | null>(null);
+  protected readonly borradorPrecio = signal<number | null>(null);
+
+  /**
+   * Solo se retoca el precio de la mano de obra. El de una pieza viene del
+   * catálogo y se congeló al añadirla: cambiarlo aquí dejaría el presupuesto
+   * diciendo una cosa y el almacén otra.
+   */
+  protected empezarPrecio(linea: LineaOT): void {
+    if (linea.tipo !== 'MANO_DE_OBRA') return;
+    this.borradorPrecio.set(linea.precioUnitario);
+    this.lineaEnPrecio.set(linea.id);
+  }
+
+  protected guardarPrecio(lineaId: number): void {
+    const o = this.orden();
+    const precio = this.borradorPrecio();
+    if (!o || precio === null || precio < 0) return;
+
+    this.trabajando.set(true);
+    this.servicio.cambiarPrecioDeLinea(o.id, lineaId, precio).subscribe({
+      next: () => {
+        this.lineaEnPrecio.set(null);
+        this.notificaciones.exito('Precio actualizado.');
+        // Se recarga entera: los totales los recalcula el servidor.
+        this.cargar();
+        this.trabajando.set(false);
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
+
   protected quitarLinea(lineaId: number): void {
     const o = this.orden();
     if (!o) return;
@@ -323,6 +400,7 @@ export class DetalleOrden {
 
   private trasCambiarLineas(mensaje: string): void {
     this.anadiendo.set(null);
+    this.trabajando.set(false);
     this.notificaciones.exito(mensaje);
     // Se recarga entera: los totales los recalcula el servidor.
     this.cargar();

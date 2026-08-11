@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { AlertaStock, MovimientoStock, Pieza } from '../../nucleo/modelos/taller';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
@@ -19,7 +20,7 @@ type Pestana = 'catalogo' | 'alertas' | 'movimientos';
  */
 @Component({
   selector: 'app-inventario',
-  imports: [CommonModule, FormsModule, Cargando, Icono, FormularioPieza],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioPieza],
   templateUrl: './inventario.html',
   styleUrl: './inventario.scss',
 })

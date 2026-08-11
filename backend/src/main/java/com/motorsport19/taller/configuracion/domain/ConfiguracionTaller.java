@@ -66,6 +66,16 @@ public class ConfiguracionTaller extends EntidadAuditable {
     @Column(name = "tipo_iva_defecto", nullable = false, length = 20)
     private String tipoIvaDefecto;
 
+    /**
+     * Horas de taller que caben en un dia.
+     *
+     * <p>No es un limite que impida nada: es la referencia contra la que la
+     * agenda avisa de que un dia esta lleno. Un taller siempre puede meter una
+     * urgencia mas, pero conviene que se vea que la esta metiendo.
+     */
+    @Column(name = "capacidad_diaria_horas", nullable = false, precision = 5, scale = 2)
+    private BigDecimal capacidadDiariaHoras;
+
     @Column(name = "software_nombre", nullable = false, length = 100)
     private String softwareNombre;
 
@@ -91,7 +101,8 @@ public class ConfiguracionTaller extends EntidadAuditable {
      */
     public void actualizar(String razonSocial, String nif, String direccion, String codigoPostal,
                            String ciudad, String provincia, String pais, String telefono,
-                           String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto) {
+                           String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
+                           BigDecimal capacidadDiariaHoras) {
         this.razonSocial = exigir(razonSocial, "La razon social es obligatoria.");
         this.nif = exigir(nif, "El NIF del taller es obligatorio.").toUpperCase();
         this.direccion = exigir(direccion, "La direccion es obligatoria.");
@@ -108,6 +119,12 @@ public class ConfiguracionTaller extends EntidadAuditable {
         }
         this.tarifaHoraDefecto = tarifaHoraDefecto;
         this.tipoIvaDefecto = exigir(tipoIvaDefecto, "El tipo de IVA por defecto es obligatorio.");
+
+        if (capacidadDiariaHoras == null || capacidadDiariaHoras.signum() <= 0) {
+            throw new com.motorsport19.taller.common.error.ReglaNegocioException(
+                    "La capacidad diaria del taller tiene que ser mayor que cero.");
+        }
+        this.capacidadDiariaHoras = capacidadDiariaHoras;
     }
 
     private static String exigir(String valor, String mensaje) {

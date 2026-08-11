@@ -9,8 +9,34 @@
 .armazon {
   display: grid;
   grid-template-columns: 232px 1fr;
+  transition: grid-template-columns 0.2s ease;
   min-height: 100vh;
   background: var(--gris-100);
+}
+
+.armazon--colapsado {
+  grid-template-columns: 70px 1fr;
+}
+
+.armazon--colapsado .lateral__nombre,
+.armazon--colapsado .lateral__seccion,
+.armazon--colapsado .lateral__enlace-texto,
+.armazon--colapsado .usuario-menu__texto {
+  display: none;
+}
+
+.armazon--colapsado .lateral__marca {
+  padding: var(--e5) 0 var(--e4);
+  justify-content: center;
+}
+
+.armazon--colapsado .lateral nav a {
+  justify-content: center;
+  padding: 0;
+}
+
+.armazon--colapsado .usuario-menu {
+  justify-content: center;
 }
 
 /* ---------- Barra lateral ---------- */
@@ -18,8 +44,9 @@
 .lateral {
   display: flex;
   flex-direction: column;
-  background: var(--gris-950);
-  color: var(--gris-300);
+  background: var(--blanco);
+  color: var(--gris-700);
+  border-right: 1px solid var(--gris-200);
   position: sticky;
   top: 0;
   height: 100vh;
@@ -32,43 +59,17 @@
   align-items: center;
   gap: var(--e2);
   padding: var(--e5) var(--e4) var(--e4);
-  color: var(--blanco);
+  color: var(--gris-900);
   text-decoration: none;
 }
 
 .lateral__marca:hover { text-decoration: none; }
 
-.lateral__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  flex: none;
-  color: var(--blanco);
-  background: var(--azul);
-  border-radius: var(--radio-s);
-  font-weight: 700;
-  font-size: 0.8125rem;
-  letter-spacing: -0.03em;
-}
-
-.lateral__nombre {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
-  min-width: 0;
-}
-
-.lateral__nombre strong {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.011em;
-}
-
-.lateral__nombre span {
-  font-size: 0.6875rem;
-  color: var(--gris-500);
+.lateral__logo-izq {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  transition: height 0.2s;
 }
 
 .lateral__seccion {
@@ -94,7 +95,7 @@
   padding: 0 var(--e2);
   margin-bottom: 2px;
   border-radius: var(--radio-s);
-  color: var(--gris-400);
+  color: var(--gris-600);
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: none;
@@ -102,26 +103,24 @@
 }
 
 .lateral nav a:hover {
-  color: var(--blanco);
-  background: rgb(255 255 255 / 7%);
+  color: var(--gris-900);
+  background: var(--gris-50);
   text-decoration: none;
 }
 
-/*
-  El activo es la única superficie azul de la barra. Sin esto, con hover claro
-  y activo claro, no se distingue dónde estás de dónde tienes el ratón.
-*/
 .lateral nav a.activo {
-  color: var(--blanco);
-  background: var(--azul);
+  color: var(--azul);
+  background: var(--azul-suave);
+  border-right: 3px solid var(--azul);
+  border-radius: var(--radio-s) 0 0 var(--radio-s);
 }
 
-.lateral nav a.activo:hover { background: var(--azul-fuerte); }
+.lateral nav a.activo:hover { background: var(--azul-borde); }
 
 .lateral__pie {
   margin-top: auto;
   padding: var(--e3) var(--e2) var(--e3);
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid var(--gris-200);
 }
 
 /* Ficha del usuario, abajo del todo: es donde se busca en cualquier programa. */
@@ -132,13 +131,13 @@
   width: 100%;
   padding: 6px var(--e2);
   border-radius: var(--radio-s);
-  color: var(--gris-300);
+  color: var(--gris-700);
   text-decoration: none;
   transition: background 0.12s;
   min-width: 0;
 }
 
-.usuario-menu:hover { background: rgb(255 255 255 / 7%); text-decoration: none; }
+.usuario-menu:hover { background: var(--gris-50); text-decoration: none; }
 
 .usuario-menu__avatar {
   display: flex;
@@ -164,7 +163,7 @@
 .usuario-menu__nombre {
   font-size: 0.8125rem;
   font-weight: 500;
-  color: var(--blanco);
+  color: var(--gris-900);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -190,7 +189,7 @@
   transition: background 0.12s, color 0.12s;
 }
 
-.lateral__salir:hover { color: var(--blanco); background: rgb(255 255 255 / 10%); }
+.lateral__salir:hover { color: var(--gris-900); background: var(--gris-100); }
 
 /* ---------- Barra superior (solo en tablet y móvil) ---------- */
 
@@ -279,4 +278,87 @@
   }
 
   .contenido { padding: var(--e4); }
+}
+
+/* ---------- Encabezado Global ---------- */
+.encabezado-global {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  padding: 0 var(--e6);
+  background: var(--blanco);
+  border-bottom: 1px solid var(--gris-200);
+}
+
+.encabezado-global__izquierda {
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+}
+
+.encabezado-global__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  color: var(--gris-500);
+  background: none;
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radio-s);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.encabezado-global__menu:hover {
+  background: var(--gris-50);
+}
+
+.encabezado-global__logo-izq,
+.encabezado-global__logo-der {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Navegación Superior */
+.nav-superior {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.nav-superior a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--e4);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gris-600);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.nav-superior a:hover {
+  color: var(--gris-900);
+}
+
+.nav-superior a.activo {
+  color: var(--azul);
+  border-bottom-color: var(--azul);
+}
+
+.nav-superior__separador {
+  width: 1px;
+  height: 24px;
+  background: var(--gris-200);
+}
+
+@media (max-width: 900px) {
+  .encabezado-global {
+    display: none;
+  }
 }

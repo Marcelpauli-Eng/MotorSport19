@@ -1,10 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Observable, switchMap, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { Dialogo } from '../../compartido/dialogo';
 import { ClienteResumen, Moto } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
 import { MotosService } from '../../nucleo/servicios/motos.service';
+import { NhtsaService } from '../../nucleo/servicios/nhtsa.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 
 /**
@@ -24,6 +26,7 @@ export class FormularioMoto {
   private readonly servicio = inject(MotosService);
   private readonly clientes = inject(ClientesService);
   private readonly notificaciones = inject(NotificacionesService);
+  private readonly nhtsa = inject(NhtsaService);
 
   readonly moto = input<Moto | null>(null);
   /** Cliente ya elegido: entonces no se pregunta de quién es. */
@@ -34,6 +37,9 @@ export class FormularioMoto {
 
   protected readonly enviando = signal(false);
   protected readonly listaClientes = signal<ClienteResumen[]>([]);
+  
+  protected readonly marcasNhtsa = signal<string[]>([]);
+  protected readonly modelosNhtsa = signal<string[]>([]);
 
   protected readonly clienteId = signal<number | null>(null);
   protected readonly matricula = signal('');
@@ -62,6 +68,12 @@ export class FormularioMoto {
     // de alguien dado de baja.
     this.clientes.buscar('', true, 0, 200).subscribe((p) => this.listaClientes.set(p.contenido));
 
+    // Cargar todas las marcas de motos conocidas desde NHTSA
+    this.nhtsa.obtenerMarcasMotos().subscribe({
+      next: (marcas) => this.marcasNhtsa.set(marcas),
+      error: () => console.warn('No se pudieron cargar las marcas de NHTSA')
+    });
+
     queueMicrotask(() => {
       const fijado = this.clienteFijado();
       if (fijado) this.clienteId.set(fijado);
@@ -78,6 +90,31 @@ export class FormularioMoto {
       this.numeroBastidor.set(m.numeroBastidor ?? '');
       this.kmActual.set(m.kmActual);
       this.observaciones.set(m.observaciones ?? '');
+      
+      // Si estamos editando y tiene marca, cargar sus modelos para el autocomplete
+      if (m.marca) {
+        this.cargarModelosNhtsa(m.marca);
+      }
+    });
+  }
+
+  protected alCambiarMarca(nuevaMarca: string): void {
+    if (this.marca() !== nuevaMarca) {
+      this.modelo.set(''); // Limpiar el modelo anterior
+    }
+    this.marca.set(nuevaMarca);
+    this.cargarModelosNhtsa(nuevaMarca);
+  }
+
+  private cargarModelosNhtsa(marca: string): void {
+    if (!marca || marca.trim().length < 2) {
+      this.modelosNhtsa.set([]);
+      return;
+    }
+    
+    this.nhtsa.obtenerModelosMoto(marca).subscribe({
+      next: (modelos) => this.modelosNhtsa.set(modelos),
+      error: () => this.modelosNhtsa.set([])
     });
   }
 
@@ -112,7 +149,14 @@ export class FormularioMoto {
           color: datos.color,
           numeroBastidor: datos.numeroBastidor,
           observaciones: datos.observaciones,
-        })
+        }).pipe(
+          switchMap(motoActualizada => {
+            if (this.clienteId() !== existente.clienteId) {
+              return this.servicio.cambiarPropietario(existente.id, this.clienteId()!);
+            }
+            return of(motoActualizada);
+          })
+        )
       : this.servicio.crear({ ...datos, clienteId: this.clienteId()! });
 
     peticion.subscribe({

@@ -1,0 +1,168 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Agenda</h1>
+    <p class="pagina-cabecera__sub">
+      Lo que entra y cuándo. La barra de cada día compara lo comprometido con la capacidad del
+      taller, que se ajusta en Ajustes.
+    </p>
+  </div>
+</div>
+
+<div class="apilado">
+  <div class="agenda-barra">
+    <div class="fila" style="gap: 4px; flex-wrap: nowrap">
+      <button type="button" class="boton boton--pequeno" (click)="mover(-1)" aria-label="Anterior">
+        <app-icono nombre="flecha-izquierda" [tamano]="15" />
+      </button>
+      <button type="button" class="boton boton--pequeno" (click)="irAHoy()">Hoy</button>
+      <button type="button" class="boton boton--pequeno" (click)="mover(1)" aria-label="Siguiente">
+        <app-icono nombre="flecha-derecha" [tamano]="15" />
+      </button>
+    </div>
+
+    <h2 class="agenda-titulo">{{ titulo() }}</h2>
+
+    <div class="pestanas pestanas--compactas">
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="vista() === 'semana'"
+        (click)="cambiarVista('semana')"
+      >
+        Semana
+      </button>
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="vista() === 'dia'"
+        (click)="cambiarVista('dia')"
+      >
+        Día
+      </button>
+    </div>
+
+    @if (gestionaAgenda) {
+      <button type="button" class="boton boton--principal" (click)="nuevaCita()">
+        <app-icono nombre="mas" [tamano]="16" />
+        Nueva cita
+      </button>
+    }
+  </div>
+
+  @if (resumen(); as r) {
+    <p class="pequeno silenciado agenda-resumen">
+      {{ r.citas }} {{ r.citas === 1 ? 'moto' : 'motos' }} ·
+      {{ r.horas | number: '1.0-1' : 'es' }} h de trabajo comprometido
+      @if (r.diasSaturados) {
+        <span class="etiqueta etiqueta--ambar">
+          {{ r.diasSaturados }} {{ r.diasSaturados === 1 ? 'día lleno' : 'días llenos' }}
+        </span>
+      }
+    </p>
+  }
+
+  @if (cargando()) {
+    <app-cargando mensaje="Cargando la agenda…" />
+  } @else {
+    <div class="calendario" [class.calendario--dia]="vista() === 'dia'">
+      @for (d of dias(); track d.fecha) {
+        <section class="dia" [class.dia--hoy]="d.esHoy">
+          <header class="dia__cabecera">
+            <div class="dia__fecha">
+              <span class="dia__nombre">
+                {{ d.fecha | date: 'EEEE' : undefined : 'es' }}
+              </span>
+              <span class="dia__numero">{{ d.fecha | date: 'd MMM' : undefined : 'es' }}</span>
+            </div>
+            @if (gestionaAgenda) {
+              <button
+                type="button"
+                class="dia__anadir"
+                (click)="nuevaCita(d.fecha)"
+                [title]="'Dar cita este día'"
+              >
+                <app-icono nombre="mas" [tamano]="14" />
+              </button>
+            }
+          </header>
+
+          @if (d.carga; as c) {
+            <div class="carga" [class.carga--llena]="c.saturado">
+              <div class="carga__barra">
+                <div class="carga__relleno" [style.width.%]="c.porcentaje > 100 ? 100 : c.porcentaje"></div>
+              </div>
+              <span class="carga__texto">
+                {{ c.horasComprometidas | number: '1.0-1' : 'es' }} /
+                {{ c.capacidad | number: '1.0-1' : 'es' }} h
+                @if (c.saturado) { · lleno }
+              </span>
+            </div>
+          }
+
+          @if (!d.citas.length) {
+            <p class="dia__vacio pequeno">Sin citas</p>
+          } @else {
+            <ul class="citas">
+              @for (c of d.citas; track c.id) {
+                <li>
+                  <button
+                    type="button"
+                    class="cita"
+                    [class.cita--cerrada]="c.estado === 'CANCELADA' || c.estado === 'NO_PRESENTADO'"
+                    (click)="abierta.set(c)"
+                  >
+                    <span class="cita__hora">
+                      {{ hora(c) }}
+                      <span class="cita__duracion">{{ c.duracionEstimada | number: '1.0-1' : 'es' }} h</span>
+                    </span>
+                    <span class="cita__moto">
+                      {{ c.moto }}
+                      @if (c.matricula) {
+                        <span class="cita__matricula">{{ c.matricula }}</span>
+                      }
+                    </span>
+                    <span class="cita__motivo">{{ c.motivo }}</span>
+                    <span class="cita__pie">
+                      <span class="etiqueta etiqueta--{{ colorDe(c) }} pequeno">
+                        {{ etiquetaDe(c) }}
+                      </span>
+                      @if (c.tecnicoNombre) {
+                        <span class="pequeno silenciado">{{ c.tecnicoNombre }}</span>
+                      }
+                      @if (c.motoSinRegistrar) {
+                        <span class="pequeno silenciado" title="La moto aún no está dada de alta">
+                          sin ficha
+                        </span>
+                      }
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
+  }
+</div>
+
+@if (creando()) {
+  <app-formulario-cita
+    [diaPropuesto]="diaPropuesto()"
+    (cerrar)="creando.set(false); diaPropuesto.set(null)"
+    (guardado)="trasCambiar()"
+  />
+}
+
+@if (editando(); as c) {
+  <app-formulario-cita [cita]="c" (cerrar)="editando.set(null)" (guardado)="trasCambiar()" />
+}
+
+@if (abierta(); as c) {
+  <app-detalle-cita
+    [cita]="c"
+    (cerrar)="abierta.set(null)"
+    (editar)="editar(c)"
+    (cambiada)="trasCambiar()"
+  />
+}

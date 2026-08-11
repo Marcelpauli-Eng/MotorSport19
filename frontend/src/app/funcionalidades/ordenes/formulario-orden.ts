@@ -2,33 +2,39 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Dialogo } from '../../compartido/dialogo';
-import { MotoResumen, OrdenTrabajo } from '../../nucleo/modelos/taller';
+import { Cliente, ClienteResumen, Moto, MotoResumen, OrdenTrabajo } from '../../nucleo/modelos/taller';
+import { ClientesService } from '../../nucleo/servicios/clientes.service';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 import { Tecnico } from '../../nucleo/modelos/configuracion';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { FormularioCliente } from '../clientes/formulario-cliente';
+import { FormularioMoto } from '../motos/formulario-moto';
+import { Icono } from '../../compartido/icono';
 
 /**
  * Apertura de una orden de trabajo: la moto entra en el taller.
  *
- * <p>Lo que se apunta aquí es «lo que cuenta el cliente», con sus palabras. El
- * diagnóstico lo escribe después el técnico, y son dos cosas distintas a
- * propósito: una cosa es «hace un ruido raro al frenar» y otra «pastillas
- * delanteras al límite».
+ * <p>El flujo va por pasos: primero se elige (o crea) el cliente, después se
+ * elige (o crea) una de sus motos, y por último se rellenan los datos de la
+ * orden. Es el orden natural en el mostrador: «¿quién trae la moto?» → «¿qué
+ * moto es?» → «¿qué le pasa?».
  *
- * <p>El kilometraje sirve para dos cosas: queda en la orden y actualiza el de
- * la moto, de modo que la próxima vez ya sale el último conocido.
+ * <p>Si el cliente o la moto no están dados de alta, se crean ahí mismo sin
+ * salir del formulario: abrir un alta aparte obliga a buscar después lo que
+ * acabas de crear, y eso en el mostrador con cola es tiempo perdido.
  */
 @Component({
   selector: 'app-formulario-orden',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialogo],
+  imports: [CommonModule, FormsModule, Dialogo, FormularioCliente, FormularioMoto, Icono],
   templateUrl: './formulario-orden.html',
 })
 export class FormularioOrden {
   private readonly servicio = inject(OrdenesService);
+  private readonly clientes = inject(ClientesService);
   private readonly motos = inject(MotosService);
   private readonly usuarios = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
@@ -42,10 +48,24 @@ export class FormularioOrden {
   readonly abierta = output<OrdenTrabajo>();
 
   protected readonly enviando = signal(false);
-  protected readonly listaMotos = signal<MotoResumen[]>([]);
+  protected readonly listaClientes = signal<ClienteResumen[]>([]);
+  protected readonly motosDelCliente = signal<MotoResumen[]>([]);
   protected readonly tecnicos = signal<Tecnico[]>([]);
+  protected readonly cargandoMotos = signal(false);
+
+  // ----- Selección de cliente -----
+
+  protected readonly clienteId = signal<number | null>(null);
+  protected readonly clienteNombre = signal<string | null>(null);
+  protected readonly creandoCliente = signal(false);
+
+  // ----- Selección de moto -----
 
   protected readonly motoId = signal<number | null>(null);
+  protected readonly creandoMoto = signal(false);
+
+  // ----- Datos de la orden -----
+
   protected readonly tecnicoId = signal<number | null>(null);
   protected readonly kmEntrada = signal<number | null>(null);
   protected readonly problema = signal('');
@@ -60,27 +80,94 @@ export class FormularioOrden {
       this.kmEntrada() !== null,
   );
 
+  constructor() {
+    this.clientes.buscar('', true, 0, 300).subscribe((p) => this.listaClientes.set(p.contenido));
+
+    if (this.reparteTrabajo) {
+      this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
+    }
+
+    // Si viene con moto fijada, hay que resolver el cliente automáticamente.
+    queueMicrotask(() => {
+      const fijada = this.motoFijada();
+      if (fijada) {
+        this.motos.obtener(fijada).subscribe((m) => {
+          this.clienteId.set(m.clienteId);
+          this.clienteNombre.set(m.clienteNombre);
+          this.motoId.set(m.id);
+          this.kmEntrada.set(m.kmActual);
+          this.cargarMotosDelCliente(m.clienteId);
+        });
+      }
+    });
+  }
+
+  // ----- Cliente -----
+
+  protected elegirCliente(id: number | null): void {
+    this.clienteId.set(id);
+    // Limpiar la moto elegida: es de otro cliente.
+    this.motoId.set(null);
+    this.kmEntrada.set(null);
+    this.motosDelCliente.set([]);
+
+    if (id) {
+      const cliente = this.listaClientes().find((c) => c.id === id);
+      this.clienteNombre.set(cliente?.nombreCompleto ?? null);
+      this.cargarMotosDelCliente(id);
+    } else {
+      this.clienteNombre.set(null);
+    }
+  }
+
+  protected trasCrearCliente(cliente: Cliente): void {
+    this.creandoCliente.set(false);
+    // Añadirlo a la lista para que aparezca en el selector.
+    this.listaClientes.update((lista) => [
+      { id: cliente.id, nombreCompleto: cliente.nombreCompleto, documento: cliente.documento, telefono: cliente.telefono, email: cliente.email, activo: true, facturable: cliente.facturable },
+      ...lista,
+    ]);
+    // Seleccionarlo automáticamente.
+    this.clienteId.set(cliente.id);
+    this.clienteNombre.set(cliente.nombreCompleto);
+    this.cargarMotosDelCliente(cliente.id);
+  }
+
+  // ----- Moto -----
+
+  private cargarMotosDelCliente(clienteId: number): void {
+    this.cargandoMotos.set(true);
+    this.clientes.motosDe(clienteId, true).subscribe({
+      next: (motos) => {
+        this.motosDelCliente.set(motos);
+        this.cargandoMotos.set(false);
+        // Si solo tiene una moto, seleccionarla directamente.
+        if (motos.length === 1 && !this.motoId()) {
+          this.elegirMoto(motos[0].id);
+        }
+      },
+      error: () => this.cargandoMotos.set(false),
+    });
+  }
+
   /** Al elegir moto se propone su último kilometraje conocido. */
   protected elegirMoto(id: number | null): void {
     this.motoId.set(id);
-    const moto = this.listaMotos().find((m) => m.id === id);
-    if (moto && this.kmEntrada() === null) {
+    const moto = this.motosDelCliente().find((m) => m.id === id);
+    if (moto) {
       this.kmEntrada.set(moto.kmActual);
     }
   }
 
-  constructor() {
-    this.motos.buscar('', true, 0, 300).subscribe((p) => {
-      this.listaMotos.set(p.contenido);
-      const fijada = this.motoFijada();
-      if (fijada) this.elegirMoto(fijada);
-    });
-    // El listado de técnicos lo reserva la API a mostrador y dirección: a un
-    // técnico que abra una orden no se le pregunta a quién asignarla.
-    if (this.reparteTrabajo) {
-      this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
-    }
+  protected trasCrearMoto(moto: Moto): void {
+    this.creandoMoto.set(false);
+    // Recargar la lista y seleccionar la nueva.
+    this.cargarMotosDelCliente(this.clienteId()!);
+    this.motoId.set(moto.id);
+    this.kmEntrada.set(moto.kmActual);
   }
+
+  // ----- Guardar -----
 
   protected guardar(): void {
     if (!this.puedeGuardar()) return;

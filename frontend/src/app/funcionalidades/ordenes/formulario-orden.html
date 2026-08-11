@@ -3,77 +3,163 @@
   subtitulo="Entra una moto en el taller"
   (cerrar)="cerrar.emit()"
 >
+  <!-- ====== Paso 1: Cliente ====== -->
+
   @if (!motoFijada()) {
-    <div class="campo">
-      <label for="moto">Moto <span class="silenciado">(obligatorio)</span></label>
-      <select id="moto" [ngModel]="motoId()" (ngModelChange)="elegirMoto($event ? +$event : null)">
-        <option [ngValue]="null">Elige la moto…</option>
-        @for (m of listaMotos(); track m.id) {
-          <option [ngValue]="m.id">
-            {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
-          </option>
-        }
-      </select>
+    <p class="etiqueta-campo" style="margin-bottom: 8px">
+      <app-icono nombre="clientes" [tamano]="14" />
+      Cliente
+    </p>
+
+    <div class="fila" style="gap: 8px; align-items: flex-end; margin-bottom: 12px">
+      <div class="campo crece" style="margin-bottom: 0">
+        <select
+          id="clienteOrden"
+          [ngModel]="clienteId()"
+          (ngModelChange)="elegirCliente($event ? +$event : null)"
+        >
+          <option [ngValue]="null">Elige un cliente…</option>
+          @for (c of listaClientes(); track c.id) {
+            <option [ngValue]="c.id">
+              {{ c.nombreCompleto }}{{ c.telefono ? ' · ' + c.telefono : '' }}
+            </option>
+          }
+        </select>
+      </div>
+      <button
+        type="button"
+        class="boton boton--pequeno"
+        (click)="creandoCliente.set(true)"
+        title="Dar de alta un cliente nuevo"
+      >
+        <app-icono nombre="mas" [tamano]="14" />
+        Nuevo cliente
+      </button>
     </div>
+
+    @if (clienteNombre(); as nombre) {
+      <p class="paso-confirmado">
+        <app-icono nombre="correcto" [tamano]="14" />
+        <strong>{{ nombre }}</strong>
+      </p>
+    }
   }
 
-  <div class="rejilla">
-    <div class="campo">
-      <label for="km">Kilómetros de entrada <span class="silenciado">(obligatorio)</span></label>
-      <input
-        id="km"
-        type="number"
-        [ngModel]="kmEntrada()"
-        (ngModelChange)="kmEntrada.set($event === '' || $event === null ? null : +$event)"
-      />
-    </div>
-    <div class="campo">
-      <label for="salida">Salida estimada</label>
-      <input
-        id="salida"
-        type="date"
-        [ngModel]="fechaEstimada()"
-        (ngModelChange)="fechaEstimada.set($event)"
-      />
-    </div>
-  </div>
+  <!-- ====== Paso 2: Moto del cliente ====== -->
 
-  @if (reparteTrabajo) {
-    <div class="campo">
-      <label for="tecnicoOrden">Técnico</label>
-      <select id="tecnicoOrden" [ngModel]="tecnicoId()" (ngModelChange)="tecnicoId.set($event)">
-        <option [ngValue]="null">Sin asignar, se reparte luego</option>
-        @for (t of tecnicos(); track t.id) {
-          <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
-        }
-      </select>
-    </div>
+  @if (clienteId()) {
+    <p class="etiqueta-campo" style="margin-bottom: 8px; margin-top: 16px">
+      <app-icono nombre="motos" [tamano]="14" />
+      Moto
+    </p>
+
+    @if (cargandoMotos()) {
+      <p class="pequeno silenciado">Cargando motos del cliente…</p>
+    } @else {
+      @if (!motoFijada()) {
+        <div class="fila" style="gap: 8px; align-items: flex-end; margin-bottom: 12px">
+          <div class="campo crece" style="margin-bottom: 0">
+            @if (motosDelCliente().length) {
+              <select
+                id="motoOrden"
+                [ngModel]="motoId()"
+                (ngModelChange)="elegirMoto($event ? +$event : null)"
+              >
+                <option [ngValue]="null">Elige la moto…</option>
+                @for (m of motosDelCliente(); track m.id) {
+                  <option [ngValue]="m.id">
+                    {{ m.matricula }} · {{ m.descripcion }}
+                    @if (m.anio) { ({{ m.anio }}) }
+                    — {{ m.kmActual | number: '1.0-0' : 'es' }} km
+                  </option>
+                }
+              </select>
+            } @else {
+              <p class="pequeno silenciado" style="margin: 0; padding: 6px 0">
+                Este cliente no tiene motos dadas de alta. Créale una aquí mismo.
+              </p>
+            }
+          </div>
+          <button
+            type="button"
+            class="boton boton--pequeno"
+            (click)="creandoMoto.set(true)"
+            title="Dar de alta una moto nueva para este cliente"
+          >
+            <app-icono nombre="mas" [tamano]="14" />
+            Nueva moto
+          </button>
+        </div>
+      }
+    }
   }
 
-  <div class="campo">
-    <label for="problema">
-      Lo que cuenta el cliente <span class="silenciado">(obligatorio)</span>
-    </label>
-    <textarea
-      id="problema"
-      [ngModel]="problema()"
-      (ngModelChange)="problema.set($event)"
-      placeholder="Hace un ruido metálico al frenar en frío y el freno trasero va blando."
-    ></textarea>
-    <span class="pequeno silenciado">
-      Con sus palabras. El diagnóstico lo escribe después el técnico.
-    </span>
-  </div>
+  <!-- ====== Paso 3: Datos de la orden ====== -->
 
-  <div class="campo">
-    <label for="obsOrden">Observaciones internas</label>
-    <textarea
-      id="obsOrden"
-      [ngModel]="observaciones()"
-      (ngModelChange)="observaciones.set($event)"
-      placeholder="Deja el casco en el taller. Avisar al móvil, no al fijo."
-    ></textarea>
-  </div>
+  @if (motoId()) {
+    <hr style="border: none; border-top: 1px solid var(--gris-200); margin: 16px 0" />
+
+    <div class="rejilla">
+      <div class="campo">
+        <label for="km">Kilómetros de entrada <span class="silenciado">(obligatorio)</span></label>
+        <input
+          id="km"
+          type="number"
+          [ngModel]="kmEntrada()"
+          (ngModelChange)="kmEntrada.set($event === '' || $event === null ? null : +$event)"
+        />
+        <span class="pequeno silenciado">
+          Se actualiza también en la ficha de la moto.
+        </span>
+      </div>
+      <div class="campo">
+        <label for="salida">Salida estimada</label>
+        <input
+          id="salida"
+          type="date"
+          [ngModel]="fechaEstimada()"
+          (ngModelChange)="fechaEstimada.set($event)"
+        />
+      </div>
+    </div>
+
+    @if (reparteTrabajo) {
+      <div class="campo">
+        <label for="tecnicoOrden">Técnico</label>
+        <select id="tecnicoOrden" [ngModel]="tecnicoId()" (ngModelChange)="tecnicoId.set($event)">
+          <option [ngValue]="null">Sin asignar, se reparte luego</option>
+          @for (t of tecnicos(); track t.id) {
+            <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
+          }
+        </select>
+      </div>
+    }
+
+    <div class="campo">
+      <label for="problema">
+        Lo que cuenta el cliente <span class="silenciado">(obligatorio)</span>
+      </label>
+      <textarea
+        id="problema"
+        [ngModel]="problema()"
+        (ngModelChange)="problema.set($event)"
+        placeholder="Hace un ruido metálico al frenar en frío y el freno trasero va blando."
+      ></textarea>
+      <span class="pequeno silenciado">
+        Con sus palabras. El diagnóstico lo escribe después el técnico.
+      </span>
+    </div>
+
+    <div class="campo">
+      <label for="obsOrden">Observaciones internas</label>
+      <textarea
+        id="obsOrden"
+        [ngModel]="observaciones()"
+        (ngModelChange)="observaciones.set($event)"
+        placeholder="Deja el casco en el taller. Avisar al móvil, no al fijo."
+      ></textarea>
+    </div>
+  }
 
   <ng-container pie>
     <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
@@ -82,3 +168,20 @@
     </button>
   </ng-container>
 </app-dialogo>
+
+<!-- Sub-diálogos para crear cliente o moto sin salir del formulario -->
+
+@if (creandoCliente()) {
+  <app-formulario-cliente
+    (cerrar)="creandoCliente.set(false)"
+    (guardado)="trasCrearCliente($event)"
+  />
+}
+
+@if (creandoMoto()) {
+  <app-formulario-moto
+    [clienteFijado]="clienteId()"
+    (cerrar)="creandoMoto.set(false)"
+    (guardado)="trasCrearMoto($event)"
+  />
+}

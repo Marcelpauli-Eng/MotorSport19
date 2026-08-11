@@ -1,12 +1,8 @@
-@if (sesion.autenticado()) {
-  <div class="armazon" [class.armazon--menu-abierto]="menuAbierto()">
+<div [class.armazon]="sesion.autenticado()" [class.armazon--menu-abierto]="sesion.autenticado() && menuAbierto()" [class.armazon--colapsado]="sesion.autenticado() && menuColapsado()">
+  @if (sesion.autenticado()) {
     <aside class="lateral">
       <a routerLink="/panel" class="lateral__marca" (click)="cerrarMenu()">
-        <span class="lateral__logo" aria-hidden="true">M19</span>
-        <span class="lateral__nombre">
-          <strong>MotorSport19</strong>
-          <span>Gestión del taller</span>
-        </span>
+        <img src="/assets/logo-izquierda.png" alt="19 Racing Motorsport" class="lateral__logo-izq" />
       </a>
 
       <nav (click)="cerrarMenu()">
@@ -17,7 +13,7 @@
               <li>
                 <a [routerLink]="enlace.ruta" routerLinkActive="activo">
                   <app-icono [nombre]="enlace.icono" [tamano]="17" />
-                  {{ enlace.texto }}
+                  <span class="lateral__enlace-texto">{{ enlace.texto }}</span>
                 </a>
               </li>
             }
@@ -42,8 +38,10 @@
         </div>
       }
     </aside>
+  }
 
-    <div class="principal">
+  <div [class.principal]="sesion.autenticado()">
+    @if (sesion.autenticado()) {
       <header class="barra-movil">
         <button
           type="button"
@@ -56,16 +54,39 @@
         <span class="barra-movil__titulo">MotorSport19</span>
       </header>
 
-      <main class="contenido">
-        <router-outlet />
-      </main>
-    </div>
+      <header class="encabezado-global">
+        <div class="encabezado-global__izquierda">
+          <button type="button" class="encabezado-global__menu" (click)="alternarMenuColapsado()" aria-label="Alternar menú">
+            <app-icono nombre="menu" [tamano]="20" />
+          </button>
+        </div>
+        
+        <nav class="nav-superior">
+          <a routerLink="/ordenes" routerLinkActive="activo">Ventas</a>
+          <span class="nav-superior__separador"></span>
+          <a routerLink="/compras" routerLinkActive="activo">Compras</a>
+          <span class="nav-superior__separador"></span>
+          <a routerLink="/clientes" routerLinkActive="activo">Clientes</a>
+          <span class="nav-superior__separador"></span>
+          <a routerLink="/inventario" routerLinkActive="activo">Almacén</a>
+          <span class="nav-superior__separador"></span>
+          <a routerLink="/bancos" routerLinkActive="activo">Bancos</a>
+          <span class="nav-superior__separador"></span>
+          <a routerLink="/facturas" routerLinkActive="activo">Tributos</a>
+        </nav>
 
-    <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
+        <img src="/assets/logo-derecha.png" alt="19 Racing Motorsport" class="encabezado-global__logo-der" />
+      </header>
+    }
+
+    <main [class.contenido]="sesion.autenticado()">
+      <router-outlet />
+    </main>
   </div>
-} @else {
-  <!-- Sin sesión solo se pinta la pantalla de entrada, sin menús alrededor. -->
-  <router-outlet />
-}
+
+  @if (sesion.autenticado()) {
+    <div class="velo" (click)="cerrarMenu()" aria-hidden="true"></div>
+  }
+</div>
 
 <app-avisos />

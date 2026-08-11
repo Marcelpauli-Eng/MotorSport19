@@ -126,7 +126,7 @@
 
       <section class="tarjeta">
         <div class="tarjeta__titulo">
-          <h2>Precios por defecto</h2>
+          <h2>Precios y capacidad</h2>
         </div>
 
         <div class="rejilla">
@@ -160,6 +160,23 @@
                 </option>
               }
             </select>
+          </div>
+
+          <div class="campo">
+            <label for="capacidad">Horas de taller al día</label>
+            <input
+              id="capacidad"
+              type="number"
+              step="0.5"
+              min="0.5"
+              [disabled]="!esAdmin"
+              [ngModel]="b.capacidadDiariaHoras"
+              (ngModelChange)="campo('capacidadDiariaHoras', +$event)"
+            />
+            <span class="pequeno silenciado">
+              Con cuántas horas de trabajo se llena un día. La agenda avisa cuando se pasa, pero
+              no impide meter una urgencia más.
+            </span>
           </div>
         </div>
 

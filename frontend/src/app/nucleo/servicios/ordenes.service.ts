@@ -64,6 +64,16 @@ export class OrdenesService {
     return this.http.put<OrdenTrabajo>(`${this.base}/${id}/tecnico`, { tecnicoId });
   }
 
+  /**
+   * Cambia el precio de la hora de esta orden, sin tocar el del taller.
+   *
+   * Las horas ya apuntadas se revaloran, así que la respuesta trae los totales
+   * recalculados.
+   */
+  cambiarTarifaHora(id: number, tarifaHora: number): Observable<OrdenTrabajo> {
+    return this.http.put<OrdenTrabajo>(`${this.base}/${id}/tarifa-hora`, { tarifaHora });
+  }
+
   registrarDiagnostico(id: number, diagnostico: string): Observable<OrdenTrabajo> {
     return this.http.put<OrdenTrabajo>(`${this.base}/${id}/diagnostico`, { diagnostico });
   }
@@ -80,6 +90,22 @@ export class OrdenesService {
     datos: { piezaId: number; cantidad: number; descuentoPct?: number },
   ): Observable<LineaOT> {
     return this.http.post<LineaOT>(`${this.base}/${id}/lineas/piezas`, datos);
+  }
+
+  /**
+   * Pone un precio cerrado a una línea de mano de obra.
+   *
+   * Es el escalón fino sobre `cambiarTarifaHora`: aquella mueve todo el
+   * presupuesto, esta deja un concepto suelto a un precio pactado.
+   */
+  cambiarPrecioDeLinea(
+    id: number,
+    lineaId: number,
+    precioUnitario: number,
+  ): Observable<LineaOT> {
+    return this.http.put<LineaOT>(`${this.base}/${id}/lineas/${lineaId}/precio`, {
+      precioUnitario,
+    });
   }
 
   quitarLinea(id: number, lineaId: number): Observable<void> {

@@ -3,7 +3,7 @@
   [subtitulo]="esEdicion() ? '' : 'Toda moto pertenece a un cliente'"
   (cerrar)="cerrar.emit()"
 >
-  @if (!esEdicion() && !clienteFijado()) {
+  @if (!clienteFijado()) {
     <div class="campo">
       <label for="cliente">Propietario <span class="silenciado">(obligatorio)</span></label>
       <select
@@ -32,11 +32,33 @@
     </div>
     <div class="campo">
       <label for="marca">Marca <span class="silenciado">(obligatorio)</span></label>
-      <input id="marca" [ngModel]="marca()" (ngModelChange)="marca.set($event)" placeholder="Yamaha" />
+      <input 
+        id="marca" 
+        [ngModel]="marca()" 
+        (ngModelChange)="alCambiarMarca($event)" 
+        placeholder="Yamaha" 
+        list="lista-marcas"
+      />
+      <datalist id="lista-marcas">
+        @for (m of marcasNhtsa(); track m) {
+          <option [value]="m"></option>
+        }
+      </datalist>
     </div>
     <div class="campo">
       <label for="modelo">Modelo <span class="silenciado">(obligatorio)</span></label>
-      <input id="modelo" [ngModel]="modelo()" (ngModelChange)="modelo.set($event)" placeholder="MT-07" />
+      <input 
+        id="modelo" 
+        [ngModel]="modelo()" 
+        (ngModelChange)="modelo.set($event)" 
+        placeholder="MT-07" 
+        list="lista-modelos"
+      />
+      <datalist id="lista-modelos">
+        @for (m of modelosNhtsa(); track m) {
+          <option [value]="m"></option>
+        }
+      </datalist>
     </div>
     <div class="campo">
       <label for="anio">Año</label>

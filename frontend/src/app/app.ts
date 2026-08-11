@@ -40,6 +40,7 @@ export class App {
   private readonly router = inject(Router);
   protected readonly sesion = inject(SesionService);
   protected readonly menuAbierto = signal(false);
+  protected readonly menuColapsado = signal(false);
 
   /**
    * El menú va agrupado por para qué sirve cada cosa, no en una lista corrida.
@@ -51,6 +52,7 @@ export class App {
       titulo: 'Taller',
       enlaces: [
         { ruta: '/panel', texto: 'Panel', icono: 'panel' },
+        { ruta: '/agenda', texto: 'Agenda', icono: 'agenda' },
         { ruta: '/ordenes', texto: 'Órdenes de trabajo', icono: 'ordenes' },
         { ruta: '/inventario', texto: 'Inventario', icono: 'inventario' },
       ],
@@ -107,6 +109,10 @@ export class App {
 
   protected alternarMenu(): void {
     this.menuAbierto.update((abierto) => !abierto);
+  }
+
+  protected alternarMenuColapsado(): void {
+    this.menuColapsado.update((colapsado) => !colapsado);
   }
 
   protected cerrarMenu(): void {

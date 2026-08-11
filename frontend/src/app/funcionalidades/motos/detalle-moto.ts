@@ -4,26 +4,40 @@ import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { Moto, OrdenTrabajoResumen } from '../../nucleo/modelos/taller';
+import { FormularioMoto } from './formulario-moto';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { Icono } from '../../compartido/icono';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 
 /** Ficha de la moto con su historial completo de intervenciones. */
 @Component({
   selector: 'app-detalle-moto',
-  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe],
+  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, FormularioMoto, Icono],
   template: `
     @if (cargando()) {
       <app-cargando mensaje="Cargando moto…" />
     } @else if (moto(); as m) {
+      @if (mostrarFormulario()) {
+        <app-formulario-moto [moto]="m" (cerrar)="mostrarFormulario.set(false)" (guardado)="trasGuardar($event)" />
+      }
+
       <div class="apilado">
         <a routerLink="/motos" class="pequeno">← Motos</a>
 
-        <div>
-          <h1>{{ m.matricula }}</h1>
-          <p class="silenciado pequeno">
-            {{ m.descripcion }} · propietario:
-            <a [routerLink]="['/clientes', m.clienteId]">{{ m.clienteNombre }}</a>
-          </p>
+        <div class="pagina-cabecera">
+          <div class="pagina-cabecera__texto">
+            <h1>{{ m.matricula }}</h1>
+            <p class="silenciado pequeno">
+              {{ m.descripcion }} · propietario:
+              <a [routerLink]="['/clientes', m.clienteId]">{{ m.clienteNombre }}</a>
+            </p>
+          </div>
+          @if (puedeEditar) {
+            <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+              Editar
+            </button>
+          }
         </div>
 
         <section class="tarjeta">
@@ -110,6 +124,14 @@ export class DetalleMoto {
   protected readonly cargando = signal(true);
   protected readonly moto = signal<Moto | null>(null);
   protected readonly historial = signal<OrdenTrabajoResumen[]>([]);
+  
+  protected readonly mostrarFormulario = signal(false);
+  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  protected trasGuardar(m: Moto): void {
+    this.moto.set(m);
+    this.mostrarFormulario.set(false);
+  }
 
   constructor() {
     queueMicrotask(() => {

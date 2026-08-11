@@ -297,6 +297,30 @@ public class OrdenTrabajo extends EntidadAuditable {
         this.observaciones = textoONulo(observaciones);
     }
 
+    /**
+     * Cambia el precio de la hora pactado para ESTA orden.
+     *
+     * <p>La tarifa se congela al abrir la OT partiendo de la del taller, pero se
+     * negocia caso por caso: a un cliente de siempre se le hace precio, y una
+     * urgencia de sabado se cobra mas. Por eso se puede tocar aqui sin mover la
+     * tarifa general del taller, que sigue valiendo para las demas ordenes.
+     *
+     * <p>Las horas ya apuntadas SE REVALORAN a la tarifa nueva: quien la cambia
+     * espera que el presupuesto entero salga a ese precio, no que conviva media
+     * factura a un precio y media a otro. Las piezas no se tocan: su precio viene
+     * del catalogo y sigue congelado.
+     */
+    public void cambiarTarifaHora(BigDecimal nuevaTarifa) {
+        exigirLineasEditables();
+        if (nuevaTarifa == null || nuevaTarifa.signum() <= 0) {
+            throw new ReglaNegocioException("El precio de la hora tiene que ser mayor que cero.");
+        }
+        this.tarifaHora = nuevaTarifa;
+        lineas.stream()
+                .filter(linea -> !linea.esDePieza())
+                .forEach(linea -> linea.repreciarManoDeObra(nuevaTarifa));
+    }
+
     /** Anade horas de taller, valoradas a la tarifa congelada de esta OT. */
     public LineaOT anadirManoDeObra(String descripcion, BigDecimal horas, BigDecimal descuentoPct,
                                     String tipoIva, BigDecimal porcentajeIva) {
@@ -315,6 +339,26 @@ public class OrdenTrabajo extends EntidadAuditable {
                 porcentajeIva);
         lineas.add(linea);
         return linea;
+    }
+
+    /**
+     * Pone un precio a mano en una linea de mano de obra.
+     *
+     * <p>Es el escalon fino sobre {@link #cambiarTarifaHora}: aquella mueve todo
+     * el presupuesto, esta deja un concepto suelto a un precio cerrado. Sirve
+     * para lo que en el taller se cobra a tanto alzado —«el diagnostico te lo
+     * dejo en 30»— sin tener que inventar cuantas horas son a la tarifa vigente.
+     *
+     * <p>Cambiar despues la tarifa de la orden vuelve a arrastrar esta linea:
+     * quien toca el precio general lo hace para que mande sobre todo lo demas.
+     */
+    public void cambiarPrecioDeManoDeObra(LineaOT linea, BigDecimal precioUnitario) {
+        exigirLineasEditables();
+        if (!lineas.contains(linea)) {
+            throw new ReglaNegocioException(
+                    "La linea indicada no pertenece a la orden %s.".formatted(codigoVisible()));
+        }
+        linea.repreciarManoDeObra(precioUnitario);
     }
 
     public void quitarLinea(LineaOT linea) {

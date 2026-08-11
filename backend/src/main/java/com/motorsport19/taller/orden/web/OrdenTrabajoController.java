@@ -17,7 +17,9 @@ import com.motorsport19.taller.orden.web.dto.MotivoRequest;
 import com.motorsport19.taller.orden.web.dto.OrdenTrabajoResponse;
 import com.motorsport19.taller.orden.web.dto.OrdenTrabajoResumenResponse;
 import com.motorsport19.taller.orden.web.dto.PiezaLineaRequest;
+import com.motorsport19.taller.orden.web.dto.PrecioLineaRequest;
 import com.motorsport19.taller.orden.web.dto.ResultadoConsumoResponse;
+import com.motorsport19.taller.orden.web.dto.TarifaHoraRequest;
 import com.motorsport19.taller.seguridad.UsuarioActual;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
@@ -121,6 +123,18 @@ public class OrdenTrabajoController {
         return detalle(ordenService.asignarTecnico(id, peticion.tecnicoId()));
     }
 
+    /**
+     * Cambia el precio de la hora de esta orden, sin tocar el del taller.
+     *
+     * <p>Las horas ya apuntadas se revaloran a la tarifa nueva, asi que la
+     * respuesta trae los totales ya recalculados.
+     */
+    @PutMapping("/{id}/tarifa-hora")
+    public OrdenTrabajoResponse cambiarTarifaHora(@PathVariable Long id,
+                                                  @Valid @RequestBody TarifaHoraRequest peticion) {
+        return detalle(ordenService.cambiarTarifaHora(id, peticion.tarifaHora()));
+    }
+
     @PutMapping("/{id}/diagnostico")
     public OrdenTrabajoResponse registrarDiagnostico(@PathVariable Long id,
                                                      @Valid @RequestBody DiagnosticoRequest peticion) {
@@ -152,6 +166,14 @@ public class OrdenTrabajoController {
     public LineaOTResponse cambiarCantidad(@PathVariable Long id, @PathVariable Long lineaId,
                                            @Valid @RequestBody CantidadRequest peticion) {
         return LineaOTResponse.de(ordenService.cambiarCantidadDeLinea(id, lineaId, peticion.cantidad()));
+    }
+
+    /** Precio cerrado para una linea de mano de obra, al margen de la tarifa/hora. */
+    @PutMapping("/{id}/lineas/{lineaId}/precio")
+    public LineaOTResponse cambiarPrecio(@PathVariable Long id, @PathVariable Long lineaId,
+                                         @Valid @RequestBody PrecioLineaRequest peticion) {
+        return LineaOTResponse.de(ordenService.cambiarPrecioDeManoDeObra(
+                id, lineaId, peticion.precioUnitario()));
     }
 
     @DeleteMapping("/{id}/lineas/{lineaId}")

@@ -118,6 +118,10 @@ export interface MovimientoStock {
   usuarioId: number | null;
   usuarioNombre: string | null;
   ordenTrabajoId: number | null;
+  /** Reparación y moto a las que se fue el material, si salió por una orden. */
+  ordenCodigo: string | null;
+  matricula: string | null;
+  descripcionMoto: string | null;
   motivo: string | null;
   documentoProveedor: string | null;
   precioCosteUnitario: number | null;

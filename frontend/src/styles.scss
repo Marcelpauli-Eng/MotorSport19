@@ -34,12 +34,12 @@
   --gris-50: #f8fafc;
   --blanco: #ffffff;
 
-  /* ---------- Tinta de marca ---------- */
-  --azul: #2563eb;
-  --azul-fuerte: #1d4ed8;
-  --azul-oscuro: #1e3a8a;
-  --azul-suave: #eff6ff;
-  --azul-borde: #bfdbfe;
+  /* ---------- Tinta de marca (19 Racing Motorsport) ---------- */
+  --azul: #ff0066;
+  --azul-fuerte: #d90057;
+  --azul-oscuro: #b30047;
+  --azul-suave: #fff0f5;
+  --azul-borde: #ffb3d1;
 
   /* ---------- Colores con significado ----------
      Cada uno con su version de texto y su version de fondo suave. */
@@ -67,9 +67,9 @@
   --e10: 40px;
 
   /* ---------- Radios ---------- */
-  --radio-s: 5px;
-  --radio: 7px;
-  --radio-g: 10px;
+  --radio-s: 2px;
+  --radio: 4px;
+  --radio-g: 6px;
 
   /* ---------- Elevacion ----------
      Muy contenida. Las sombras marcadas envejecen mal y en una tablet con
@@ -80,11 +80,11 @@
 
   --borde: 1px solid var(--gris-200);
 
-  /* Objetivo tactil comodo con guantes. */
-  --alto-control: 40px;
-  --alto-control-g: 44px;
+  /* Objetivo tactil comodo con guantes, pero mas compacto. */
+  --alto-control: 34px;
+  --alto-control-g: 40px;
 
-  --anillo-foco: 0 0 0 3px rgb(37 99 235 / 25%);
+  --anillo-foco: 0 0 0 3px rgb(255 0 102 / 25%);
 }
 
 * { box-sizing: border-box; }
@@ -169,16 +169,16 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
 }
 
 /* Relleno por defecto; las tarjetas que llevan tabla lo quitan. */
-.tarjeta { padding: var(--e5); }
+.tarjeta { padding: var(--e4); }
 .tarjeta--ajustada { padding: 0; }
 
 .tarjeta__titulo {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--e4);
-  margin: 0 0 var(--e4);
-  padding-bottom: var(--e3);
+  gap: var(--e3);
+  margin: 0 0 var(--e3);
+  padding-bottom: var(--e2);
   border-bottom: var(--borde);
 }
 
@@ -282,10 +282,23 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
 
 .campo > label,
 .etiqueta-campo {
+  display: block;
+  margin: 0 0 2px;
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--gris-700);
 }
+
+/* Texto libre: aquí sí interesa que se lea como prosa, con su interlineado, y
+   no apretado como los datos de una ficha. Lo usan la ficha de la orden y la de
+   la cita, así que vive aquí y no dentro de una de las dos. */
+.prosa {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--gris-700);
+}
+
+.prosa__titulo { margin-top: var(--e4); }
 
 /* Separa los bloques de un formulario largo. Sin esto, veinte campos seguidos
    se leen como una lista y hay que buscar dónde acaba una cosa y empieza otra. */
@@ -440,20 +453,18 @@ table {
 }
 
 thead th {
-  padding: var(--e2) var(--e4);
+  padding: var(--e2) var(--e3);
   text-align: left;
   font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--gris-500);
-  background: var(--gris-50);
-  border-bottom: var(--borde);
+  font-weight: 700;
+  color: var(--gris-600);
+  background: var(--blanco);
+  border-bottom: 2px solid var(--gris-200);
   white-space: nowrap;
 }
 
 tbody td {
-  padding: var(--e3) var(--e4);
+  padding: var(--e2) var(--e3);
   border-bottom: 1px solid var(--gris-150);
   vertical-align: middle;
   color: var(--gris-700);
@@ -628,4 +639,16 @@ th.num, td.num { text-align: right; }
 @media (max-width: 640px) {
   .rejilla { grid-template-columns: 1fr; }
   .filtros__crece { flex-basis: 100%; }
+}
+
+.paso-confirmado {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e3);
+  background: var(--verde-suave);
+  border: 1px solid var(--verde-borde);
+  border-radius: var(--radio);
+  color: var(--verde-fuerte);
+  margin-bottom: var(--e4);
 }

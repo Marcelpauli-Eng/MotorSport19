@@ -173,6 +173,26 @@ public class LineaOT extends EntidadAuditable {
         return tipo == TipoLinea.PIEZA;
     }
 
+    /**
+     * Revalora la linea a un precio unitario nuevo.
+     *
+     * <p>Solo para mano de obra: es el unico caso en que el precio no viene de un
+     * catalogo sino de la tarifa pactada para esta orden, y esa tarifa se negocia
+     * con el cliente mientras se monta el presupuesto. El precio de una pieza no
+     * se toca por aqui, que para eso esta congelado.
+     */
+    void repreciarManoDeObra(BigDecimal nuevoPrecioUnitario) {
+        if (esDePieza()) {
+            throw new ReglaNegocioException(
+                    "La linea %d es de material: su precio queda congelado del catalogo."
+                            .formatted(numeroLinea));
+        }
+        if (nuevoPrecioUnitario == null || nuevoPrecioUnitario.signum() < 0) {
+            throw new ReglaNegocioException("El precio unitario de la linea no puede ser negativo.");
+        }
+        this.precioUnitario = nuevoPrecioUnitario;
+    }
+
     /** Referencia de almacen, o vacio si es mano de obra. */
     public String skuPieza() {
         return pieza == null ? null : pieza.getSku();

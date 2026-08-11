@@ -1,0 +1,236 @@
+/* ---------- Barra superior ---------- */
+
+.agenda-barra {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  flex-wrap: wrap;
+}
+
+.agenda-titulo {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+
+/* Solo la primera letra: `capitalize` a secas convierte «3 – 9 de agosto» en
+   «3 – 9 De Agosto», que en español está mal. */
+.agenda-titulo::first-letter { text-transform: uppercase; }
+
+.pestanas--compactas { border-bottom: none; }
+.pestanas--compactas .pestana { min-height: 32px; }
+
+.agenda-resumen {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  margin: 0;
+}
+
+/* ---------- Rejilla del calendario ---------- */
+
+/* Siete columnas iguales en escritorio. Con menos de 1100 px la semana no cabe
+   sin apretar el texto hasta hacerlo ilegible, así que se pasa a scroll
+   horizontal manteniendo el ancho mínimo de columna: en una tablet se desliza,
+   que es como se mira una agenda de pared. */
+.calendario {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: var(--e2);
+  overflow-x: auto;
+  padding-bottom: var(--e2);
+}
+
+.calendario--dia {
+  grid-template-columns: minmax(0, 640px);
+}
+
+.dia {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio);
+}
+
+.dia--hoy {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 1px var(--azul);
+}
+
+.dia__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  border-bottom: var(--borde);
+}
+
+.dia__fecha { display: flex; flex-direction: column; min-width: 0; }
+
+.dia__nombre {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--gris-900);
+}
+
+.dia__numero { font-size: 0.75rem; color: var(--gris-500); }
+
+.dia--hoy .dia__nombre { color: var(--azul); }
+
+.dia__anadir {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  color: var(--gris-400);
+  background: none;
+  border: none;
+  border-radius: var(--radio-s);
+  cursor: pointer;
+}
+
+.dia__anadir:hover { color: var(--azul); background: var(--azul-suave); }
+
+.dia__vacio {
+  margin: 0;
+  padding: var(--e4) var(--e3);
+  color: var(--gris-400);
+  text-align: center;
+}
+
+/* ---------- Barra de carga ---------- */
+
+.carga {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--e2) var(--e3);
+  border-bottom: 1px solid var(--gris-150);
+}
+
+.carga__barra {
+  height: 4px;
+  background: var(--gris-150);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.carga__relleno {
+  height: 100%;
+  background: var(--verde);
+  border-radius: 2px;
+  transition: width 0.2s;
+}
+
+.carga__texto {
+  font-size: 0.6875rem;
+  color: var(--gris-500);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un día lleno no bloquea nada: solo se ve que lo está. */
+.carga--llena .carga__relleno { background: var(--ambar); }
+.carga--llena .carga__texto { color: var(--ambar); font-weight: 500; }
+
+/* ---------- Citas ---------- */
+
+.citas {
+  list-style: none;
+  margin: 0;
+  padding: var(--e2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.cita {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: var(--e2);
+  font: inherit;
+  text-align: left;
+  background: var(--gris-50);
+  border: 1px solid var(--gris-200);
+  border-left: 3px solid var(--azul);
+  border-radius: var(--radio-s);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.cita:hover { background: var(--azul-suave); border-color: var(--azul-borde); }
+
+/* Lo cancelado o no presentado se queda a la vista pero apagado: sigue siendo
+   historial del día, y ver los huecos que se perdieron tiene su valor. */
+.cita--cerrada {
+  border-left-color: var(--gris-300);
+  opacity: 0.55;
+}
+
+.cita--cerrada .cita__moto { text-decoration: line-through; }
+
+.cita__hora {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.cita__duracion { font-size: 0.6875rem; font-weight: 400; color: var(--gris-500); }
+
+.cita__moto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--gris-900);
+}
+
+.cita__matricula {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  color: var(--gris-500);
+}
+
+.cita__motivo {
+  font-size: 0.75rem;
+  color: var(--gris-600);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cita__pie {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+/* La columna de un día es estrecha: sin esto la etiqueta de estado se sale de
+   la tarjeta en vez de partirse. */
+.cita__pie .etiqueta {
+  max-width: 100%;
+  white-space: normal;
+}
+
+@media (max-width: 640px) {
+  /* En el móvil del mostrador la semana se lee en vertical: siete columnas
+     estrechas no hay quien las use con el pulgar. */
+  .calendario { grid-template-columns: 1fr; overflow-x: visible; }
+  .agenda-titulo { flex-basis: 100%; order: -1; }
+}

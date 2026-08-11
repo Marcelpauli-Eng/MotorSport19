@@ -38,7 +38,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker,demo}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-motorsport19}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-taller}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-taller}
