@@ -32,6 +32,15 @@ export class Inventario {
   /** Entradas y ajustes de almacen los reserva la API para direccion. */
   protected readonly gestionaAlmacen = this.sesion.puede('ADMIN');
 
+  /**
+   * ¿Se le enseñan los precios del catálogo?
+   *
+   * A un técnico no: de poco serviría taparlos en la orden de trabajo si los
+   * tiene a un clic aquí. El servidor tampoco se los manda —llegan a nulo—, así
+   * que esto solo evita pintar dos columnas de guiones.
+   */
+  protected readonly vePrecios = this.sesion.puede('ADMIN', 'MOSTRADOR');
+
   protected readonly pestana = signal<Pestana>('catalogo');
   protected readonly cargando = signal(true);
 

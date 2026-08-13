@@ -1,56 +1,155 @@
-/* Pantalla de entrada: centrada y sin navegación, para que no haya nada que
-   pulsar antes de identificarse. */
+/* Pantalla de entrada: sin navegación, para que no haya nada que pulsar antes
+   de identificarse.
+
+   Dos columnas en escritorio (marca | formulario) y una sola en móvil. El
+   panel de marca es el único sitio de toda la aplicación donde el negro del
+   logotipo ocupa una superficie grande; dentro, el color se administra con
+   cuentagotas. */
+
+/*
+  El fondo negro de la marca es el mismo en las dos vistas. En escritorio ocupa
+  solo la columna izquierda, detrás del logotipo; en móvil, donde esa columna
+  no cabe, pasa a ser el fondo de la pantalla entera. Así entrar desde el
+  mostrador y entrar desde el móvil son la misma pantalla, no dos.
+*/
+@mixin fondo-marca {
+  background-color: var(--gris-950);
+  /* Un halo rosa muy tenue en diagonal: da profundidad al negro plano sin
+     meter una imagen de fondo que habría que descargar. */
+  background-image:
+    radial-gradient(120% 90% at 15% 0%, rgb(255 0 109 / 22%) 0%, transparent 55%),
+    radial-gradient(80% 70% at 100% 100%, rgb(255 0 109 / 12%) 0%, transparent 60%);
+}
 
 .entrada {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-content: center;
   min-height: 100dvh;
-  padding: 1.5rem;
-  background: var(--gris-100);
+  padding: var(--e5);
+
+  @include fondo-marca;
 }
+
+@media (min-width: 900px) {
+  .entrada {
+    grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+    align-content: stretch;
+    padding: 0;
+    /* Con el panel al lado, el fondo de la pantalla vuelve al gris del resto de
+       la aplicación: el negro se queda solo en su columna. */
+    background: var(--gris-100);
+  }
+}
+
+/* ---------- Panel de marca (solo escritorio) ---------- */
+
+.entrada__panel {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--e3);
+  padding: var(--e10) var(--e8);
+  color: var(--blanco);
+
+  @include fondo-marca;
+}
+
+@media (min-width: 900px) {
+  .entrada__panel { display: flex; }
+}
+
+/* ---------- Columna del formulario ---------- */
+
+.entrada__columna {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.entrada__panel-logo {
+  width: min(320px, 70%);
+  height: auto;
+  margin-bottom: var(--e5);
+}
+
+.entrada__panel-texto {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.021em;
+  line-height: 1.2;
+}
+
+.entrada__panel-pie {
+  margin: 0;
+  max-width: 34ch;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 62%);
+}
+
+/* ---------- Formulario ---------- */
 
 .entrada__caja {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  max-width: 372px;
-  padding: var(--e6);
-  background: var(--blanco);
-  border: var(--borde);
-  border-radius: var(--radio-g);
-  box-shadow: var(--sombra-g);
+  max-width: 400px;
+  margin: 0 auto;
+  padding: var(--e8) var(--e6);
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 
+/* En móvil el formulario es una tarjeta blanca recortada sobre el negro: hace
+   de foco y separa «la marca» de «lo que tengo que rellenar». */
+@media (max-width: 899px) {
+  .entrada__caja {
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    padding: var(--e6);
+    background: var(--blanco);
+    border: none;
+    border-radius: 0;
+    box-shadow: 0 20px 48px -16px rgb(0 0 0 / 60%);
+  }
+}
+
+/* Logotipo sobre el fondo negro, encima del formulario. Va en versión clara
+   porque el original lleva la palabra en negro y sobre este fondo
+   desaparecería. */
 .entrada__marca {
   display: flex;
-  align-items: center;
-  gap: var(--e3);
-  margin-bottom: var(--e6);
-}
-
-/* La misma marca que en la barra lateral: entrar y estar dentro tienen que
-   parecer el mismo programa. */
-.entrada__logo {
-  display: flex;
-  align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  flex: none;
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: var(--blanco);
-  background: var(--azul);
-  border-radius: var(--radio);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto var(--e6);
 }
 
-.entrada__marca h1 {
-  margin: 0 0 1px;
-  font-size: 1.125rem;
+@media (min-width: 900px) {
+  /* Con el panel de marca al lado, repetir el logotipo sobre el formulario
+     sería decir dos veces lo mismo. */
+  .entrada__marca { display: none; }
 }
 
-.entrada__marca p {
-  margin: 0;
+.entrada__logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 80%;
+  object-fit: contain;
+}
+
+.entrada__titulo {
+  margin: 0 0 var(--e1);
+  font-size: 1.5rem;
+}
+
+.entrada__ayuda {
+  margin: 0 0 var(--e6);
   color: var(--gris-500);
 }
 
@@ -67,5 +166,5 @@
 .entrada__enviar {
   width: 100%;
   min-height: var(--alto-control-g);
-  margin-top: var(--e2);
+  margin-top: var(--e3);
 }

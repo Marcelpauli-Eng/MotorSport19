@@ -21,6 +21,7 @@ import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Linea de una orden de trabajo: horas de taller o una pieza consumida.
@@ -196,6 +197,36 @@ public class LineaOT extends EntidadAuditable {
     /** Referencia de almacen, o vacio si es mano de obra. */
     public String skuPieza() {
         return pieza == null ? null : pieza.getSku();
+    }
+
+    /**
+     * Lo que valdria la linea sin descuento: cantidad por precio de tarifa.
+     *
+     * <p>Se redondea igual que hace la columna generada de la base de datos
+     * ({@code ROUND(..., 2)}). Si no, restar bruto menos base daria un centimo
+     * de diferencia y el descuento que se le enseña al cliente no cuadraria con
+     * el importe que paga.
+     */
+    public BigDecimal importeBruto() {
+        return cantidad.multiply(precioUnitario).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Cuanto se le rebaja al cliente en esta linea, en euros.
+     *
+     * <p>Se calcula por diferencia y no aplicando el porcentaje otra vez: asi el
+     * descuento mostrado y la base imponible cuadran siempre al centimo, que es
+     * lo unico que importa cuando alguien revisa un presupuesto.
+     */
+    public BigDecimal importeDescuento() {
+        if (baseImponible == null) {
+            return BigDecimal.ZERO.setScale(2);
+        }
+        return importeBruto().subtract(baseImponible);
+    }
+
+    public boolean tieneDescuento() {
+        return descuentoPct != null && descuentoPct.signum() > 0;
     }
 
     // ==================================================================

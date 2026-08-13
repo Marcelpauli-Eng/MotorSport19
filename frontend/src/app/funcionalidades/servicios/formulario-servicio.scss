@@ -1,0 +1,70 @@
+/* Editor de líneas de una plantilla.
+
+   Cada línea es una fila: número, lo que se hace, cuánto, y quitar. Se parece
+   a propósito a la tabla de líneas de una OT, porque es exactamente lo que va
+   a acabar siendo. */
+
+.lineas {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e2);
+}
+
+.linea {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e2);
+  background: var(--gris-50);
+  border: var(--borde);
+  border-radius: var(--radio);
+}
+
+/* Una franja a la izquierda distingue material de horas de un vistazo, sin
+   tener que leer si el control es un desplegable o un campo de texto. */
+.linea { border-left: 3px solid var(--gris-300); }
+.linea--pieza { border-left-color: var(--marca-borde); }
+
+.linea__numero {
+  flex: none;
+  width: 18px;
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--gris-400);
+  text-align: right;
+}
+
+.linea__principal {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linea__cantidad {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  width: 108px;
+}
+
+.linea__cantidad input { text-align: right; }
+
+.linea__unidad {
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+  width: 16px;
+}
+
+/* En móvil la fila se parte en dos pisos: el desplegable de piezas necesita
+   todo el ancho para que se lea el SKU y la descripción. */
+@media (max-width: 640px) {
+  .linea {
+    flex-wrap: wrap;
+    row-gap: var(--e2);
+  }
+
+  .linea__principal { flex-basis: calc(100% - 70px); order: 1; }
+  .linea__numero { order: 0; }
+  .linea__cantidad { order: 2; width: auto; flex: 1 1 auto; margin-left: 26px; }
+  .linea > .boton { order: 3; }
+}

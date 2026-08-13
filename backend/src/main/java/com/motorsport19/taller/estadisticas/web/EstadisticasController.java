@@ -1,9 +1,12 @@
 package com.motorsport19.taller.estadisticas.web;
 
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.estadisticas.service.EstadisticasService;
 import com.motorsport19.taller.estadisticas.service.FilaReparto;
+import com.motorsport19.taller.estadisticas.service.InformeIva;
 import com.motorsport19.taller.estadisticas.service.ResumenMes;
 import com.motorsport19.taller.estadisticas.service.TotalesEjercicio;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -44,6 +47,24 @@ public class EstadisticasController {
                 meses,
                 servicio.mejoresClientes(anio, 5),
                 servicio.piezasMasUsadas(anio, 5));
+    }
+
+    /**
+     * Las facturas del periodo partidas en dos: con IVA y al 0 %.
+     *
+     * <p>Sin fechas abarca el libro entero. Es el informe que acompaña al listado
+     * de facturas y toma su mismo rango, para que las dos cosas no puedan contar
+     * periodos distintos.
+     */
+    @GetMapping("/facturacion/por-iva")
+    public InformeIva porIva(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        if (desde != null && hasta != null && hasta.isBefore(desde)) {
+            throw new ReglaNegocioException("La fecha final del periodo es anterior a la inicial.");
+        }
+        return servicio.facturacionPorIva(desde, hasta);
     }
 
     /** Serie mensual suelta, por si se quiere pintar en otro sitio. */

@@ -30,6 +30,10 @@ export interface LineaFactura {
   descuentoPct: number;
   tipoIva: string;
   porcentajeIva: number;
+  /** Lo que costaría a precio de tarifa, sin descuento. */
+  importeBruto: number;
+  /** Rebaja aplicada en esta línea, en euros. */
+  importeDescuento: number;
   baseImponible: number;
   cuotaIva: number;
   total: number;

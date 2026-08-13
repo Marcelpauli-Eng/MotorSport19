@@ -56,6 +56,45 @@ class EstadoOTTest {
     }
 
     @Nested
+    @DisplayName("Trabajo ya cerrado con el cliente")
+    class TrabajoPreparado {
+
+        @Test
+        @DisplayName("de recibida se puede dejar preparada y de preparada al taller")
+        void atajoDelTrabajoCerrado() {
+            assertThat(EstadoOT.RECIBIDA.puedeTransitarA(EstadoOT.PREPARADA)).isTrue();
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.EN_REPARACION)).isTrue();
+        }
+
+        @Test
+        @DisplayName("una preparada se puede anular si el cliente se echa atras")
+        void anulacion() {
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.RECHAZADA)).isTrue();
+        }
+
+        @Test
+        @DisplayName("no vuelve al camino del presupuesto: el precio ya esta cerrado")
+        void noVuelveAlPresupuesto() {
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.EN_DIAGNOSTICO)).isFalse();
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.PRESUPUESTADA)).isFalse();
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.APROBADA)).isFalse();
+        }
+
+        @Test
+        @DisplayName("tampoco se salta el trabajo: de preparada no se entrega")
+        void noSeSaltaElTrabajo() {
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.LISTA)).isFalse();
+            assertThat(EstadoOT.PREPARADA.puedeTransitarA(EstadoOT.ENTREGADA)).isFalse();
+        }
+
+        @Test
+        @DisplayName("es el estado en el que direccion compone las lineas")
+        void admiteComponerElPresupuesto() {
+            assertThat(EstadoOT.PREPARADA.permiteEditarLineas()).isTrue();
+        }
+    }
+
+    @Nested
     @DisplayName("Transiciones prohibidas")
     class Prohibidas {
 
@@ -123,7 +162,9 @@ class EstadoOTTest {
         void mapaCompletoDeTransiciones() {
             // Este test es el que salta si alguien abre un atajo sin querer.
             assertThat(EstadoOT.RECIBIDA.siguientesPosibles())
-                    .isEqualTo(EnumSet.of(EstadoOT.EN_DIAGNOSTICO));
+                    .isEqualTo(EnumSet.of(EstadoOT.EN_DIAGNOSTICO, EstadoOT.PREPARADA));
+            assertThat(EstadoOT.PREPARADA.siguientesPosibles())
+                    .isEqualTo(EnumSet.of(EstadoOT.EN_REPARACION, EstadoOT.RECHAZADA));
             assertThat(EstadoOT.EN_DIAGNOSTICO.siguientesPosibles())
                     .isEqualTo(EnumSet.of(EstadoOT.PRESUPUESTADA));
             assertThat(EstadoOT.PRESUPUESTADA.siguientesPosibles())
@@ -147,8 +188,9 @@ class EstadoOTTest {
 
         @ParameterizedTest
         @EnumSource(value = EstadoOT.class,
-                names = {"EN_DIAGNOSTICO", "PRESUPUESTADA", "APROBADA", "EN_REPARACION", "ESPERANDO_PIEZAS"})
-        @DisplayName("las lineas se editan mientras se diagnostica, presupuesta o repara")
+                names = {"PREPARADA", "EN_DIAGNOSTICO", "PRESUPUESTADA", "APROBADA", "EN_REPARACION",
+                        "ESPERANDO_PIEZAS"})
+        @DisplayName("las lineas se editan mientras se prepara, diagnostica, presupuesta o repara")
         void lineasEditables(EstadoOT estado) {
             assertThat(estado.permiteEditarLineas()).isTrue();
         }

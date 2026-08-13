@@ -9,80 +9,123 @@
   gap: var(--e3);
 }
 
+/*
+  Cada cifra es un enlace. Lo dice una línea rosa que crece desde la izquierda
+  al pasar por encima: no ocupa sitio cuando no hace falta y evita tener que
+  poner «ver» debajo de cada número.
+*/
 .metrica {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   padding: var(--e4) var(--e5);
   background: var(--blanco);
   border: var(--borde);
   border-radius: var(--radio-g);
-  box-shadow: var(--sombra-s);
+  box-shadow: var(--sombra);
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.12s, box-shadow 0.12s;
+  overflow: hidden;
+  transition: border-color var(--transicion), box-shadow var(--transicion), transform var(--transicion);
+}
+
+.metrica::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: var(--marca);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .metrica:hover {
   text-decoration: none;
   border-color: var(--gris-300);
-  box-shadow: var(--sombra);
+  box-shadow: var(--sombra-m);
+  transform: translateY(-1px);
 }
 
+.metrica:hover::after { transform: scaleX(1); }
+
 .metrica__valor {
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.1;
-  letter-spacing: -0.025em;
+  font-size: 2rem;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
   color: var(--gris-900);
 }
 
 .metrica__texto {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
+  font-weight: 550;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--gris-500);
 }
 
 /* Solo cuando hay algo que atender. Un cero en piezas pendientes es una buena
    noticia y no se pinta de color. */
 .metrica--atencion .metrica__valor { color: var(--ambar); }
+.metrica--atencion::after { background: var(--ambar); }
 
 /* ---------- Tablero por estados ---------- */
 
 .tablero {
   display: flex;
-  gap: var(--e4);
+  gap: var(--e3);
   padding: var(--e4) var(--e5) var(--e5);
   overflow-x: auto;
   /* Sin esto, en tablet el tablero estira la página entera en vez de
      desplazarse por dentro. */
   min-width: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
+/*
+  Cada estado es un carril con fondo gris. Antes las fichas flotaban sueltas
+  sobre el blanco de la tarjeta y no se veía dónde acababa una columna y
+  empezaba la siguiente; el carril lo dice sin necesidad de líneas.
+*/
 .columna {
   display: flex;
   flex-direction: column;
   gap: var(--e2);
-  flex: 0 0 216px;
+  flex: 0 0 224px;
   min-width: 0;
+  padding: var(--e3);
+  background: var(--gris-100);
+  border-radius: var(--radio-g);
 }
 
 .columna__titulo {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 2px;
+  margin: 0 0 var(--e1);
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--gris-500);
+  color: var(--gris-600);
 }
 
 .columna__cuenta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 5px;
   margin-left: auto;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--gris-400);
+  font-size: 0.6875rem;
+  font-weight: 650;
+  color: var(--gris-600);
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: 999px;
   letter-spacing: 0;
 }
 
@@ -106,6 +149,7 @@
 /* ---------- Ficha de orden ---------- */
 
 .ficha {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -116,13 +160,13 @@
   box-shadow: var(--sombra-s);
   color: inherit;
   text-decoration: none;
-  transition: border-color 0.12s, box-shadow 0.12s, transform 0.1s;
+  transition: border-color var(--transicion), box-shadow var(--transicion), transform 0.1s;
 }
 
 .ficha:hover {
   text-decoration: none;
-  border-color: var(--azul-borde);
-  box-shadow: var(--sombra);
+  border-color: var(--marca-borde);
+  box-shadow: var(--sombra-m);
 }
 
 .ficha:active { transform: translateY(1px); }

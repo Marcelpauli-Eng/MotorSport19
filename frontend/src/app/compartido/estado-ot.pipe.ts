@@ -11,6 +11,8 @@ import { EstadoOT } from '../nucleo/modelos/taller';
 export class ColorEstadoPipe implements PipeTransform {
   private static readonly COLORES: Record<EstadoOT, string> = {
     RECIBIDA: 'gris',
+    // Mismo color que APROBADA: las dos significan «lista para el taller».
+    PREPARADA: 'morado',
     EN_DIAGNOSTICO: 'azul',
     PRESUPUESTADA: 'ambar',
     APROBADA: 'morado',
@@ -31,6 +33,7 @@ export class ColorEstadoPipe implements PipeTransform {
 export class TextoEstadoPipe implements PipeTransform {
   private static readonly TEXTOS: Record<EstadoOT, string> = {
     RECIBIDA: 'Recibida',
+    PREPARADA: 'Preparada, pendiente de empezar',
     EN_DIAGNOSTICO: 'En diagnóstico',
     PRESUPUESTADA: 'Presupuestada',
     APROBADA: 'Aprobada',

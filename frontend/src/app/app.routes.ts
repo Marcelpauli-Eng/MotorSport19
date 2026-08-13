@@ -52,6 +52,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./funcionalidades/ordenes/detalle-orden').then((m) => m.DetalleOrden),
       },
+      // Componer el presupuesto es una tarea larga —se encadenan diez o quince
+      // conceptos— y necesita la pantalla entera. Dentro de la ficha quedaba
+      // estrujado entre la avería, las notas y el historial.
+      {
+        path: 'ordenes/:id/presupuesto',
+        title: 'Presupuesto · MotorSport19',
+        loadComponent: () =>
+          import('./funcionalidades/ordenes/presupuesto-orden').then((m) => m.PresupuestoOrden),
+      },
 
       // Facturar no es tarea del taller: un técnico no entra aquí.
       {
@@ -112,6 +121,18 @@ export const routes: Routes = [
         title: 'Inventario · MotorSport19',
         loadComponent: () =>
           import('./funcionalidades/inventario/inventario').then((m) => m.Inventario),
+      },
+
+      // Las plantillas de trabajo: «revisión 10.000 km» con sus horas y su kit
+      // de piezas. Definir cuántas horas se cobran por un servicio es una
+      // decisión de precio, así que solo dirección entra aquí; volcarlas en una
+      // orden lo hace cualquiera desde la propia OT.
+      {
+        path: 'servicios',
+        title: 'Servicios · MotorSport19',
+        canActivate: [rolGuard('ADMIN')],
+        loadComponent: () =>
+          import('./funcionalidades/servicios/servicios').then((m) => m.Servicios),
       },
 
       // Los datos de la empresa que van impresos en la factura, la tarifa por

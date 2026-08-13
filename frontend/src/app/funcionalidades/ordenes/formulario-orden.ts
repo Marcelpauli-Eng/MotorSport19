@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { of, switchMap } from 'rxjs';
 import { Dialogo } from '../../compartido/dialogo';
 import { Cliente, ClienteResumen, Moto, MotoResumen, OrdenTrabajo } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
@@ -31,6 +32,50 @@ import { Icono } from '../../compartido/icono';
   standalone: true,
   imports: [CommonModule, FormsModule, Dialogo, FormularioCliente, FormularioMoto, Icono],
   templateUrl: './formulario-orden.html',
+  styles: [
+    `
+      /* Los dos caminos se eligen pulsando la tarjeta entera y no un radio
+         suelto: la diferencia entre uno y otro está en la explicación, así que
+         la explicación tiene que ser parte de lo que se pulsa. */
+      .caminos {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--e2);
+      }
+
+      .camino {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: var(--e3);
+        text-align: left;
+        background: var(--blanco);
+        border: 1px solid var(--gris-300);
+        border-radius: var(--radio);
+        cursor: pointer;
+      }
+
+      .camino:hover { border-color: var(--gris-400); background: var(--gris-50); }
+
+      .camino--elegido {
+        border-color: var(--azul);
+        background: var(--azul-suave);
+        box-shadow: inset 0 0 0 1px var(--azul);
+      }
+
+      .camino__titulo {
+        font-size: 0.9375rem;
+        font-weight: 600;
+        color: var(--gris-900);
+      }
+
+      .camino__detalle {
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        color: var(--gris-600);
+      }
+    `,
+  ],
 })
 export class FormularioOrden {
   private readonly servicio = inject(OrdenesService);
@@ -72,12 +117,34 @@ export class FormularioOrden {
   protected readonly fechaEstimada = signal('');
   protected readonly observaciones = signal('');
 
+  /**
+   * Los dos caminos que puede seguir una orden, elegidos aquí y no escondidos
+   * en un botón de la ficha.
+   *
+   * - `revisar`: la moto entra con una avería por determinar. Se diagnostica,
+   *   se presupuesta y el cliente decide. Es el caso normal del mostrador.
+   * - `preparar`: el trabajo ya está hablado y cerrado con el cliente.
+   *   Dirección compone la orden y se la asigna a un técnico, que la ejecuta
+   *   sin ver un solo precio.
+   */
+  protected readonly camino = signal<'revisar' | 'preparar'>('revisar');
+
+  protected elegirCamino(destino: 'revisar' | 'preparar'): void {
+    this.camino.set(destino);
+  }
+
+  /** Preparar el trabajo es dárselo a alguien: sin técnico no hay a quién. */
+  protected readonly faltaTecnico = computed(
+    () => this.camino() === 'preparar' && this.tecnicoId() === null,
+  );
+
   protected readonly puedeGuardar = computed(
     () =>
       !this.enviando() &&
       this.motoId() !== null &&
       this.problema().trim().length > 0 &&
-      this.kmEntrada() !== null,
+      this.kmEntrada() !== null &&
+      !this.faltaTecnico(),
   );
 
   constructor() {
@@ -182,10 +249,24 @@ export class FormularioOrden {
         fechaEstimadaSalida: this.fechaEstimada() || null,
         observaciones: this.observaciones().trim() || null,
       })
+      .pipe(
+        // Por la vía corta la orden nace igual y acto seguido se prepara. Son
+        // dos pasos y no uno porque el historial tiene que contar las dos
+        // cosas: que la moto entró y que el trabajo se asignó.
+        switchMap((o) =>
+          this.camino() === 'preparar'
+            ? this.servicio.preparar(o.id, this.tecnicoId())
+            : of(o),
+        ),
+      )
       .subscribe({
         next: (o) => {
           this.enviando.set(false);
-          this.notificaciones.exito(`Orden ${o.codigo} abierta.`);
+          this.notificaciones.exito(
+            this.camino() === 'preparar'
+              ? `Orden ${o.codigo} preparada para ${o.tecnicoNombre}.`
+              : `Orden ${o.codigo} abierta.`,
+          );
           this.abierta.emit(o);
         },
         // El interceptor ya enseña el motivo: por ejemplo, que esa moto ya

@@ -13,9 +13,22 @@ import java.util.Set;
  *
  * <pre>
  *   RECIBIDA ──→ EN_DIAGNOSTICO ──→ PRESUPUESTADA ──→ APROBADA ──→ EN_REPARACION ──→ LISTA ──→ ENTREGADA
- *                                        │                              ↕
- *                                        └──→ RECHAZADA          ESPERANDO_PIEZAS ──→ LISTA
+ *      │                                 │                              ↕
+ *      │                                 └──→ RECHAZADA         ESPERANDO_PIEZAS ──→ LISTA
+ *      │                                                                ↑
+ *      └──→ PREPARADA ────────────────────────────────────────────────────┘
  * </pre>
+ *
+ * <p>Hay por tanto dos caminos hasta el taller, y son dos situaciones distintas
+ * del mostrador, no dos formas de hacer lo mismo:
+ *
+ * <ul>
+ *   <li>La moto entra con una averia por determinar: se diagnostica, se
+ *       presupuesta y el cliente decide. Es el camino largo.</li>
+ *   <li>El trabajo ya esta hablado y cerrado con el cliente: direccion compone
+ *       la orden entera —conceptos, piezas y precios—, se la asigna a un
+ *       tecnico y este solo tiene que ejecutarla. Es {@link #PREPARADA}.</li>
+ * </ul>
  *
  * <p>ENTREGADA y RECHAZADA son terminales. Una OT ENTREGADA es ademas inmutable:
  * lo garantiza tambien un trigger de la base de datos, no solo este enum.
@@ -23,6 +36,15 @@ import java.util.Set;
 public enum EstadoOT {
 
     RECIBIDA("Recibida"),
+
+    /**
+     * Compuesta por direccion y a la espera de que el tecnico la empiece.
+     *
+     * <p>No pasa por presupuesto ni por aprobacion porque el precio ya se cerro
+     * fuera del programa. Lo que queda es trabajo de taller.
+     */
+    PREPARADA("Preparada, pendiente de empezar"),
+
     EN_DIAGNOSTICO("En diagnóstico"),
     PRESUPUESTADA("Presupuestada"),
     APROBADA("Aprobada por el cliente"),
@@ -48,7 +70,12 @@ public enum EstadoOT {
     }
 
     static {
-        RECIBIDA.siguientes = EnumSet.of(EN_DIAGNOSTICO);
+        // Dos salidas: el camino largo (diagnostico) o el corto, cuando el
+        // trabajo ya viene decidido y solo hay que hacerlo.
+        RECIBIDA.siguientes = EnumSet.of(EN_DIAGNOSTICO, PREPARADA);
+        // De una preparada no se sale a presupuesto: el precio ya esta cerrado.
+        // Si el cliente se echa atras, se rechaza igual que un presupuesto.
+        PREPARADA.siguientes = EnumSet.of(EN_REPARACION, RECHAZADA);
         EN_DIAGNOSTICO.siguientes = EnumSet.of(PRESUPUESTADA);
         // El cliente decide: acepta el presupuesto o se lleva la moto sin reparar.
         PRESUPUESTADA.siguientes = EnumSet.of(APROBADA, RECHAZADA);
@@ -94,9 +121,13 @@ public enum EstadoOT {
      * <p>Mientras se diagnostica y se repara si: es normal descubrir averias
      * nuevas con la moto abierta. Una vez lista para entregar, el presupuesto
      * esta cerrado y solo queda facturarlo.
+     *
+     * <p>En PREPARADA tambien, porque es justo el estado en el que direccion
+     * compone la orden antes de pasarsela al tecnico.
      */
     public boolean permiteEditarLineas() {
-        return this == EN_DIAGNOSTICO
+        return this == PREPARADA
+                || this == EN_DIAGNOSTICO
                 || this == PRESUPUESTADA
                 || this == APROBADA
                 || this == EN_REPARACION

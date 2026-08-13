@@ -46,7 +46,7 @@ public class PiezaController {
             @PageableDefault(size = 20, sort = "sku", direction = Sort.Direction.ASC) Pageable pageable) {
 
         Page<Pieza> pagina = piezaService.buscar(texto, familia, proveedorId, soloActivas, soloBajoMinimo, pageable);
-        return PaginaResponse.de(pagina, PiezaResponse::de);
+        return PaginaResponse.de(pagina, this::ficha);
     }
 
     /** Familias que ya existen, para el desplegable de dos pasos. */
@@ -57,13 +57,25 @@ public class PiezaController {
 
     @GetMapping("/{id}")
     public PiezaResponse obtener(@PathVariable Long id) {
-        return PiezaResponse.de(piezaService.obtener(id));
+        return ficha(piezaService.obtener(id));
     }
 
     /** Busqueda por SKU: es como se pide una pieza en el almacen. */
     @GetMapping("/sku/{sku}")
     public PiezaResponse obtenerPorSku(@PathVariable String sku) {
-        return PiezaResponse.de(piezaService.obtenerPorSku(sku));
+        return ficha(piezaService.obtenerPorSku(sku));
+    }
+
+    /**
+     * Ficha de catalogo, sin precios si quien pregunta es un tecnico.
+     *
+     * <p>Va aqui y no en la pantalla por lo mismo que en las ordenes de trabajo:
+     * lo que no debe verse no se envia. Las altas y los cambios de precio no
+     * necesitan este filtro porque esas rutas ya son solo de direccion.
+     */
+    private PiezaResponse ficha(Pieza pieza) {
+        PiezaResponse respuesta = PiezaResponse.de(pieza);
+        return usuarioActual.esTecnico() ? respuesta.sinPrecios() : respuesta;
     }
 
     @PostMapping

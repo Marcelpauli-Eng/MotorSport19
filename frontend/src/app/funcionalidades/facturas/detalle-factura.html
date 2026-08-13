@@ -139,9 +139,21 @@
                 <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
                 <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
                 <td class="num">{{ l.precioUnitario | number: '1.2-4' : 'es' }}</td>
-                <td class="num">{{ l.descuentoPct ? (l.descuentoPct | number: '1.0-2' : 'es') + '%' : '—' }}</td>
+                <td class="num" [class.silenciado]="!l.descuentoPct">
+                  @if (l.descuentoPct) {
+                    <span class="dto-pct">−{{ l.descuentoPct | number: '1.0-2' : 'es' }}%</span>
+                    <span class="dto-euros">−{{ l.importeDescuento | number: '1.2-2' : 'es' }} €</span>
+                  } @else {
+                    —
+                  }
+                </td>
                 <td class="num">{{ l.porcentajeIva | number: '1.0-2' : 'es' }}%</td>
-                <td class="num negrita">{{ l.baseImponible | number: '1.2-2' : 'es' }}</td>
+                <td class="num negrita">
+                  @if (l.descuentoPct) {
+                    <span class="importe-antes">{{ l.importeBruto | number: '1.2-2' : 'es' }}</span>
+                  }
+                  {{ l.baseImponible | number: '1.2-2' : 'es' }}
+                </td>
               </tr>
             }
           </tbody>
@@ -149,6 +161,16 @@
       </div>
 
       <div class="totales">
+        @if (totalDescuento(); as ahorro) {
+          <div class="totales__fila silenciado pequeno">
+            <span>Suma a precio de tarifa</span>
+            <span class="num">{{ importeBruto() | number: '1.2-2' : 'es' }} €</span>
+          </div>
+          <div class="totales__fila totales__fila--ahorro">
+            <span>Descuento aplicado</span>
+            <span class="num">−{{ ahorro | number: '1.2-2' : 'es' }} €</span>
+          </div>
+        }
         <div class="totales__fila">
           <span>Base imponible</span>
           <span class="num">{{ f.baseImponible | number: '1.2-2' : 'es' }} €</span>

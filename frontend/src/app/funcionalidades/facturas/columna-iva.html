@@ -1,0 +1,197 @@
+@if (resumen(); as r) {
+  <section class="tarjeta columna" [class.columna--sin]="!conIva()">
+    <div class="tarjeta__titulo">
+      <h2>
+        {{ r.titulo }}
+        <span class="contador">{{ r.numeroFacturas }}</span>
+      </h2>
+      <span class="pequeno silenciado">{{ r.pesoPorcentaje | number: '1.0-1' : 'es' }} % de lo facturado</span>
+    </div>
+
+    <p class="pequeno silenciado explicacion">{{ explicacion() }}</p>
+
+    <!-- Acumulado del periodo -->
+    <div class="cifras">
+      <div class="cifra cifra--destacada">
+        <span class="cifra__valor">{{ r.totalFacturado | number: '1.2-2' : 'es' }} €</span>
+        <span class="cifra__etiqueta">Facturado (con IVA)</span>
+      </div>
+      <div class="cifra">
+        <span class="cifra__valor">{{ r.baseFacturada | number: '1.2-2' : 'es' }} €</span>
+        <span class="cifra__etiqueta">Base imponible</span>
+      </div>
+      <!-- También en la columna del 0 %, donde sale cero: las dos rejillas tienen
+           que llevar las mismas casillas en el mismo sitio para poder leerse en
+           paralelo, y ese cero es justo lo que se quiere ver ahí. -->
+      <div class="cifra">
+        <span class="cifra__valor">{{ r.ivaRepercutido | number: '1.2-2' : 'es' }} €</span>
+        <span class="cifra__etiqueta">IVA repercutido</span>
+      </div>
+      <div class="cifra">
+        <span class="cifra__valor negativo">{{ r.gastoMaterial | number: '1.2-2' : 'es' }} €</span>
+        <span class="cifra__etiqueta">Gasto de material</span>
+      </div>
+      <div class="cifra">
+        <span class="cifra__valor" [class.negativo]="r.margenBruto < 0">
+          {{ r.margenBruto | number: '1.2-2' : 'es' }} €
+        </span>
+        <span class="cifra__etiqueta">
+          Margen · {{ r.margenPorcentaje | number: '1.0-1' : 'es' }} %
+        </span>
+      </div>
+      <div class="cifra">
+        <span class="cifra__valor">{{ r.ticketMedio | number: '1.2-2' : 'es' }} €</span>
+        <span class="cifra__etiqueta">Factura media</span>
+      </div>
+    </div>
+
+    <!-- Mes a mes -->
+    <h3 class="subtitulo">Mes a mes</h3>
+    @if (!hayMovimiento()) {
+      <p class="vacio pequeno">Ninguna factura de este tipo en el periodo.</p>
+    } @else {
+      <div class="tabla-envoltorio tabla-meses">
+        <table>
+          <thead>
+            <tr>
+              <th>Mes</th>
+              <th class="num">Facturado</th>
+              <th class="num">Gasto</th>
+              <th class="num">Margen</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of meses(); track m.anio * 100 + m.mes) {
+              <tr [class.mes--vacio]="m.numeroFacturas === 0">
+                <td class="sin-envolver">
+                  {{ m.etiqueta }}
+                  @if (m.numeroFacturas) {
+                    <span class="pequeno silenciado">· {{ m.numeroFacturas }}</span>
+                  }
+                </td>
+                <td class="num importe">{{ m.totalFacturado | number: '1.2-2' : 'es' }}</td>
+                <td class="num importe silenciado">{{ m.gastoMaterial | number: '1.2-2' : 'es' }}</td>
+                <td class="num importe" [class.negativo]="m.margenBruto < 0">
+                  {{ m.margenBruto | number: '1.2-2' : 'es' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th>Total</th>
+              <th class="num importe">{{ r.totalFacturado | number: '1.2-2' : 'es' }}</th>
+              <th class="num importe">{{ r.gastoMaterial | number: '1.2-2' : 'es' }}</th>
+              <th class="num importe">{{ r.margenBruto | number: '1.2-2' : 'es' }}</th>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+
+    <!-- Facturas de esta columna -->
+    <h3 class="subtitulo">
+      Facturas
+      @if (totalItems()) {
+        <span class="pequeno silenciado">{{ totalItems() }} en el periodo</span>
+      }
+    </h3>
+
+    @if (cargando()) {
+      <app-cargando mensaje="Cargando facturas…" />
+    } @else if (!facturas().length) {
+      <p class="vacio pequeno">Ninguna factura que enseñar aquí.</p>
+    } @else {
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-marca">
+                <input
+                  type="checkbox"
+                  [checked]="paginaEntera()"
+                  (change)="alternarPagina.emit(!paginaEntera())"
+                  [attr.aria-label]="'Seleccionar las facturas de esta página'"
+                />
+              </th>
+              <th>Número</th>
+              <th>Fecha</th>
+              <th>Cliente</th>
+              <th class="num">Base</th>
+              <th class="num">Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of facturas(); track f.id) {
+              <tr [class.fila--marcada]="estaMarcada(f.id)">
+                <td class="col-marca">
+                  <input
+                    type="checkbox"
+                    [checked]="estaMarcada(f.id)"
+                    (change)="alternarSeleccion.emit(f.id)"
+                    [attr.aria-label]="'Seleccionar la factura ' + f.numeroCompleto"
+                  />
+                </td>
+                <td>
+                  <div class="celda-doble">
+                    <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
+                    @if (f.tipo === 'RECTIFICATIVA') {
+                      <span class="celda-doble__secundario">
+                        rectificativa@if (f.rectificaA) { de {{ f.rectificaA }} }
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td class="silenciado sin-envolver">
+                  {{ f.fechaEmision | date: 'd MMM yy' : undefined : 'es' }}
+                </td>
+                <td>
+                  <span class="truncado">{{ f.receptorNombre }}</span>
+                </td>
+                <td class="num importe silenciado">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
+                <td class="num importe importe--fuerte" [class.negativo]="f.total < 0">
+                  {{ f.total | number: '1.2-2' : 'es' }}
+                </td>
+                <td class="num">
+                  <button
+                    type="button"
+                    class="boton boton--pequeno"
+                    (click)="abrirPdf.emit(f.id)"
+                    title="Ver el PDF de la factura"
+                  >
+                    <app-icono nombre="documento" [tamano]="14" />
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (totalPaginas() > 1) {
+        <div class="paginacion">
+          <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+          <div class="fila">
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              [disabled]="pagina() === 0"
+              (click)="irAPagina.emit(pagina() - 1)"
+            >
+              <app-icono nombre="flecha-izquierda" [tamano]="14" />
+            </button>
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              [disabled]="pagina() + 1 >= totalPaginas()"
+              (click)="irAPagina.emit(pagina() + 1)"
+            >
+              <app-icono nombre="flecha-derecha" [tamano]="14" />
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </section>
+}

@@ -4,11 +4,21 @@ import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Cliente, MotoResumen } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { FormularioCliente } from './formulario-cliente';
 
 @Component({
   selector: 'app-detalle-cliente',
-  imports: [CommonModule, RouterLink, Cargando],
+  imports: [CommonModule, RouterLink, Cargando, FormularioCliente],
   template: `
+    @if (editando(); as c) {
+      <app-formulario-cliente
+        [cliente]="c"
+        (cerrar)="editando.set(null)"
+        (guardado)="trasEditar($event)"
+      />
+    }
+
     @if (cargando()) {
       <app-cargando mensaje="Cargando cliente…" />
     } @else if (cliente(); as c) {
@@ -24,6 +34,9 @@ import { ClientesService } from '../../nucleo/servicios/clientes.service';
               }
             </h1>
           </div>
+          @if (puedeEditar) {
+            <button type="button" class="boton" (click)="editando.set(c)">Editar</button>
+          }
         </div>
 
         @if (!c.facturable) {
@@ -128,6 +141,18 @@ export class DetalleCliente {
   protected readonly cargando = signal(true);
   protected readonly cliente = signal<Cliente | null>(null);
   protected readonly motos = signal<MotoResumen[]>([]);
+
+  /** Cliente abierto en el formulario. Sin él, la ficha es solo de lectura. */
+  protected readonly editando = signal<Cliente | null>(null);
+
+  /** Corregir la ficha es cosa de mostrador y dirección, igual que darla de alta. */
+  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  /** El formulario devuelve la ficha ya guardada: no hace falta volver a pedirla. */
+  protected trasEditar(actualizado: Cliente): void {
+    this.editando.set(null);
+    this.cliente.set(actualizado);
+  }
 
   constructor() {
     queueMicrotask(() => {

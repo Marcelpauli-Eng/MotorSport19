@@ -11,6 +11,7 @@ import java.time.Month;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Informes agregados del taller.
@@ -40,6 +41,64 @@ public class EstadisticasService {
 
         return repositorio.facturacionMensual(ejercicio).stream()
                 .map(f -> ResumenMes.de(f, dias.getOrDefault(f.mes(), BigDecimal.ZERO)))
+                .toList();
+    }
+
+    /**
+     * Las facturas de un periodo partidas en dos: las que llevan IVA y las
+     * emitidas al 0 %.
+     *
+     * <p>El periodo es libre y no el ejercicio: es el mismo rango de fechas con
+     * el que se esta mirando el libro de facturas, de modo que los numeros de
+     * arriba y la lista de abajo hablan siempre de lo mismo.
+     */
+    @Transactional(readOnly = true)
+    public InformeIva facturacionPorIva(LocalDate desde, LocalDate hasta) {
+        LocalDate[] rango = rangoEfectivo(desde, hasta);
+        desde = rango[0];
+        hasta = rango[1];
+
+        List<FilaMesIva> filas = repositorio.facturacionPorIva(desde, hasta);
+
+        List<ResumenMesIva> conIva = mesesDe(filas, true);
+        List<ResumenMesIva> sinIva = mesesDe(filas, false);
+
+        BigDecimal totalGeneral = Stream.concat(conIva.stream(), sinIva.stream())
+                .map(ResumenMesIva::totalFacturado)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new InformeIva(
+                desde, hasta,
+                ColumnaIva.de(true, conIva, totalGeneral),
+                ColumnaIva.de(false, sinIva, totalGeneral));
+    }
+
+    /**
+     * Completa las fechas que falten.
+     *
+     * <p>Un extremo abierto se rellena con el del libro, no con el año en curso:
+     * al mirar «todo», el informe tiene que hablar de todo lo facturado. Si no
+     * hay ni una factura, se devuelve el año actual, que da doce meses a cero en
+     * lugar de un rango invertido.
+     */
+    private LocalDate[] rangoEfectivo(LocalDate desde, LocalDate hasta) {
+        if (desde != null && hasta != null) {
+            return new LocalDate[]{desde, hasta};
+        }
+        LocalDate[] libro = repositorio.rangoDelLibro();
+        int anio = LocalDate.now().getYear();
+        LocalDate primera = libro != null ? libro[0] : LocalDate.of(anio, Month.JANUARY, 1);
+        LocalDate ultima = libro != null ? libro[1] : LocalDate.of(anio, Month.DECEMBER, 31);
+
+        return new LocalDate[]{
+                desde != null ? desde : primera,
+                hasta != null ? hasta : ultima};
+    }
+
+    private static List<ResumenMesIva> mesesDe(List<FilaMesIva> filas, boolean conIva) {
+        return filas.stream()
+                .filter(f -> f.conIva() == conIva)
+                .map(ResumenMesIva::de)
                 .toList();
     }
 

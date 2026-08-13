@@ -28,6 +28,13 @@ public class ConfiguracionTaller extends EntidadAuditable {
     /** Siempre 1: la tabla solo admite una fila. */
     public static final Integer ID_UNICO = 1;
 
+    /**
+     * Identificacion del programa emisor. No la elige el taller: identifica al
+     * software que emite las facturas, y falsearla rompe la trazabilidad.
+     */
+    public static final String SOFTWARE_NOMBRE = "MotorSport19 Taller";
+    public static final String SOFTWARE_VERSION = "0.1.0";
+
     @Id
     @Column(name = "id", nullable = false)
     private Integer id;
@@ -90,6 +97,23 @@ public class ConfiguracionTaller extends EntidadAuditable {
     private String urlVerificacionQr;
 
     /**
+     * La fila de un taller recien instalado, todavia sin datos.
+     *
+     * <p>La instalacion no puede traer unos datos fiscales de relleno: una razon
+     * social o un NIF inventados acabarian impresos en una factura de verdad.
+     * Por eso la fila no la crea ninguna migracion, sino el administrador la
+     * primera vez que guarda los datos de la empresa en Ajustes, y hasta
+     * entonces el resto del programa se niega a emitir nada.
+     */
+    public static ConfiguracionTaller sinRellenar() {
+        ConfiguracionTaller nueva = new ConfiguracionTaller();
+        nueva.id = ID_UNICO;
+        nueva.softwareNombre = SOFTWARE_NOMBRE;
+        nueva.softwareVersion = SOFTWARE_VERSION;
+        return nueva;
+    }
+
+    /**
      * Cambia los datos del taller.
      *
      * <p>Los datos del software (nombre, version, NIF) no se tocan desde aqui:
@@ -108,7 +132,9 @@ public class ConfiguracionTaller extends EntidadAuditable {
         this.direccion = exigir(direccion, "La direccion es obligatoria.");
         this.codigoPostal = exigir(codigoPostal, "El codigo postal es obligatorio.");
         this.ciudad = exigir(ciudad, "La ciudad es obligatoria.");
-        this.provincia = provincia;
+        // La columna no admite nulos: dejarla vacia es la forma de decir que el
+        // taller no tiene provincia que poner (Ceuta, Melilla, extranjero).
+        this.provincia = provincia == null ? "" : provincia.trim();
         this.pais = pais == null || pais.isBlank() ? "ES" : pais.trim();
         this.telefono = telefono;
         this.email = email;

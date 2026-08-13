@@ -77,7 +77,7 @@ public class GeneradorPdfFactura {
                 y = dibujarPartes(lienzo, factura, y - 18);
                 y = dibujarVehiculo(lienzo, factura, y - 14);
                 y = dibujarLineas(lienzo, lineas, y - 18);
-                y = dibujarTotales(lienzo, factura, desglose, y - 14);
+                y = dibujarTotales(lienzo, factura, lineas, desglose, y - 14);
                 dibujarSelloYQr(documento, lienzo, factura, y - 24);
             }
 
@@ -182,6 +182,18 @@ public class GeneradorPdfFactura {
                     euros(l.importes().baseImponible()));
 
             fila -= 15;
+
+            // Con descuento se dice en euros lo que se ha rebajado. El
+            // porcentaje solo no vale: nadie calcula de cabeza el 10 % de
+            // 137,45, y el cliente quiere ver cuanto se ha ahorrado.
+            if (l.tieneDescuento()) {
+                lienzo.setNonStrokingColor(GRIS_TEXTO);
+                texto(lienzo, normal, 8, MARGEN + COL_DESCRIPCION + 9, fila + 3,
+                        "Precio de tarifa %s  -  descuento %s".formatted(
+                                euros(l.importeBruto()), euros(l.importeDescuento())));
+                lienzo.setNonStrokingColor(Color.BLACK);
+                fila -= 11;
+            }
         }
 
         linea(lienzo, MARGEN, fila + 5, MARGEN + ANCHO_UTIL, fila + 5);
@@ -189,9 +201,30 @@ public class GeneradorPdfFactura {
     }
 
     private float dibujarTotales(PDPageContentStream lienzo, Factura factura,
-                                 List<DesgloseIvaFactura> desglose, float y) throws IOException {
+                                 List<LineaFactura> lineas, List<DesgloseIvaFactura> desglose,
+                                 float y) throws IOException {
         float xEtiqueta = MARGEN + ANCHO_UTIL - 170;
         float xValor = MARGEN + ANCHO_UTIL - 3;
+
+        // El descuento solo aparece si lo hay: una linea de «Descuento 0,00»
+        // en todas las facturas es ruido.
+        BigDecimal descuento = lineas.stream()
+                .map(LineaFactura::importeDescuento)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (descuento.signum() != 0) {
+            BigDecimal bruto = lineas.stream()
+                    .map(LineaFactura::importeBruto)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            texto(lienzo, normal, 9, xEtiqueta, y, "Suma a precio de tarifa");
+            textoDerecha(lienzo, normal, 9, xValor, y, euros(bruto));
+            y -= 13;
+
+            texto(lienzo, negrita, 9, xEtiqueta, y, "Descuento aplicado");
+            textoDerecha(lienzo, negrita, 9, xValor, y, "-" + euros(descuento));
+            y -= 13;
+        }
 
         texto(lienzo, normal, 9, xEtiqueta, y, "Base imponible");
         textoDerecha(lienzo, normal, 9, xValor, y, euros(factura.getBaseImponible()));

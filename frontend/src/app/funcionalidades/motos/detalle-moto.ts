@@ -9,6 +9,8 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { Icono } from '../../compartido/icono';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
+import { PdfService } from '../../nucleo/servicios/pdf.service';
+import { environment } from '../../../environments/environment';
 
 /** Ficha de la moto con su historial completo de intervenciones. */
 @Component({
@@ -33,11 +35,22 @@ import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
               <a [routerLink]="['/clientes', m.clienteId]">{{ m.clienteNombre }}</a>
             </p>
           </div>
-          @if (puedeEditar) {
-            <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
-              Editar
+          <div class="fila" style="gap: var(--e2); flex-wrap: nowrap">
+            <!--
+              El historial se entrega en mano al cliente cuando vende la moto,
+              así que el botón vive en la cabecera de la ficha y no escondido al
+              final de la lista de intervenciones.
+            -->
+            <button type="button" class="boton" (click)="abrirHistorial()">
+              <app-icono nombre="documento" [tamano]="16" />
+              Historial en PDF
             </button>
-          }
+            @if (puedeEditar) {
+              <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+                Editar
+              </button>
+            }
+          </div>
         </div>
 
         <section class="tarjeta">
@@ -118,6 +131,7 @@ import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 export class DetalleMoto {
   private readonly motos = inject(MotosService);
   private readonly ordenes = inject(OrdenesService);
+  private readonly pdf = inject(PdfService);
 
   readonly id = input.required<string>();
 
@@ -131,6 +145,16 @@ export class DetalleMoto {
   protected trasGuardar(m: Moto): void {
     this.moto.set(m);
     this.mostrarFormulario.set(false);
+  }
+
+  /** Hoja de vida de la moto, para imprimir o mandar por correo. */
+  protected abrirHistorial(): void {
+    const m = this.moto();
+    if (!m) return;
+    this.pdf.abrir(
+      `${environment.urlApi}/motos/${m.id}/historial/pdf`,
+      `historial-${m.matricula}.pdf`,
+    );
   }
 
   constructor() {

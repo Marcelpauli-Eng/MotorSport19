@@ -68,34 +68,57 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("SELECT f FROM Factura f ORDER BY f.numeroRegistro ASC")
     Stream<Factura> recorrerCadena();
 
+    /**
+     * Busqueda paginada del libro.
+     *
+     * <p>{@code conIva} separa las facturas emitidas al 0 % de las que llevan
+     * cuota. Se mira el IVA total y no el desglose a proposito: lo que distingue
+     * a una factura sin IVA es que no se cobro ninguno, se llame como se llame el
+     * tipo con el que se emitio.
+     *
+     * <p>Las fechas van con {@code COALESCE} y no con el {@code :param IS NULL}
+     * de los demas filtros, y no es por gusto: con una fecha, PostgreSQL no
+     * consigue deducir de que tipo es un parametro que solo aparece dentro de un
+     * {@code IS NULL}, y la consulta entera se cae con «could not determine data
+     * type of parameter». Comparando contra la propia columna —que es NOT NULL,
+     * asi que sin fecha la condicion se cumple siempre— el tipo queda claro y el
+     * filtro significa exactamente lo mismo.
+     */
     @Query(value = """
             SELECT f FROM Factura f
               JOIN FETCH f.serie
               LEFT JOIN FETCH f.facturaRectificada
              WHERE (:tipo   IS NULL OR f.tipo = :tipo)
-               AND (:desde  IS NULL OR f.fechaEmision >= :desde)
-               AND (:hasta  IS NULL OR f.fechaEmision <= :hasta)
+               AND f.fechaEmision >= COALESCE(:desde, f.fechaEmision)
+               AND f.fechaEmision <= COALESCE(:hasta, f.fechaEmision)
                AND (:receptorId IS NULL OR f.receptor.id = :receptorId)
+               AND (:conIva IS NULL
+                    OR (:conIva = TRUE  AND f.totalIva <> 0)
+                    OR (:conIva = FALSE AND f.totalIva  = 0))
              ORDER BY f.numeroRegistro DESC
             """,
             countQuery = """
             SELECT COUNT(f) FROM Factura f
              WHERE (:tipo   IS NULL OR f.tipo = :tipo)
-               AND (:desde  IS NULL OR f.fechaEmision >= :desde)
-               AND (:hasta  IS NULL OR f.fechaEmision <= :hasta)
+               AND f.fechaEmision >= COALESCE(:desde, f.fechaEmision)
+               AND f.fechaEmision <= COALESCE(:hasta, f.fechaEmision)
                AND (:receptorId IS NULL OR f.receptor.id = :receptorId)
+               AND (:conIva IS NULL
+                    OR (:conIva = TRUE  AND f.totalIva <> 0)
+                    OR (:conIva = FALSE AND f.totalIva  = 0))
             """)
     Page<Factura> buscar(@Param("tipo") TipoFactura tipo,
                          @Param("desde") LocalDate desde,
                          @Param("hasta") LocalDate hasta,
                          @Param("receptorId") Long receptorId,
+                         @Param("conIva") Boolean conIva,
                          Pageable pageable);
 
     /** Facturas de un rango de fechas, en orden de cadena, para exportar. */
     @Query("""
             SELECT f FROM Factura f
-             WHERE (:desde IS NULL OR f.fechaEmision >= :desde)
-               AND (:hasta IS NULL OR f.fechaEmision <= :hasta)
+             WHERE f.fechaEmision >= COALESCE(:desde, f.fechaEmision)
+               AND f.fechaEmision <= COALESCE(:hasta, f.fechaEmision)
              ORDER BY f.numeroRegistro ASC
             """)
     List<Factura> buscarParaExportar(@Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);

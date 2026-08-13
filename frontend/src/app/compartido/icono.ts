@@ -29,7 +29,10 @@ export type NombreIcono =
   | 'informes'
   | 'ajustes'
   | 'whatsapp'
-  | 'agenda';
+  | 'agenda'
+  | 'lapiz'
+  | 'papelera'
+  | 'filtro';
 
 /**
  * Trazos de cada icono, sin el `<svg>` que los envuelve.
@@ -100,6 +103,13 @@ const TRAZOS: Record<NombreIcono, string> = {
   whatsapp:
     '<path d="M20.5 11.6a8.5 8.5 0 0 1-12.6 7.4L3.5 20.5l1.6-4.3A8.5 8.5 0 1 1 20.5 11.6z"/>' +
     '<path d="M9 9.2c.3-.7.6-.7 1-.7h.5c.2 0 .4 0 .6.5l.7 1.6c.1.2 0 .4-.1.5l-.5.6c-.2.2-.2.3 0 .6a6 6 0 0 0 2.8 2.4c.3.1.4 0 .6-.1l.6-.7c.2-.2.3-.1.5 0l1.5.8c.2.1.3.2.3.4 0 .3-.2 1-.5 1.3-.3.3-.9.6-1.5.6-2.5 0-6.6-3.4-6.6-6 0-.7.3-1.4.6-1.8z"/>',
+  lapiz:
+    '<path d="M16.5 3.9a2.1 2.1 0 0 1 3 3L8.2 18.2l-4 1 1-4z"/><path d="m14.6 5.8 3 3"/>',
+  papelera:
+    '<path d="M4.5 6.5h15"/><path d="M9.5 6.5V4.8c0-.7.6-1.3 1.3-1.3h2.4c.7 0 1.3.6 1.3 1.3v1.7"/>' +
+    '<path d="M6.5 6.5v12.2c0 .9.7 1.6 1.6 1.6h7.8c.9 0 1.6-.7 1.6-1.6V6.5"/>' +
+    '<path d="M10 10.5v6"/><path d="M14 10.5v6"/>',
+  filtro: '<path d="M3.5 5.5h17l-6.8 8v5.5l-3.4 1.7V13.5z"/>',
 };
 
 /**

@@ -1,0 +1,147 @@
+<app-dialogo
+  [titulo]="titulo()"
+  subtitulo="Las horas y las piezas que lleva. Los precios salen del catálogo al volcarlo en una orden."
+  (cerrar)="cerrar.emit()"
+  class="dialogo--ancho"
+>
+  @if (error(); as mensaje) {
+    <p class="dialogo__error" role="alert">{{ mensaje }}</p>
+  }
+
+  <div class="campo">
+    <label for="nombre">Nombre</label>
+    <input
+      id="nombre"
+      type="text"
+      placeholder="Revisión 10.000 km"
+      [ngModel]="nombre()"
+      (ngModelChange)="nombre.set($event)"
+      [disabled]="guardando()"
+    />
+  </div>
+
+  <div class="campo">
+    <label for="descripcion">Qué incluye</label>
+    <textarea
+      id="descripcion"
+      rows="2"
+      placeholder="Cambio de aceite y filtros, revisión de frenos y tensado de cadena."
+      [ngModel]="descripcion()"
+      (ngModelChange)="descripcion.set($event)"
+      [disabled]="guardando()"
+    ></textarea>
+  </div>
+
+  <p class="bloque-titulo">Líneas</p>
+
+  @if (!lineas().length) {
+    <div class="vacio">
+      <span class="vacio__titulo">Todavía no hay líneas</span>
+      <span class="pequeno">Añade las horas de taller y las piezas que lleva el servicio.</span>
+    </div>
+  }
+
+  <div class="lineas">
+    @for (linea of lineas(); track $index) {
+      <div class="linea" [class.linea--pieza]="linea.tipo === 'PIEZA'">
+        <span class="linea__numero">{{ $index + 1 }}</span>
+
+        @if (linea.tipo === 'MANO_DE_OBRA') {
+          <div class="linea__principal">
+            <input
+              type="text"
+              placeholder="Mano de obra: revisión general"
+              [ngModel]="linea.descripcion"
+              (ngModelChange)="cambiarLinea($index, { descripcion: $event })"
+              [disabled]="guardando()"
+            />
+          </div>
+          <div class="linea__cantidad">
+            <input
+              type="number"
+              min="0.25"
+              step="0.25"
+              placeholder="Horas"
+              [ngModel]="linea.cantidad"
+              (ngModelChange)="cambiarLinea($index, { cantidad: $event })"
+              [disabled]="guardando()"
+            />
+            <span class="linea__unidad">h</span>
+          </div>
+        } @else {
+          <div class="linea__principal">
+            <select
+              [ngModel]="linea.piezaId"
+              (ngModelChange)="cambiarLinea($index, { piezaId: $event })"
+              [disabled]="guardando()"
+            >
+              <option [ngValue]="null">Elige una pieza…</option>
+              @for (p of piezas(); track p.id) {
+                <option [ngValue]="p.id">{{ p.sku }} · {{ p.descripcion }}</option>
+              }
+            </select>
+          </div>
+          <div class="linea__cantidad">
+            <input
+              type="number"
+              min="0.001"
+              step="1"
+              placeholder="Uds."
+              [ngModel]="linea.cantidad"
+              (ngModelChange)="cambiarLinea($index, { cantidad: $event })"
+              [disabled]="guardando()"
+            />
+            <span class="linea__unidad">ud</span>
+          </div>
+        }
+
+        <button
+          type="button"
+          class="boton boton--plano boton--icono boton--pequeno"
+          (click)="quitarLinea($index)"
+          [disabled]="guardando()"
+          [attr.aria-label]="'Quitar la línea ' + ($index + 1)"
+        >
+          <app-icono nombre="papelera" [tamano]="15" />
+        </button>
+      </div>
+    }
+  </div>
+
+  <div class="fila" style="margin-top: var(--e3)">
+    <button
+      type="button"
+      class="boton boton--pequeno"
+      (click)="anadirLinea('MANO_DE_OBRA')"
+      [disabled]="guardando()"
+    >
+      <app-icono nombre="mas" [tamano]="14" />
+      Mano de obra
+    </button>
+    <button
+      type="button"
+      class="boton boton--pequeno"
+      (click)="anadirLinea('PIEZA')"
+      [disabled]="guardando()"
+    >
+      <app-icono nombre="mas" [tamano]="14" />
+      Pieza
+    </button>
+
+    <span class="crece"></span>
+
+    <span class="pequeno silenciado">
+      {{ horasTotales() | number: '1.0-2' : 'es' }} h · {{ numeroDePiezas() }}
+      {{ numeroDePiezas() === 1 ? 'pieza' : 'piezas' }}
+    </span>
+  </div>
+
+  <div pie class="fila fila--fin">
+    <button type="button" class="boton" (click)="cerrar.emit()" [disabled]="guardando()">
+      Cancelar
+    </button>
+    <button type="button" class="boton boton--principal" (click)="guardar()" [disabled]="guardando()">
+      {{ guardando() ? 'Guardando…' : 'Guardar' }}
+    </button>
+  </div>
+</app-dialogo>

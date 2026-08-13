@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, computed, inject, input, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
@@ -28,6 +28,21 @@ export class DetalleFactura {
   protected readonly factura = signal<Factura | null>(null);
   protected readonly rectificativas = signal<FacturaResumen[]>([]);
   protected readonly eventos = signal<EventoFactura[]>([]);
+
+  /**
+   * Descuento total de la factura, sumando el de cada línea.
+   *
+   * <p>Devuelve 0 cuando no hay ninguno, y la plantilla se apoya en eso con
+   * `@if` para no enseñar una fila de «Descuento 0,00 €» en cada factura.
+   */
+  protected readonly totalDescuento = computed(() =>
+    (this.factura()?.lineas ?? []).reduce((a, l) => a + l.importeDescuento, 0),
+  );
+
+  /** Lo que sumarían las líneas a precio de tarifa, antes del descuento. */
+  protected readonly importeBruto = computed(() =>
+    (this.factura()?.lineas ?? []).reduce((a, l) => a + l.importeBruto, 0),
+  );
 
   constructor() {
     // El input de ruta ya está resuelto cuando se construye el componente.

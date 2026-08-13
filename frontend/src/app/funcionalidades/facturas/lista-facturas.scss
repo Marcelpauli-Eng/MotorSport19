@@ -56,10 +56,57 @@
 
 .negativo { color: var(--rojo); }
 
+/* ---------- Las dos columnas del libro ---------- */
+
 /*
-  La orden de trabajo es la columna que primero sobra: identifica el origen de
-  la factura, no la factura. Al ocultarla, el resto cabe sin cortarse.
+  Con IVA a la izquierda y 0 % a la derecha, del mismo ancho: si una fuera más
+  estrecha, se leería como la secundaria antes de mirar las cifras.
+
+  Por debajo de 1100 px se apilan. Dos tablas de cinco columnas repartidas en
+  media pantalla de portátil no se leen, y esta pantalla se mira tanto en el
+  ordenador del despacho como en la tablet del mostrador.
 */
-@media (max-width: 1500px) {
-  .col-opcional { display: none; }
+.columnas-iva {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--e4);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .columnas-iva { grid-template-columns: minmax(0, 1fr); }
+}
+
+/*
+  Barra de la selección. Se queda pegada arriba al desplazar: las facturas que
+  se van marcando están repartidas entre las dos columnas y el botón de
+  descargar tiene que seguir a mano sin volver a subir.
+*/
+.barra-seleccion {
+  position: sticky;
+  top: var(--e2);
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  padding: var(--e2) var(--e3);
+  border: 1px solid var(--azul-borde);
+  border-radius: var(--radio);
+  background: var(--azul-suave);
+  box-shadow: var(--sombra-s);
+}
+
+/* Franja del periodo, entre la exportación y las columnas. */
+.resumen-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--e2) var(--e4);
+  padding: var(--e2) var(--e3);
+  border: var(--borde);
+  border-radius: var(--radio);
+  background: var(--gris-50);
 }

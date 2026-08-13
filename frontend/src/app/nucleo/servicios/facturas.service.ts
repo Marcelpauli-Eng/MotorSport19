@@ -11,12 +11,15 @@ import {
   SerieFactura,
   TipoRectificativa,
 } from '../modelos/facturacion';
+import { PdfService } from './pdf.service';
 
 export interface FiltroFacturas {
   tipo?: string | null;
   desde?: string | null;
   hasta?: string | null;
   receptorId?: number | null;
+  /** `true` solo con IVA, `false` solo las emitidas al 0 %, ausente todas. */
+  conIva?: boolean | null;
   pagina?: number;
   tamano?: number;
 }
@@ -24,6 +27,7 @@ export interface FiltroFacturas {
 @Injectable({ providedIn: 'root' })
 export class FacturasService {
   private readonly http = inject(HttpClient);
+  private readonly pdf = inject(PdfService);
   private readonly base = `${environment.urlApi}/facturas`;
 
   buscar(filtro: FiltroFacturas = {}): Observable<Pagina<FacturaResumen>> {
@@ -35,6 +39,9 @@ export class FacturasService {
     if (filtro.desde) params = params.set('desde', filtro.desde);
     if (filtro.hasta) params = params.set('hasta', filtro.hasta);
     if (filtro.receptorId) params = params.set('receptorId', filtro.receptorId);
+    // Se compara con null a propósito: `false` es un filtro válido —las de 0 %—
+    // y con un `if (filtro.conIva)` se perdería.
+    if (filtro.conIva != null) params = params.set('conIva', filtro.conIva);
 
     return this.http.get<Pagina<FacturaResumen>>(this.base, { params });
   }
@@ -72,37 +79,9 @@ export class FacturasService {
     return this.http.post<InformeVerificacion>(`${this.base}/verificacion`, null);
   }
 
-  /**
-   * Abre el PDF de una factura en otra pestaña.
-   *
-   * No se puede usar un enlace normal: el token viaja en una cabecera que pone
-   * el interceptor, y un `<a href>` no la lleva, de modo que el servidor
-   * responderia 401. Se descarga por HttpClient y se muestra desde memoria.
-   *
-   * La pestaña se abre antes de pedir el PDF, todavia dentro del clic: si se
-   * abriera al recibir la respuesta, el navegador la tomaria por una ventana
-   * emergente y la bloquearia.
-   */
+  /** Abre el PDF de una factura en otra pestaña. */
   abrirPdf(id: number): void {
-    const pestana = window.open('', '_blank');
-
-    this.http.get(`${this.base}/${id}/pdf`, { responseType: 'blob' }).subscribe({
-      next: (pdf) => {
-        const url = URL.createObjectURL(pdf);
-        if (pestana) {
-          pestana.location.href = url;
-        } else {
-          // Emergentes bloqueadas: se descarga, que siempre funciona.
-          const enlace = document.createElement('a');
-          enlace.href = url;
-          enlace.download = `factura-${id}.pdf`;
-          enlace.click();
-        }
-        // Se libera con holgura: revocarla de inmediato dejaria la pestana en blanco.
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      },
-      error: () => pestana?.close(),
-    });
+    this.pdf.abrir(`${this.base}/${id}/pdf`, `factura-${id}.pdf`);
   }
 
   /** Descarga el libro registro en el formato indicado. */
@@ -115,6 +94,18 @@ export class FacturasService {
       params,
       responseType: 'blob',
     });
+  }
+
+  /**
+   * Los PDF de varias facturas en un ZIP.
+   *
+   * <p>Va por HttpClient y no por un enlace normal porque el token viaja en una
+   * cabecera que pone el interceptor, y un `<a href>` no la lleva.
+   */
+  descargarPdfsEnZip(ids: number[]): Observable<Blob> {
+    const params = ids.reduce((p, id) => p.append('ids', id), new HttpParams());
+
+    return this.http.get(`${this.base}/exportacion/pdf`, { params, responseType: 'blob' });
   }
 
   eventos(facturaId: number): Observable<EventoFactura[]> {

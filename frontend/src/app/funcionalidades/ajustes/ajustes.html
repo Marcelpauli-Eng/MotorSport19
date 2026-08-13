@@ -34,6 +34,23 @@
     @if (cargando()) {
       <app-cargando mensaje="Cargando los datos del taller…" />
     } @else if (borrador(); as b) {
+      @if (sinConfigurar()) {
+        <div class="aviso aviso--ambar">
+          <app-icono class="aviso__icono" nombre="alerta" [tamano]="16" />
+          <div>
+            <strong>Falta configurar el taller.</strong>
+            Todavía no están puestos los datos de la empresa, y sin ellos no se puede abrir una
+            orden de trabajo ni emitir una factura: la tarifa por hora y los datos fiscales salen
+            de aquí.
+            @if (esAdmin) {
+              Rellene los campos de abajo y pulse Guardar. Solo hace falta una vez.
+            } @else {
+              Pídale al administrador que los rellene.
+            }
+          </div>
+        </div>
+      }
+
       <section class="tarjeta">
         <div class="tarjeta__titulo">
           <h2>Datos que salen en la factura</h2>

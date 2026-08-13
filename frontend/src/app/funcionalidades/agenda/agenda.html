@@ -39,6 +39,14 @@
       >
         Día
       </button>
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="vista() === 'tecnicos'"
+        (click)="cambiarVista('tecnicos')"
+      >
+        Técnicos
+      </button>
     </div>
 
     @if (gestionaAgenda) {
@@ -49,7 +57,13 @@
     }
   </div>
 
-  @if (resumen(); as r) {
+  @if (vista() === 'tecnicos' && parrilla(); as p) {
+    <p class="pequeno silenciado agenda-resumen">
+      {{ p.horasComprometidas | number: '1.0-1' : 'es' }} h comprometidas ·
+      <strong>{{ p.horasLibres | number: '1.0-1' : 'es' }} h libres</strong> en la semana ·
+      {{ p.capacidadDiaria | number: '1.0-1' : 'es' }} h por técnico y día
+    </p>
+  } @else if (resumen(); as r) {
     <p class="pequeno silenciado agenda-resumen">
       {{ r.citas }} {{ r.citas === 1 ? 'moto' : 'motos' }} ·
       {{ r.horas | number: '1.0-1' : 'es' }} h de trabajo comprometido
@@ -63,6 +77,151 @@
 
   @if (cargando()) {
     <app-cargando mensaje="Cargando la agenda…" />
+  } @else if (vista() === 'tecnicos') {
+    <!--
+      Parrilla: una fila por técnico y una columna por día. Es la vista con la
+      que se coge el teléfono, porque dice a la vez cuándo cabe la moto y quién
+      la puede coger.
+    -->
+    @if (parrilla(); as p) {
+      <div class="tabla-envoltorio">
+        <table class="parrilla">
+          <thead>
+            <tr>
+              <th class="parrilla__tecnico">Técnico</th>
+              @for (d of p.dias; track d) {
+                <th [class.parrilla__hoy]="esHoy(d)">
+                  <span class="parrilla__dia">{{ d | date: 'EEE' : undefined : 'es' }}</span>
+                  <span class="pequeno silenciado">{{ d | date: 'd MMM' : undefined : 'es' }}</span>
+                </th>
+              }
+              <th class="num">Libre</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of p.tecnicos; track t.tecnicoId ?? 0) {
+              <tr [class.parrilla__fila--vacia]="sinTrabajo(t.horasComprometidas)">
+                <th class="parrilla__tecnico">
+                  <span class="negrita">{{ t.nombre }}</span>
+                  <span class="pequeno silenciado">
+                    {{ t.horasComprometidas | number: '1.0-1' : 'es' }} h ·
+                    {{ t.citas }} {{ t.citas === 1 ? 'moto' : 'motos' }}
+                  </span>
+                </th>
+
+                @for (d of t.dias; track d.dia) {
+                  <td class="parrilla__celda" [class.parrilla__celda--llena]="d.saturado">
+                    @for (c of d.citas; track c.id) {
+                      <button
+                        type="button"
+                        class="pastilla"
+                        [class.pastilla--cerrada]="c.estado === 'CANCELADA' || c.estado === 'NO_PRESENTADO'"
+                        (click)="abrirDeParrilla(c)"
+                        [title]="c.motivo"
+                      >
+                        <span class="pastilla__hora">{{ horaBreve(c) }}</span>
+                        <span class="pastilla__moto">{{ c.moto || c.cliente }}</span>
+                        <span class="pastilla__horas">{{ c.duracionEstimada | number: '1.0-1' : 'es' }} h</span>
+                      </button>
+                    }
+
+                    <!--
+                      El hueco se dice en horas y no en franjas: el taller no
+                      tiene jornada partida configurada, y pintar tramos horarios
+                      inventados haría prometer una hora concreta que nadie ha
+                      reservado.
+                    -->
+                    @if (t.tecnicoId !== null) {
+                      @if (d.saturado) {
+                        <span class="hueco hueco--lleno">Lleno</span>
+                      } @else {
+                        <span class="hueco">{{ d.horasLibres | number: '1.0-1' : 'es' }} h libres</span>
+                      }
+                    }
+                  </td>
+                }
+
+                <td class="num">
+                  @if (t.tecnicoId !== null) {
+                    <strong>{{ t.horasLibres | number: '1.0-1' : 'es' }} h</strong>
+                  } @else {
+                    <span class="silenciado">—</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      @if (!p.tecnicos.length) {
+        <div class="vacio">
+          <span class="vacio__titulo">No hay técnicos dados de alta</span>
+          <span class="pequeno">Añádelos en Ajustes → Usuarios para repartirles la semana.</span>
+        </div>
+      }
+    }
+
+    <!-- Control de plantones del periodo -->
+    @if (ausencias(); as a) {
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>No presentados <span class="contador">{{ a.ausencias }}</span></h2>
+          @if (a.ausencias) {
+            <span class="pequeno silenciado">
+              {{ a.porcentaje | number: '1.0-1' : 'es' }} % de las citas que llegaron a su día ·
+              {{ a.horasPerdidas | number: '1.0-1' : 'es' }} h de hueco perdido
+            </span>
+          }
+        </div>
+
+        @if (!a.ausencias) {
+          <p class="vacio pequeno">Ningún plantón esta semana.</p>
+        } @else {
+          @if (a.reincidentes.length) {
+            <p class="pequeno aviso-reincidentes">
+              <strong>Han faltado más de una vez:</strong>
+              @for (r of a.reincidentes; track r.nombre) {
+                <span class="etiqueta etiqueta--ambar">
+                  {{ r.nombre }} · {{ r.faltas }}
+                  @if (r.telefono) { · {{ r.telefono }} }
+                </span>
+              }
+            </p>
+          }
+
+          <div class="tabla-envoltorio">
+            <table>
+              <thead>
+                <tr>
+                  <th>Día</th>
+                  <th>Cliente</th>
+                  <th>Moto</th>
+                  <th>Motivo</th>
+                  <th class="num">Horas</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (f of a.ultimas; track f.citaId) {
+                  <tr>
+                    <td class="sin-envolver">{{ f.dia | date: 'd MMM' : undefined : 'es' }}</td>
+                    <td>
+                      {{ f.cliente || '—' }}
+                      @if (f.telefono) {
+                        <span class="pequeno silenciado">{{ f.telefono }}</span>
+                      }
+                    </td>
+                    <td class="silenciado">{{ f.moto || '—' }}</td>
+                    <td class="silenciado"><span class="truncado">{{ f.motivo }}</span></td>
+                    <td class="num">{{ f.horas | number: '1.0-1' : 'es' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
   } @else {
     <div class="calendario" [class.calendario--dia]="vista() === 'dia'">
       @for (d of dias(); track d.fecha) {

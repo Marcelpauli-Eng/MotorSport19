@@ -19,42 +19,56 @@
 :root {
   /* ---------- Escala de grises ----------
      Ligeramente frias: sobre un monitor barato de mostrador, los grises
-     neutros puros tiran a amarillo. */
-  --gris-950: #0b1120;
-  --gris-900: #111827;
-  --gris-800: #1f2937;
-  --gris-700: #374151;
-  --gris-600: #4b5563;
-  --gris-500: #6b7280;
-  --gris-400: #9ca3af;
-  --gris-300: #d1d5db;
-  --gris-200: #e5e7eb;
+     neutros puros tiran a amarillo. El extremo oscuro se acerca al negro del
+     logotipo, para que las superficies oscuras de la aplicacion y la marca
+     impresa parezcan la misma tinta. */
+  --gris-950: #0a0c11;
+  --gris-900: #14171f;
+  --gris-800: #232833;
+  --gris-700: #394050;
+  --gris-600: #525a6b;
+  --gris-500: #6d7686;
+  --gris-400: #9aa2b1;
+  --gris-300: #cbd1da;
+  --gris-200: #e3e7ed;
   --gris-150: #edf0f4;
-  --gris-100: #f3f4f6;
-  --gris-50: #f8fafc;
+  --gris-100: #f4f6f9;
+  --gris-50: #f9fafc;
   --blanco: #ffffff;
 
-  /* ---------- Tinta de marca (19 Racing Motorsport) ---------- */
-  --azul: #ff0066;
-  --azul-fuerte: #d90057;
-  --azul-oscuro: #b30047;
-  --azul-suave: #fff0f5;
-  --azul-borde: #ffb3d1;
+  /* ---------- Tinta de marca (19 Racing Motorsport) ----------
+     El rosa es exactamente el del logotipo (#ff006d). Una sola tinta y usada
+     con cuentagotas: si todo es rosa, el rosa deja de significar «esto se
+     pulsa». Los nombres siguen siendo «azul» porque asi se llaman en las
+     doscientas plantillas que ya existen; renombrarlos no cambiaria un pixel. */
+  --marca: #ff006d;
+  --marca-fuerte: #d9005c;
+  --marca-oscura: #a80047;
+  --marca-tenue: #fff1f6;
+  --marca-borde: #ffc2d9;
+  --marca-tinta: #0a0c11;
+
+  --azul: var(--marca);
+  --azul-fuerte: var(--marca-fuerte);
+  --azul-oscuro: var(--marca-oscura);
+  --azul-suave: var(--marca-tenue);
+  --azul-borde: var(--marca-borde);
 
   /* ---------- Colores con significado ----------
-     Cada uno con su version de texto y su version de fondo suave. */
-  --verde: #15803d;
-  --verde-suave: #ecfdf5;
-  --verde-borde: #a7f3d0;
-  --ambar: #b45309;
-  --ambar-suave: #fffbeb;
-  --ambar-borde: #fde68a;
-  --rojo: #b91c1c;
-  --rojo-suave: #fef2f2;
-  --rojo-borde: #fecaca;
-  --morado: #6d28d9;
-  --morado-suave: #f5f3ff;
-  --morado-borde: #ddd6fe;
+     Cada uno con su version de texto y su version de fondo suave. Se mantienen
+     desaturados a proposito para que ninguno compita con el rosa de la marca. */
+  --verde: #0f7a41;
+  --verde-suave: #ecfdf3;
+  --verde-borde: #a9e6c3;
+  --ambar: #a86008;
+  --ambar-suave: #fffaeb;
+  --ambar-borde: #fbdc9a;
+  --rojo: #b42318;
+  --rojo-suave: #fef3f2;
+  --rojo-borde: #fdc9c4;
+  --morado: #5f2ec2;
+  --morado-suave: #f6f3ff;
+  --morado-borde: #dcd2fb;
 
   /* ---------- Espaciado, base 4 ---------- */
   --e1: 4px;
@@ -66,25 +80,39 @@
   --e8: 32px;
   --e10: 40px;
 
-  /* ---------- Radios ---------- */
-  --radio-s: 2px;
-  --radio: 4px;
-  --radio-g: 6px;
+  /* ---------- Radios ----------
+     Algo mas generosos que antes. Con 2 px los bordes parecian un formulario de
+     1998; con 8 px en las tarjetas la pantalla se ordena sola en bloques. */
+  --radio-s: 4px;
+  --radio: 6px;
+  --radio-g: 10px;
+  --radio-xg: 14px;
 
   /* ---------- Elevacion ----------
      Muy contenida. Las sombras marcadas envejecen mal y en una tablet con
      reflejos solo ensucian. El borde hace casi todo el trabajo. */
-  --sombra-s: 0 1px 2px rgb(16 24 40 / 5%);
-  --sombra: 0 1px 3px rgb(16 24 40 / 8%), 0 1px 2px -1px rgb(16 24 40 / 6%);
-  --sombra-g: 0 12px 32px -8px rgb(16 24 40 / 18%);
+  --sombra-s: 0 1px 2px rgb(10 12 17 / 5%);
+  --sombra: 0 1px 3px rgb(10 12 17 / 7%), 0 1px 2px -1px rgb(10 12 17 / 5%);
+  --sombra-m: 0 4px 12px -2px rgb(10 12 17 / 8%), 0 2px 4px -2px rgb(10 12 17 / 5%);
+  --sombra-g: 0 16px 40px -12px rgb(10 12 17 / 22%), 0 4px 10px -6px rgb(10 12 17 / 10%);
 
+  --borde-color: #e3e7ed;
   --borde: 1px solid var(--gris-200);
 
   /* Objetivo tactil comodo con guantes, pero mas compacto. */
-  --alto-control: 34px;
-  --alto-control-g: 40px;
+  --alto-control: 36px;
+  --alto-control-g: 42px;
 
-  --anillo-foco: 0 0 0 3px rgb(255 0 102 / 25%);
+  /* Medidas del armazon, en variables para que la cabecera pegajosa y el
+     desplazamiento de las tablas sepan cuanto sitio ocupa lo de arriba. */
+  --alto-cabecera: 72px;
+  --alto-barra-movil: 56px;
+  --ancho-lateral: 244px;
+  --ancho-lateral-min: 68px;
+
+  --anillo-foco: 0 0 0 3px rgb(255 0 109 / 22%);
+
+  --transicion: 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * { box-sizing: border-box; }
@@ -118,9 +146,14 @@ h1, h2, h3, h4 {
   letter-spacing: -0.011em;
 }
 
-h1 { font-size: 1.375rem; letter-spacing: -0.019em; }
-h2 { font-size: 1rem; }
+h1 { font-size: 1.5rem; letter-spacing: -0.021em; font-weight: 650; }
+h2 { font-size: 1.0625rem; letter-spacing: -0.014em; }
 h3 { font-size: 0.9375rem; }
+
+@media (max-width: 640px) {
+  h1 { font-size: 1.25rem; }
+  h2 { font-size: 1rem; }
+}
 
 p { margin: 0 0 var(--e3); }
 p:last-child { margin-bottom: 0; }
@@ -147,16 +180,34 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
   gap: var(--e4);
   flex-wrap: wrap;
   margin-bottom: var(--e5);
+  padding-bottom: var(--e4);
+  border-bottom: var(--borde);
 }
 
 .pagina-cabecera__texto { min-width: 0; }
 
-.pagina-cabecera h1 { margin-bottom: 2px; }
+.pagina-cabecera h1 { margin-bottom: 3px; }
 
 .pagina-cabecera__sub {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--gris-500);
+}
+
+/*
+  En movil las acciones de la cabecera se van a su propia linea y ocupan el
+  ancho: un «Nueva orden» de 90 px pegado al borde derecho de una pantalla de
+  360 px es el boton que mas se falla de toda la aplicacion.
+*/
+@media (max-width: 640px) {
+  .pagina-cabecera {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--e3);
+  }
+
+  .pagina-cabecera .fila { width: 100%; }
+  .pagina-cabecera .fila > .boton { flex: 1 1 auto; justify-content: center; }
 }
 
 /* ---------- Tarjetas ---------- */
@@ -165,20 +216,31 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
   background: var(--blanco);
   border: var(--borde);
   border-radius: var(--radio-g);
-  box-shadow: var(--sombra-s);
+  box-shadow: var(--sombra);
 }
 
 /* Relleno por defecto; las tarjetas que llevan tabla lo quitan. */
-.tarjeta { padding: var(--e4); }
+.tarjeta { padding: var(--e5); }
 .tarjeta--ajustada { padding: 0; }
+
+/* Tarjeta que ademas es un enlace o se pulsa: se levanta un poco al pasar. */
+.tarjeta--pulsable {
+  cursor: pointer;
+  transition: box-shadow var(--transicion), border-color var(--transicion), transform var(--transicion);
+}
+
+.tarjeta--pulsable:hover {
+  border-color: var(--gris-300);
+  box-shadow: var(--sombra-m);
+}
 
 .tarjeta__titulo {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--e3);
-  margin: 0 0 var(--e3);
-  padding-bottom: var(--e2);
+  margin: 0 0 var(--e4);
+  padding-bottom: var(--e3);
   border-bottom: var(--borde);
 }
 
@@ -212,10 +274,10 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
   justify-content: center;
   gap: 6px;
   min-height: var(--alto-control);
-  padding: 0 var(--e3);
+  padding: 0 var(--e4);
   font: inherit;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 550;
   color: var(--gris-700);
   background: var(--blanco);
   border: 1px solid var(--gris-300);
@@ -223,7 +285,8 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
   box-shadow: var(--sombra-s);
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s, color 0.12s;
+  transition: background var(--transicion), border-color var(--transicion),
+    box-shadow var(--transicion), color var(--transicion);
 }
 
 .boton:hover:not(:disabled) { background: var(--gris-50); border-color: var(--gris-400); }
@@ -233,13 +296,23 @@ a:hover { color: var(--azul-fuerte); text-decoration: underline; }
 
 .boton__icono { flex: none; }
 
+/* La accion principal es la unica pieza rosa maciza de la pantalla. */
 .boton--principal {
   color: var(--blanco);
   background: var(--azul);
   border-color: var(--azul);
+  box-shadow: 0 1px 2px rgb(168 0 71 / 24%);
 }
 .boton--principal:hover:not(:disabled) { background: var(--azul-fuerte); border-color: var(--azul-fuerte); }
-.boton--principal:active:not(:disabled) { background: var(--azul-oscuro); }
+.boton--principal:active:not(:disabled) { background: var(--azul-oscuro); border-color: var(--azul-oscuro); }
+
+/* Alternativa oscura, para cuando el rosa ya esta usado cerca. */
+.boton--tinta {
+  color: var(--blanco);
+  background: var(--gris-900);
+  border-color: var(--gris-900);
+}
+.boton--tinta:hover:not(:disabled) { background: var(--gris-800); border-color: var(--gris-800); }
 
 .boton--peligro {
   color: var(--rojo);
@@ -376,17 +449,41 @@ select {
   box-shadow: none;
 }
 
-/* Barra de filtros: no merece una tarjeta entera, solo separacion. */
+/*
+  Barra de filtros. Antes eran controles sueltos flotando sobre el gris de la
+  pagina; ahora van en su propia bandeja blanca, pegada por arriba a la tabla
+  que filtran. Asi se lee como «los mandos de esta lista» y no como «unos
+  campos que hay antes de la lista».
+*/
 .filtros {
   display: flex;
   align-items: flex-end;
   gap: var(--e3);
   flex-wrap: wrap;
   margin-bottom: var(--e4);
+  padding: var(--e3) var(--e4);
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-s);
 }
 
 .filtros .campo { margin-bottom: 0; }
 .filtros__crece { flex: 1 1 240px; min-width: 0; }
+
+/* Las etiquetas de un filtro son de servicio: dicen que hace el control, no
+   son el contenido de la pagina. Van pequenas y en gris claro. */
+.filtros .campo > label,
+.filtros .etiqueta-campo {
+  font-size: 0.6875rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gris-500);
+}
+
+/* La casilla se alinea con la base de los desplegables, no con su etiqueta. */
+.filtros .casilla { min-height: var(--alto-control); }
 
 .rejilla {
   display: grid;
@@ -439,6 +536,10 @@ select {
 .tabla-envoltorio {
   overflow-x: auto;
   border-top: var(--borde);
+  /* En movil la tabla se arrastra con el dedo; el frenado inercial y el ajuste
+     por columna evitan que quede a medias entre dos celdas. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 
 .tarjeta:not(.tarjeta--ajustada) > .tabla-envoltorio {
@@ -452,19 +553,30 @@ table {
   font-size: 0.875rem;
 }
 
+/*
+  La cabecera se queda pegada arriba al desplazar. En una lista de doscientas
+  ordenes, perder de vista que columna es cual obliga a subir del todo para
+  volver a leerla; es el detalle que mas separa una tabla de gestion de una
+  tabla de pagina web.
+*/
 thead th {
-  padding: var(--e2) var(--e3);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: var(--e3);
   text-align: left;
   font-size: 0.6875rem;
-  font-weight: 700;
-  color: var(--gris-600);
-  background: var(--blanco);
-  border-bottom: 2px solid var(--gris-200);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--gris-500);
+  background: var(--gris-50);
+  border-bottom: 1px solid var(--gris-200);
   white-space: nowrap;
 }
 
 tbody td {
-  padding: var(--e2) var(--e3);
+  padding: var(--e3);
   border-bottom: 1px solid var(--gris-150);
   vertical-align: middle;
   color: var(--gris-700);
@@ -474,8 +586,12 @@ tbody tr:last-child td { border-bottom: none; }
 tbody tr { transition: background 0.1s; }
 tbody tr:hover { background: var(--gris-50); }
 
-/* Fila que lleva a un detalle: toda la fila responde al puntero. */
+/* Fila que lleva a un detalle: toda la fila responde al puntero, y una barra
+   rosa a la izquierda confirma cual se esta senalando. */
 tbody tr.pulsable { cursor: pointer; }
+
+tbody tr.pulsable td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow var(--transicion); }
+tbody tr.pulsable:hover td:first-child { box-shadow: inset 3px 0 0 var(--azul); }
 
 th.num, td.num { text-align: right; }
 
@@ -636,9 +752,60 @@ th.num, td.num { text-align: right; }
 /* Separador de texto: «Yamaha MT-07 · 1234 JKL» */
 .punto::before { content: '·'; margin: 0 6px; color: var(--gris-300); }
 
+/* ---------- Movil ----------
+   Todo lo que en escritorio va en fila, en movil va apilado y a ancho completo.
+   El criterio es simple: en una pantalla de 360 px, dos cosas juntas en
+   horizontal significan que ninguna de las dos se puede pulsar bien. */
+
 @media (max-width: 640px) {
-  .rejilla { grid-template-columns: 1fr; }
-  .filtros__crece { flex-basis: 100%; }
+  .rejilla { grid-template-columns: 1fr; gap: var(--e3); }
+
+  /* Los filtros pasan a una columna: un desplegable de 120 px al lado de un
+     buscador de 100 px no se usa, se sufre. */
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--e2);
+    padding: var(--e3);
+    border-radius: var(--radio);
+  }
+
+  .filtros .campo,
+  .filtros__crece { width: 100%; flex-basis: auto; }
+
+  .tarjeta { padding: var(--e4); border-radius: var(--radio); }
+  .tarjeta:not(.tarjeta--ajustada) > .tabla-envoltorio {
+    margin: 0 calc(var(--e4) * -1) calc(var(--e4) * -1);
+  }
+
+  .tarjeta--ajustada .tarjeta__titulo { padding: var(--e4); }
+
+  /* Controles mas altos: con el dedo, 36 px se falla; 42 px no. */
+  .boton,
+  input, select, textarea { min-height: var(--alto-control-g); }
+
+  .boton--pequeno { min-height: 36px; }
+  .boton--icono { width: var(--alto-control-g); }
+  .boton--icono.boton--pequeno { width: 36px; }
+
+  /* Las fichas de datos dejan de ser dos columnas: con etiquetas largas
+     («Fecha de entrada prevista») la columna del valor se queda sin sitio. */
+  .datos { grid-template-columns: 1fr; gap: 2px var(--e2); }
+  .datos dt { margin-top: var(--e2); font-size: 0.75rem; }
+  .datos dd { margin-bottom: var(--e2); }
+
+  .paginacion { justify-content: center; padding: var(--e3); }
+
+  /* El tipo de letra de las tablas baja un punto para que quepa una columna
+     mas antes de tener que arrastrar. */
+  table { font-size: 0.8125rem; }
+  thead th, tbody td { padding: var(--e2) var(--e3); }
+}
+
+/* iPhone con barra inferior: sin esto, el ultimo boton de la pagina queda
+   debajo del indicador de inicio y no se puede pulsar. */
+@supports (padding: max(0px)) {
+  .contenido { padding-bottom: max(var(--e6), env(safe-area-inset-bottom)); }
 }
 
 .paso-confirmado {
@@ -649,6 +816,6 @@ th.num, td.num { text-align: right; }
   background: var(--verde-suave);
   border: 1px solid var(--verde-borde);
   border-radius: var(--radio);
-  color: var(--verde-fuerte);
+  color: var(--verde);
   margin-bottom: var(--e4);
 }

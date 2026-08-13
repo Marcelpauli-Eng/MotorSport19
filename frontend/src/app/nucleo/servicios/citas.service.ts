@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CargaDiaria, Cita } from '../modelos/agenda';
+import { AgendaSemanal, CargaDiaria, Cita, SeguimientoAusencias } from '../modelos/agenda';
 
 /** Datos de una cita al darla de alta o modificarla. */
 export interface DatosCita {
@@ -37,6 +37,23 @@ export class CitasService {
   carga(desde: string, hasta: string): Observable<CargaDiaria[]> {
     const params = new HttpParams().set('desde', desde).set('hasta', hasta);
     return this.http.get<CargaDiaria[]>(`${this.base}/carga`, { params });
+  }
+
+  /**
+   * La semana repartida por técnico, con el hueco de cada uno.
+   *
+   * Salen todos los técnicos, tengan citas o no: el que tiene la semana libre
+   * es justo a quien se busca al mirar esta pantalla.
+   */
+  semana(desde: string, hasta: string): Observable<AgendaSemanal> {
+    const params = new HttpParams().set('desde', desde).set('hasta', hasta);
+    return this.http.get<AgendaSemanal>(`${this.base}/semana`, { params });
+  }
+
+  /** Plantones del periodo: cuántos, cuántas horas se perdieron y quién repite. */
+  ausencias(desde: string, hasta: string): Observable<SeguimientoAusencias> {
+    const params = new HttpParams().set('desde', desde).set('hasta', hasta);
+    return this.http.get<SeguimientoAusencias>(`${this.base}/ausencias`, { params });
   }
 
   obtener(id: number): Observable<Cita> {

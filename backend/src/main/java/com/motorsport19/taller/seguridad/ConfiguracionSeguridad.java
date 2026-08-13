@@ -40,7 +40,11 @@ import java.util.List;
  *       El inventario solo lo consulta.</li>
  *   <li><b>TECNICO</b>: sus ordenes de trabajo, el diagnostico y el estado. Al
  *       mover una orden a reparacion consume piezas, pero no puede dar entradas
- *       ni hacer ajustes de almacen por su cuenta.</li>
+ *       ni hacer ajustes de almacen por su cuenta. <b>No ve importes</b>: ni la
+ *       tarifa/hora, ni los totales de la orden, ni los precios del catalogo.
+ *       Eso no se resuelve solo aqui —una ruta se permite o se deniega entera—
+ *       sino tambien en los controladores, que le sirven las mismas fichas con
+ *       los campos de dinero vacios.</li>
  * </ul>
  *
  * <p>Las reglas se declaran aqui por ruta, y no con anotaciones repartidas por
@@ -105,6 +109,9 @@ public class ConfiguracionSeguridad {
                 // eso pasa en el mostrador. Un tecnico apunta horas, no las tarifa.
                 .requestMatchers(HttpMethod.PUT, "/ordenes/*/tarifa-hora").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/precio").hasAnyRole(ADMIN, MOSTRADOR)
+                // Un descuento es dinero: lo pacta quien atiende al cliente.
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/descuento-general").hasAnyRole(ADMIN, MOSTRADOR)
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/descuento").hasAnyRole(ADMIN, MOSTRADOR)
 
                 .requestMatchers(HttpMethod.POST, "/piezas").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.PUT, "/piezas/**").hasRole(ADMIN)
@@ -117,6 +124,14 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/salidas").hasRole(ADMIN)
                 .requestMatchers(HttpMethod.POST, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers(HttpMethod.PUT, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
+
+                // ----- Servicios tipo: los define direccion, los usa todo el taller -----
+                // Una plantilla fija cuantas horas se cobran por una revision: es
+                // una decision de precio, aunque aqui no aparezca ningun euro. La
+                // consulta si la abre cualquiera, porque el desplegable que las
+                // vuelca en la OT lo usan el mostrador y el propio tecnico.
+                .requestMatchers(HttpMethod.GET, "/servicios-tipo/**").authenticated()
+                .requestMatchers("/servicios-tipo/**").hasRole(ADMIN)
 
                 // ----- Agenda: la consulta todo el taller, la gestiona mostrador -----
                 // Un tecnico necesita ver que entra manana para organizarse el dia;
@@ -148,6 +163,13 @@ public class ConfiguracionSeguridad {
                 .requestMatchers("/ordenes/*/entrega").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/ordenes/*/aprobacion").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/ordenes/*/rechazo").hasAnyRole(ADMIN, MOSTRADOR)
+                // Dejar una orden preparada es repartir trabajo, y el trabajo lo
+                // reparte quien lo ha vendido. Un tecnico la ejecuta, no se la da.
+                .requestMatchers("/ordenes/*/preparacion").hasAnyRole(ADMIN, MOSTRADOR)
+                // El presupuesto en PDF lleva los precios impresos: es el papel
+                // que se le enseña al cliente, no al taller. Los importes que un
+                // tecnico no ve en pantalla tampoco pueden salir por aqui.
+                .requestMatchers(HttpMethod.GET, "/ordenes/*/presupuesto/pdf").hasAnyRole(ADMIN, MOSTRADOR)
                 .requestMatchers("/ordenes/**").authenticated()
 
                 // ----- Inventario: todos consultan -----

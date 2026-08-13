@@ -117,8 +117,8 @@ public class FacturacionService {
 
     @Transactional(readOnly = true)
     public Page<Factura> buscar(TipoFactura tipo, LocalDate desde, LocalDate hasta, Long receptorId,
-                                Pageable pageable) {
-        return facturaRepository.buscar(tipo, desde, hasta, receptorId, pageable);
+                                Boolean conIva, Pageable pageable) {
+        return facturaRepository.buscar(tipo, desde, hasta, receptorId, conIva, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -129,6 +129,60 @@ public class FacturacionService {
     @Transactional(readOnly = true)
     public List<SerieFactura> seriesActivas() {
         return serieRepository.findByActivaTrueOrderByEjercicioDescCodigoAsc();
+    }
+
+    /** Todas, incluidas las cerradas: es lo que se mantiene desde Ajustes. */
+    @Transactional(readOnly = true)
+    public List<SerieFactura> todasLasSeries() {
+        return serieRepository.findAllByOrderByEjercicioDescCodigoAsc();
+    }
+
+    /**
+     * Abre una serie de facturacion.
+     *
+     * <p>Sin ninguna serie no se puede emitir una sola factura, y hasta ahora la
+     * unica forma de tenerlas era el juego de datos de demostracion: una
+     * instalacion de verdad se quedaba sin poder facturar. Se crean desde
+     * Ajustes.
+     */
+    @Transactional
+    public SerieFactura crearSerie(String codigo, Integer ejercicio, String descripcion,
+                                   TipoFactura tipo) {
+        SerieFactura serie = SerieFactura.crear(codigo, ejercicio, descripcion, tipo);
+
+        // La base de datos tiene su UNIQUE, pero el mensaje que suelta no dice
+        // nada a quien esta rellenando el formulario.
+        serieRepository.buscarPorCodigoYEjercicio(serie.getCodigo(), serie.getEjercicio())
+                .ifPresent(existente -> {
+                    throw new ConflictoException(
+                            "Ya existe la serie %s del ejercicio %d."
+                                    .formatted(serie.getCodigo(), serie.getEjercicio()));
+                });
+
+        SerieFactura guardada = serieRepository.save(serie);
+        log.info("Abierta la serie de facturacion {}/{} ({})",
+                guardada.getCodigo(), guardada.getEjercicio(), guardada.getTipo());
+        return guardada;
+    }
+
+    /**
+     * Cambia la descripcion de una serie y la abre o la cierra.
+     *
+     * <p>El codigo, el ejercicio y el tipo no se pueden tocar: van impresos en el
+     * numero de cada factura ya emitida.
+     */
+    @Transactional
+    public SerieFactura actualizarSerie(Long id, String descripcion, boolean activa) {
+        SerieFactura serie = serieRepository.findById(id)
+                .orElseThrow(() -> RecursoNoEncontradoException.de("la serie de facturacion", id));
+
+        serie.renombrar(descripcion);
+        if (activa) {
+            serie.activar();
+        } else {
+            serie.desactivar();
+        }
+        return serie;
     }
 
     // ==================================================================
@@ -382,7 +436,8 @@ public class FacturacionService {
 
         ConfiguracionTaller config = configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)
                 .orElseThrow(() -> new ConflictoException(
-                        "No hay configuracion fiscal del taller: no se puede emitir ninguna factura."));
+                        "Faltan los datos fiscales del taller: rellenelos en Ajustes > Empresa y "
+                        + "facturacion antes de emitir ninguna factura."));
 
         DatosEmision datos = new DatosEmision(
                 serie, numero, numeroRegistro, tipo,

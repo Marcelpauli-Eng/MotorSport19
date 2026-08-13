@@ -2,7 +2,13 @@
   @if (sesion.autenticado()) {
     <aside class="lateral">
       <a routerLink="/panel" class="lateral__marca" (click)="cerrarMenu()">
-        <img src="/assets/logo-izquierda.png" alt="19 Racing Motorsport" class="lateral__logo-izq" />
+        <!--
+          Dos ficheros para la misma marca: el logotipo completo cuando la barra
+          esta desplegada y solo el «19» cuando esta colapsada a 68 px. Escalar
+          el logotipo completo hasta ahi lo dejaria ilegible.
+        -->
+        <img src="assets/logo-horizontal.png" alt="19 Racing Motorsport" class="lateral__logo" />
+        <img src="assets/isotipo.png" alt="19 Racing Motorsport" class="lateral__isotipo" />
       </a>
 
       <nav (click)="cerrarMenu()">
@@ -51,31 +57,46 @@
         >
           <app-icono nombre="menu" [tamano]="20" />
         </button>
-        <span class="barra-movil__titulo">MotorSport19</span>
+        <a routerLink="/panel" class="barra-movil__marca" (click)="cerrarMenu()">
+          <img src="assets/logo-horizontal-claro.png" alt="19 Racing Motorsport" />
+        </a>
+        <a routerLink="/mi-cuenta" class="barra-movil__avatar" aria-label="Mi cuenta">{{ iniciales() }}</a>
       </header>
 
       <header class="encabezado-global">
-        <div class="encabezado-global__izquierda">
-          <button type="button" class="encabezado-global__menu" (click)="alternarMenuColapsado()" aria-label="Alternar menú">
-            <app-icono nombre="menu" [tamano]="20" />
-          </button>
-        </div>
-        
+        <button
+          type="button"
+          class="encabezado-global__menu"
+          (click)="alternarMenuColapsado()"
+          [attr.aria-pressed]="menuColapsado()"
+          aria-label="Contraer o desplegar el menú"
+        >
+          <app-icono nombre="menu" [tamano]="18" />
+        </button>
+
+        <!--
+          Los enlaces de arriba son las areas de negocio; los de la barra
+          lateral, las pantallas de cada area. Separar los dos ejes evita una
+          lista lateral de quince entradas donde no se encuentra nada.
+        -->
         <nav class="nav-superior">
-          <a routerLink="/ordenes" routerLinkActive="activo">Ventas</a>
-          <span class="nav-superior__separador"></span>
-          <a routerLink="/compras" routerLinkActive="activo">Compras</a>
-          <span class="nav-superior__separador"></span>
+          <a routerLink="/ordenes" routerLinkActive="activo">Órdenes</a>
           <a routerLink="/clientes" routerLinkActive="activo">Clientes</a>
-          <span class="nav-superior__separador"></span>
           <a routerLink="/inventario" routerLinkActive="activo">Almacén</a>
-          <span class="nav-superior__separador"></span>
-          <a routerLink="/bancos" routerLinkActive="activo">Bancos</a>
-          <span class="nav-superior__separador"></span>
-          <a routerLink="/facturas" routerLinkActive="activo">Tributos</a>
+          @if (sesion.puede('ADMIN', 'MOSTRADOR')) {
+            <a routerLink="/facturas" routerLinkActive="activo">Facturación</a>
+          }
         </nav>
 
-        <img src="/assets/logo-derecha.png" alt="19 Racing Motorsport" class="encabezado-global__logo-der" />
+        <div class="encabezado-global__acciones">
+          <!--
+            La marca en su versión apilada, que es la que ocupa poco a lo ancho:
+            en la esquina derecha el sitio que sobra es alto, no ancho.
+          -->
+          <a routerLink="/panel" class="marca-esquina" aria-label="Inicio · 19 Racing Motorsport">
+            <img src="assets/logo-vertical.png" alt="19 Racing Motorsport" />
+          </a>
+        </div>
       </header>
     }
 

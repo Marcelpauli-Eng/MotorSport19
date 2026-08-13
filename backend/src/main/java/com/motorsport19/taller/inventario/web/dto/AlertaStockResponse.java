@@ -40,4 +40,12 @@ public record AlertaStockResponse(
                 pieza.getProveedor() == null ? null : pieza.getProveedor().getNombre(),
                 pieza.getPrecioCoste());
     }
+
+    /** La alerta sin el coste: el panel del tecnico dice que falta, no cuanto vale. */
+    public AlertaStockResponse sinPrecio() {
+        return new AlertaStockResponse(
+                piezaId, sku, descripcion, marca, ubicacion,
+                stockActual, stockMinimo, unidadesAReponer, sinExistencias,
+                proveedorId, proveedorNombre, null);
+    }
 }

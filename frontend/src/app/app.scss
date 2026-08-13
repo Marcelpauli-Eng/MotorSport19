@@ -1,32 +1,44 @@
 /* ==========================================================================
    Armazón de la aplicación.
 
-   Barra lateral oscura y contenido claro. La lateral oscura hace dos cosas: da
-   un ancla visual estable mientras el contenido cambia, y separa «dónde estoy»
-   de «qué estoy mirando» sin necesidad de líneas ni sombras.
+   Tres piezas y un criterio para cada una:
+
+   - La barra lateral dice DÓNDE ESTOY. Es blanca con un borde, no oscura: el
+     logotipo de 19 Racing lleva la palabra en negro, y sobre un panel oscuro
+     habría que servir una segunda versión del fichero solo para el menú.
+   - La cabecera dice QUÉ ÁREA estoy usando y de qué taller son los datos.
+   - El contenido es lo único que cambia al navegar, y por eso es lo único que
+     se desplaza.
+
+   En tablet y móvil la lateral se convierte en un cajón deslizante y la
+   cabecera en una barra oscura con la marca en versión clara.
    ========================================================================== */
 
 .armazon {
   display: grid;
-  grid-template-columns: 232px 1fr;
-  transition: grid-template-columns 0.2s ease;
-  min-height: 100vh;
+  grid-template-columns: var(--ancho-lateral) 1fr;
+  transition: grid-template-columns 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 100dvh;
   background: var(--gris-100);
 }
 
 .armazon--colapsado {
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: var(--ancho-lateral-min) 1fr;
 }
 
 .armazon--colapsado .lateral__nombre,
 .armazon--colapsado .lateral__seccion,
 .armazon--colapsado .lateral__enlace-texto,
-.armazon--colapsado .usuario-menu__texto {
+.armazon--colapsado .usuario-menu__texto,
+.armazon--colapsado .lateral__logo {
   display: none;
 }
 
+/* Con la barra colapsada, el logotipo completo se cambia por el «19» suelto. */
+.armazon--colapsado .lateral__isotipo { display: block; }
+
 .armazon--colapsado .lateral__marca {
-  padding: var(--e5) 0 var(--e4);
+  padding: 0;
   justify-content: center;
 }
 
@@ -35,9 +47,10 @@
   padding: 0;
 }
 
-.armazon--colapsado .usuario-menu {
-  justify-content: center;
-}
+.armazon--colapsado .lateral nav a.activo::before { display: none; }
+
+.armazon--colapsado .usuario-menu { justify-content: center; }
+.armazon--colapsado .lateral__pie .fila { justify-content: center; }
 
 /* ---------- Barra lateral ---------- */
 
@@ -46,81 +59,113 @@
   flex-direction: column;
   background: var(--blanco);
   color: var(--gris-700);
-  border-right: 1px solid var(--gris-200);
+  border-right: var(--borde);
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
+  z-index: 30;
 }
 
 .lateral__marca {
   display: flex;
   align-items: center;
-  gap: var(--e2);
-  padding: var(--e5) var(--e4) var(--e4);
+  flex: none;
+  height: var(--alto-cabecera);
+  padding: 0 var(--e4);
+  border-bottom: var(--borde);
   color: var(--gris-900);
   text-decoration: none;
 }
 
 .lateral__marca:hover { text-decoration: none; }
 
-.lateral__logo-izq {
-  height: 40px;
+.lateral__logo {
+  height: 30px;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
-  transition: height 0.2s;
+  object-position: left center;
 }
 
+.lateral__isotipo {
+  display: none;
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+}
+
+.lateral nav { padding: var(--e3) 0; }
+
 .lateral__seccion {
+  margin: 0;
   padding: var(--e4) var(--e4) 6px;
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 650;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--gris-600);
+  color: var(--gris-400);
 }
+
+.lateral__seccion:first-child { padding-top: var(--e1); }
 
 .lateral nav ul {
   list-style: none;
   margin: 0;
-  padding: 0 var(--e2);
+  padding: 0 var(--e3);
 }
 
 .lateral nav a {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 36px;
-  padding: 0 var(--e2);
+  min-height: 38px;
+  padding: 0 var(--e3);
   margin-bottom: 2px;
-  border-radius: var(--radio-s);
+  border-radius: var(--radio);
   color: var(--gris-600);
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: none;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--transicion), color var(--transicion);
 }
 
 .lateral nav a:hover {
   color: var(--gris-900);
-  background: var(--gris-50);
+  background: var(--gris-100);
   text-decoration: none;
 }
 
+/*
+  La entrada activa: fondo rosa muy claro y una barra rosa a la izquierda. La
+  barra va como pseudoelemento y no como `border-left` para que el texto no se
+  desplace 3 px al cambiar de pantalla.
+*/
 .lateral nav a.activo {
-  color: var(--azul);
-  background: var(--azul-suave);
-  border-right: 3px solid var(--azul);
-  border-radius: var(--radio-s) 0 0 var(--radio-s);
+  color: var(--marca-fuerte);
+  background: var(--marca-tenue);
+  font-weight: 600;
 }
 
-.lateral nav a.activo:hover { background: var(--azul-borde); }
+.lateral nav a.activo::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--marca);
+}
+
+.lateral nav a.activo:hover { background: var(--marca-tenue); }
 
 .lateral__pie {
   margin-top: auto;
-  padding: var(--e3) var(--e2) var(--e3);
-  border-top: 1px solid var(--gris-200);
+  padding: var(--e3);
+  border-top: var(--borde);
 }
 
 /* Ficha del usuario, abajo del todo: es donde se busca en cualquier programa. */
@@ -130,26 +175,27 @@
   gap: var(--e2);
   width: 100%;
   padding: 6px var(--e2);
-  border-radius: var(--radio-s);
+  border-radius: var(--radio);
   color: var(--gris-700);
   text-decoration: none;
-  transition: background 0.12s;
+  transition: background var(--transicion);
   min-width: 0;
 }
 
-.usuario-menu:hover { background: var(--gris-50); text-decoration: none; }
+.usuario-menu:hover { background: var(--gris-100); text-decoration: none; }
 
 .usuario-menu__avatar {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex: none;
   font-size: 0.6875rem;
-  font-weight: 600;
+  font-weight: 650;
+  letter-spacing: 0.02em;
   color: var(--blanco);
-  background: var(--gris-700);
+  background: var(--gris-900);
   border-radius: 50%;
 }
 
@@ -162,7 +208,7 @@
 
 .usuario-menu__nombre {
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 550;
   color: var(--gris-900);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -176,20 +222,123 @@
 
 .lateral__salir {
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--gris-500);
   background: none;
   border: none;
-  border-radius: var(--radio-s);
+  border-radius: var(--radio);
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition: background var(--transicion), color var(--transicion);
 }
 
-.lateral__salir:hover { color: var(--gris-900); background: var(--gris-100); }
+.lateral__salir:hover { color: var(--rojo); background: var(--rojo-suave); }
+
+/* ---------- Cabecera de escritorio ---------- */
+
+.encabezado-global {
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  height: var(--alto-cabecera);
+  padding: 0 var(--e6);
+  background: var(--blanco);
+  border-bottom: var(--borde);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.encabezado-global__menu {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  color: var(--gris-500);
+  background: none;
+  border: 1px solid var(--gris-200);
+  border-radius: var(--radio);
+  cursor: pointer;
+  transition: background var(--transicion), color var(--transicion), border-color var(--transicion);
+}
+
+.encabezado-global__menu:hover {
+  color: var(--gris-900);
+  background: var(--gris-50);
+  border-color: var(--gris-300);
+}
+
+.encabezado-global__acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--e3);
+  margin-left: auto;
+}
+
+/* ---------- Marca de la esquina ----------
+   La cabecera crece a 72 px por esto: el logotipo apilado necesita alto para
+   que «RACING MOTORSPORT» se lea, y a cambio ocupa poquísimo a lo ancho, que
+   es de lo que va escaso una barra superior. */
+.marca-esquina {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 100%;
+  padding-left: var(--e3);
+  transition: opacity var(--transicion);
+}
+
+.marca-esquina:hover { opacity: 0.8; }
+
+.marca-esquina img {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ---------- Navegación superior por áreas ---------- */
+
+.nav-superior {
+  display: flex;
+  align-items: center;
+  gap: var(--e1);
+  height: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-superior::-webkit-scrollbar { display: none; }
+
+.nav-superior a {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--e3);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gris-600);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: color var(--transicion), border-color var(--transicion);
+}
+
+.nav-superior a:hover {
+  color: var(--gris-900);
+  text-decoration: none;
+}
+
+.nav-superior a.activo {
+  color: var(--marca-fuerte);
+  border-bottom-color: var(--marca);
+  font-weight: 600;
+}
 
 /* ---------- Barra superior (solo en tablet y móvil) ---------- */
 
@@ -197,8 +346,8 @@
   display: none;
   align-items: center;
   gap: var(--e2);
-  height: 52px;
-  padding: 0 var(--e3);
+  height: var(--alto-barra-movil);
+  padding: 0 var(--e2) 0 var(--e1);
   background: var(--gris-950);
   color: var(--blanco);
   position: sticky;
@@ -210,22 +359,51 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  flex: none;
+  width: 42px;
+  height: 42px;
   color: var(--blanco);
   background: none;
   border: none;
-  border-radius: var(--radio-s);
+  border-radius: var(--radio);
   cursor: pointer;
 }
 
-.barra-movil__menu:hover { background: rgb(255 255 255 / 10%); }
+.barra-movil__menu:active { background: rgb(255 255 255 / 12%); }
 
-.barra-movil__titulo {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: -0.011em;
+.barra-movil__marca {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-right: auto;
 }
+
+/* 30 px de alto, no 22: el logotipo lleva «RACING» y «MOTORSPORT» en dos
+   renglones, y por debajo de esa altura el segundo se convierte en una mancha
+   gris. Con 30 px ocupa 128 px de ancho y sigue sobrando sitio en un iPhone. */
+.barra-movil__marca img {
+  height: 30px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.barra-movil__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  font-size: 0.6875rem;
+  font-weight: 650;
+  color: var(--blanco);
+  background: rgb(255 255 255 / 14%);
+  border-radius: 50%;
+  text-decoration: none;
+}
+
+.barra-movil__avatar:hover { color: var(--blanco); text-decoration: none; }
 
 /* ---------- Contenido ---------- */
 
@@ -237,7 +415,7 @@
 
 .contenido {
   padding: var(--e6);
-  max-width: 1440px;
+  max-width: 1520px;
   width: 100%;
   /*
     Igual que en las rejillas interiores: sin esto, cualquier contenido ancho
@@ -252,20 +430,35 @@
 /* ---------- Tablet y móvil ---------- */
 
 @media (max-width: 900px) {
-  .armazon { grid-template-columns: 1fr; }
+  .armazon,
+  .armazon--colapsado { grid-template-columns: 1fr; }
 
   .barra-movil { display: flex; }
+  .encabezado-global { display: none; }
 
   .lateral {
     position: fixed;
     inset: 0 auto 0 0;
-    width: 252px;
-    height: 100vh;
+    width: min(84vw, 280px);
+    height: 100dvh;
     transform: translateX(-100%);
-    transition: transform 0.22s ease;
-    z-index: 30;
+    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 40;
     box-shadow: var(--sombra-g);
   }
+
+  /* El cajón abierto no reutiliza el estado «colapsado» del escritorio: dentro
+     de un cajón de 280 px no tiene ningún sentido esconder los textos. */
+  .armazon--colapsado .lateral__logo { display: block; }
+  .armazon--colapsado .lateral__isotipo { display: none; }
+  .armazon--colapsado .lateral__seccion,
+  .armazon--colapsado .lateral__enlace-texto,
+  .armazon--colapsado .usuario-menu__texto { display: revert; }
+  .armazon--colapsado .lateral__marca { padding: 0 var(--e4); justify-content: flex-start; }
+  .armazon--colapsado .lateral nav a { justify-content: flex-start; padding: 0 var(--e3); }
+  .armazon--colapsado .lateral nav a.activo::before { display: block; }
+  .armazon--colapsado .usuario-menu { justify-content: flex-start; }
+  .armazon--colapsado .lateral__pie .fila { justify-content: flex-start; }
 
   .armazon--menu-abierto .lateral { transform: translateX(0); }
 
@@ -273,92 +466,19 @@
     display: block;
     position: fixed;
     inset: 0;
-    background: rgb(11 17 32 / 45%);
-    z-index: 25;
+    background: rgb(10 12 17 / 50%);
+    z-index: 35;
   }
 
   .contenido { padding: var(--e4); }
 }
 
-/* ---------- Encabezado Global ---------- */
-.encabezado-global {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 60px;
-  padding: 0 var(--e6);
-  background: var(--blanco);
-  border-bottom: 1px solid var(--gris-200);
+@media (max-width: 640px) {
+  .contenido { padding: var(--e3); }
 }
 
-.encabezado-global__izquierda {
-  display: flex;
-  align-items: center;
-  gap: var(--e4);
-}
-
-.encabezado-global__menu {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  color: var(--gris-500);
-  background: none;
-  border: 1px solid var(--gris-200);
-  border-radius: var(--radio-s);
-  cursor: pointer;
-  transition: background 0.12s;
-}
-
-.encabezado-global__menu:hover {
-  background: var(--gris-50);
-}
-
-.encabezado-global__logo-izq,
-.encabezado-global__logo-der {
-  height: 36px;
-  width: auto;
-  object-fit: contain;
-}
-
-/* Navegación Superior */
-.nav-superior {
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.nav-superior a {
-  display: flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 var(--e4);
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--gris-600);
-  text-decoration: none;
-  border-bottom: 3px solid transparent;
-  transition: color 0.12s, border-color 0.12s;
-}
-
-.nav-superior a:hover {
-  color: var(--gris-900);
-}
-
-.nav-superior a.activo {
-  color: var(--azul);
-  border-bottom-color: var(--azul);
-}
-
-.nav-superior__separador {
-  width: 1px;
-  height: 24px;
-  background: var(--gris-200);
-}
-
-@media (max-width: 900px) {
-  .encabezado-global {
-    display: none;
-  }
+/* Quien prefiere menos movimiento no ve deslizarse el cajón ni la lateral. */
+@media (prefers-reduced-motion: reduce) {
+  .armazon,
+  .lateral { transition: none; }
 }

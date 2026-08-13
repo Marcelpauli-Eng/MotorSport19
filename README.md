@@ -264,8 +264,10 @@ Todo exige identificarse salvo `/actuator/health`. El login devuelve un token JW
 | Consultar clientes, motos, piezas | ✅ | ✅ | ✅ |
 | Crear y editar clientes y motos   | ✅ | ✅ | — |
 | Órdenes de trabajo                | todas | todas | **solo las suyas** |
+| Preparar y repartir trabajo       | ✅ | ✅ | — |
 | Aprobar, rechazar y entregar      | ✅ | ✅ | — |
 | Facturar y exportar               | ✅ | ✅ | — |
+| **Ver importes**                  | ✅ | ✅ | **—** |
 | Precios y movimientos de almacén  | ✅ | — | — |
 | Gestión de usuarios               | ✅ | — | — |
 
@@ -274,6 +276,23 @@ misma URL que los demás, pero el listado solo devuelve sus órdenes y el servic
 rechaza cualquier escritura sobre la orden de un compañero. Puede consultarla —en
 un taller pequeño se cubren entre ellos— pero no trabajarla. Sí puede hacerse
 cargo de una orden que aún no tenga técnico asignado: así es como empieza el día.
+
+### El técnico no ve dinero
+
+Un taller puede querer que quien monta la moto no sepa a cuánto se la cobra la
+casa al cliente. Eso **no se resuelve ocultando columnas en la pantalla**: la API
+devuelve JSON y basta con abrir las herramientas del navegador para leerlo. Los
+importes no salen del servidor:
+
+- La ficha de la orden y sus líneas viajan con la tarifa/hora, los precios, los
+  descuentos, el IVA y los totales **a nulo** (`OrdenTrabajoResponse.sinImportes()`).
+- El catálogo de piezas y el libro de movimientos, igual: sin precio de coste ni
+  de venta.
+- El presupuesto en PDF lleva los precios impresos, así que la ruta está cerrada
+  a `ADMIN` y `MOSTRADOR`. Los informes y la facturación ya lo estaban.
+
+Lo que sí ve, porque es su trabajo: los conceptos, las cantidades, las
+referencias de las piezas y las horas apuntadas.
 
 ### Detalles que importan
 
@@ -394,13 +413,31 @@ botones que tienen sentido en vez de dejar al usuario probar y recibir un error.
 
 ```
 RECIBIDA → EN_DIAGNOSTICO → PRESUPUESTADA → APROBADA → EN_REPARACION → LISTA → ENTREGADA
-                                  │                          ↕
-                                  └→ RECHAZADA        ESPERANDO_PIEZAS → LISTA
+   │                              │                          ↕
+   │                              └→ RECHAZADA        ESPERANDO_PIEZAS → LISTA
+   │                                                          ↑
+   └→ PREPARADA ─────────────────────────────────────────────┘
+        └→ RECHAZADA
 ```
 
 `ENTREGADA` y `RECHAZADA` son terminales. Las transiciones se declaran en el enum
 `EstadoOT` y cualquier otro salto se rechaza con un error que dice **a qué estados
 sí se puede ir** desde donde está.
+
+Hay por tanto dos caminos hasta el taller, y son dos situaciones distintas del
+mostrador, no dos formas de hacer lo mismo:
+
+- **El camino largo.** La moto entra con una avería por determinar: se
+  diagnostica, se presupuesta y el cliente decide.
+- **`PREPARADA`.** El trabajo ya está hablado y cerrado con el cliente. Dirección
+  compone la orden entera —conceptos, piezas y precios—, se la asigna a un
+  técnico y este solo tiene que ejecutarla. No pasa por presupuesto ni por
+  aprobación porque el precio se cerró fuera del programa. Se compone estando en
+  `PREPARADA`, que es el estado que abre la edición de líneas; si el cliente se
+  echa atrás, se anula igual que un presupuesto.
+
+Dejar una orden preparada es de `ADMIN` y `MOSTRADOR`: repartir trabajo es de
+quien lo ha vendido. Un técnico la ejecuta, no se la da.
 
 ### Consumo de inventario
 

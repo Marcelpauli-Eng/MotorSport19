@@ -199,6 +199,20 @@ Si las cuatro líneas aparecen, las copias funcionan. Pon después
 
 Ya puedes entrar desde cualquier equipo del taller en **http://IP-DEL-MINIPC**.
 
+### Lo primero al entrar: los datos del taller
+
+Una instalación nueva viene **sin los datos de la empresa**, y a propósito: unos
+datos fiscales de relleno acabarían impresos en una factura de verdad. Hasta que
+se pongan, el programa avisa de que faltan y no deja abrir órdenes ni facturar,
+porque la tarifa por hora y el emisor de las facturas salen de ahí.
+
+Entra como administrador, ve a **Ajustes → Empresa y facturación**, rellena razón
+social, NIF, dirección, tarifa por hora y horas de taller al día, y pulsa
+*Guardar*. Es cosa de un minuto y solo hace falta una vez.
+
+Cambiarlos más adelante no toca las facturas ya emitidas: cada una guarda dentro
+una copia de cómo estaba el taller el día que se emitió.
+
 ## 7. Acceso desde fuera (el móvil)
 
 1. Ten el dominio en Cloudflare (gratis).

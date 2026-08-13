@@ -39,6 +39,14 @@ export class Ajustes {
   protected readonly guardando = signal(false);
 
   protected readonly datos = signal<ConfiguracionTaller | null>(null);
+
+  /**
+   * Taller recién instalado: nadie ha guardado todavía los datos de la empresa.
+   *
+   * Hasta que se guarden no se puede abrir una orden ni emitir una factura,
+   * porque la tarifa por hora y los datos fiscales salen de aquí.
+   */
+  protected readonly sinConfigurar = signal(false);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly editando = signal<Usuario | null>(null);
   protected readonly creando = signal(false);
@@ -64,12 +72,33 @@ export class Ajustes {
   constructor() {
     this.configuracion.obtener().subscribe({
       next: (c) => {
-        this.datos.set(c);
-        this.borrador.set({ ...c });
+        this.recibir(c);
         this.cargando.set(false);
       },
       error: () => this.cargando.set(false),
     });
+  }
+
+  /**
+   * Deja la respuesta lista para el formulario.
+   *
+   * El taller sin estrenar llega con los campos a null, y un input atado a null
+   * enseña "null" en vez de quedarse vacío.
+   */
+  private recibir(c: ConfiguracionTaller): void {
+    const limpia: ConfiguracionTaller = {
+      ...c,
+      razonSocial: c.razonSocial ?? '',
+      nif: c.nif ?? '',
+      direccion: c.direccion ?? '',
+      codigoPostal: c.codigoPostal ?? '',
+      ciudad: c.ciudad ?? '',
+      tarifaHoraDefecto: c.tarifaHoraDefecto ?? 0,
+      capacidadDiariaHoras: c.capacidadDiariaHoras ?? 0,
+    };
+    this.datos.set(limpia);
+    this.borrador.set({ ...limpia });
+    this.sinConfigurar.set(!c.configurado);
   }
 
   protected cambiarPestana(p: Pestana): void {
@@ -109,11 +138,13 @@ export class Ajustes {
       })
       .subscribe({
         next: (c) => {
-          this.datos.set(c);
-          this.borrador.set({ ...c });
+          const eraPrimeraVez = this.sinConfigurar();
+          this.recibir(c);
           this.guardando.set(false);
           this.notificaciones.exito(
-            'Datos del taller guardados. Las facturas ya emitidas no cambian.',
+            eraPrimeraVez
+              ? 'Taller configurado. Ya se pueden abrir órdenes de trabajo y facturar.'
+              : 'Datos del taller guardados. Las facturas ya emitidas no cambian.',
           );
         },
         error: () => this.guardando.set(false),

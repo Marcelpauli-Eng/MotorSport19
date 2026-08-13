@@ -116,8 +116,10 @@ export class FormularioPieza {
       this.proveedorId.set(p.proveedorId);
       this.tipoIva.set(p.tipoIva);
       this.observaciones.set(p.observaciones ?? '');
-      this.precioCoste.set(p.precioCoste);
-      this.precioVenta.set(p.precioVenta);
+      // Los precios llegan a nulo si quien pregunta es un técnico, pero este
+      // formulario solo lo abre dirección: ahí vienen siempre.
+      this.precioCoste.set(p.precioCoste ?? 0);
+      this.precioVenta.set(p.precioVenta ?? 0);
     });
   }
 

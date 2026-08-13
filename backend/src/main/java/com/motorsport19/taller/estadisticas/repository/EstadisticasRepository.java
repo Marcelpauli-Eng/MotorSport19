@@ -1,6 +1,7 @@
 package com.motorsport19.taller.estadisticas.repository;
 
 import com.motorsport19.taller.estadisticas.service.FilaMes;
+import com.motorsport19.taller.estadisticas.service.FilaMesIva;
 import com.motorsport19.taller.estadisticas.service.FilaReparto;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Repository;
@@ -140,6 +141,129 @@ public class EstadisticasRepository {
                 dec(f[9]),
                 num(f[10]).intValue()
         )).toList();
+    }
+
+    /**
+     * Lo mismo, pero partido en dos por el IVA de la factura y para un rango
+     * cualquiera de fechas.
+     *
+     * <p>Una factura cuenta como <b>sin IVA</b> cuando su cuota es cero. No se
+     * mira el porcentaje del desglose, sino lo que se cobro de verdad: es lo que
+     * separa las facturas que se emitieron al 0 % de las demas, sin depender de
+     * como se llame el tipo de IVA en la configuracion.
+     *
+     * <p>Diferencia deliberada con {@link #facturacionMensual(int)}: aqui el
+     * coste del material solo se imputa a las facturas <b>ordinarias</b>. Si se
+     * contara tambien en las rectificativas, un mismo juego de piezas aparecería
+     * dos veces, y con una rectificativa al 0 % sobre una factura con IVA el
+     * mismo coste caeria ademas en las dos columnas.
+     *
+     * <p>Los meses salen de un calendario generado sobre el rango pedido, y cada
+     * mes aparece en los dos grupos aunque uno de ellos no tenga ninguna factura:
+     * dos columnas que no comparten los mismos meses no se pueden comparar.
+     */
+    public List<FilaMesIva> facturacionPorIva(LocalDate desde, LocalDate hasta) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> filas = em.createNativeQuery("""
+            WITH meses AS (
+                SELECT generate_series(date_trunc('month', CAST(:desde AS date)),
+                                       date_trunc('month', CAST(:hasta AS date)),
+                                       interval '1 month')::date AS inicio
+            ),
+            grupos AS (
+                SELECT unnest(ARRAY[true, false]) AS con_iva
+            ),
+            -- Cada factura del periodo, ya clasificada y con su mes.
+            clasificadas AS (
+                SELECT f.id,
+                       f.tipo,
+                       f.orden_trabajo_id,
+                       date_trunc('month', f.fecha_emision)::date AS inicio,
+                       (f.total_iva <> 0)                         AS con_iva,
+                       f.base_imponible,
+                       f.total_iva,
+                       f.total
+                  FROM factura f
+                 WHERE f.fecha_emision BETWEEN :desde AND :hasta
+            ),
+            facturado AS (
+                SELECT inicio, con_iva,
+                       SUM(base_imponible) AS base,
+                       SUM(total_iva)      AS iva,
+                       SUM(total)          AS total,
+                       COUNT(*)            AS facturas
+                  FROM clasificadas
+                 GROUP BY 1, 2
+            ),
+            reparto AS (
+                SELECT c.inicio, c.con_iva,
+                       SUM(CASE WHEN l.tipo = 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS mano_obra,
+                       SUM(CASE WHEN l.tipo = 'PIEZA'        THEN l.base_imponible ELSE 0 END) AS piezas
+                  FROM linea_factura l
+                  JOIN clasificadas c ON c.id = l.factura_id
+                 GROUP BY 1, 2
+            ),
+            coste AS (
+                SELECT c.inicio, c.con_iva,
+                       SUM(-m.cantidad * COALESCE(m.precio_coste_unitario, p.precio_coste)) AS coste
+                  FROM movimiento_stock m
+                  JOIN pieza p        ON p.id = m.pieza_id
+                  JOIN clasificadas c ON c.orden_trabajo_id = m.orden_trabajo_id
+                 WHERE m.orden_trabajo_id IS NOT NULL
+                   AND m.cantidad < 0
+                   AND c.tipo = 'ORDINARIA'
+                 GROUP BY 1, 2
+            )
+            SELECT ms.inicio,
+                   g.con_iva,
+                   COALESCE(fa.base, 0),
+                   COALESCE(fa.iva, 0),
+                   COALESCE(fa.total, 0),
+                   COALESCE(fa.facturas, 0),
+                   COALESCE(re.mano_obra, 0),
+                   COALESCE(re.piezas, 0),
+                   COALESCE(cs.coste, 0)
+              FROM meses ms
+             CROSS JOIN grupos g
+         LEFT JOIN facturado fa ON fa.inicio = ms.inicio AND fa.con_iva = g.con_iva
+         LEFT JOIN reparto   re ON re.inicio = ms.inicio AND re.con_iva = g.con_iva
+         LEFT JOIN coste     cs ON cs.inicio = ms.inicio AND cs.con_iva = g.con_iva
+             ORDER BY g.con_iva DESC, ms.inicio
+            """)
+                .setParameter("desde", desde)
+                .setParameter("hasta", hasta)
+                .getResultList();
+
+        return filas.stream().map(f -> {
+            LocalDate inicio = ((java.sql.Date) f[0]).toLocalDate();
+            return new FilaMesIva(
+                    inicio.getYear(),
+                    inicio.getMonthValue(),
+                    (Boolean) f[1],
+                    dec(f[2]), dec(f[3]), dec(f[4]), num(f[5]).intValue(),
+                    dec(f[6]), dec(f[7]),
+                    dec(f[8]));
+        }).toList();
+    }
+
+    /**
+     * Primera y ultima fecha de emision del libro, o {@code null} si no hay
+     * ninguna factura todavia.
+     *
+     * <p>Sirve para que un informe sin fechas abarque lo que hay de verdad en
+     * lugar de dar por hecho el año en curso.
+     */
+    public LocalDate[] rangoDelLibro() {
+        Object[] fila = (Object[]) em.createNativeQuery(
+                "SELECT MIN(fecha_emision), MAX(fecha_emision) FROM factura")
+                .getSingleResult();
+
+        if (fila[0] == null || fila[1] == null) {
+            return null;
+        }
+        return new LocalDate[]{
+                ((java.sql.Date) fila[0]).toLocalDate(),
+                ((java.sql.Date) fila[1]).toLocalDate()};
     }
 
     /** Ejercicios con actividad, para el desplegable de año. */

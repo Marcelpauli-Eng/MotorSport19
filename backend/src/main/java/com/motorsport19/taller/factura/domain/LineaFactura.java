@@ -19,6 +19,7 @@ import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 
 /**
  * Linea de factura: una COPIA de la linea de la OT, no una referencia.
@@ -113,5 +114,25 @@ public class LineaFactura {
      */
     public ImporteLinea importes() {
         return ImporteLinea.de(cantidad, precioUnitario, descuentoPct, porcentajeIva);
+    }
+
+    /**
+     * Lo que costaria la linea a precio de tarifa, sin el descuento.
+     *
+     * <p>Se redondea igual que la base imponible para que la resta entre ambos
+     * de justo el descuento aplicado. Un cliente que revisa la factura suma, y
+     * si le sale un centimo de diferencia llama al taller.
+     */
+    public BigDecimal importeBruto() {
+        return cantidad.multiply(precioUnitario).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Rebaja aplicada en esta linea, en euros. */
+    public BigDecimal importeDescuento() {
+        return importeBruto().subtract(importes().baseImponible());
+    }
+
+    public boolean tieneDescuento() {
+        return descuentoPct != null && descuentoPct.signum() > 0;
     }
 }

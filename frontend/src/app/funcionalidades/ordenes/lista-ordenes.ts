@@ -46,6 +46,7 @@ export class ListaOrdenes {
    */
   protected readonly estados: { valor: EstadoOT; texto: string }[] = [
     { valor: 'RECIBIDA', texto: 'Recibida' },
+    { valor: 'PREPARADA', texto: 'Preparada, pendiente de empezar' },
     { valor: 'EN_DIAGNOSTICO', texto: 'En diagnóstico' },
     { valor: 'PRESUPUESTADA', texto: 'Presupuestada' },
     { valor: 'APROBADA', texto: 'Aprobada por el cliente' },

@@ -1,6 +1,7 @@
 package com.motorsport19.taller.agenda.service;
 
 import com.motorsport19.taller.agenda.domain.Cita;
+import com.motorsport19.taller.agenda.domain.EstadoCita;
 import com.motorsport19.taller.agenda.repository.CitaRepository;
 import com.motorsport19.taller.cliente.domain.Cliente;
 import com.motorsport19.taller.cliente.service.ClienteService;
@@ -12,6 +13,7 @@ import com.motorsport19.taller.moto.domain.Moto;
 import com.motorsport19.taller.moto.service.MotoService;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import com.motorsport19.taller.orden.service.OrdenTrabajoService;
+import com.motorsport19.taller.usuario.domain.Rol;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -20,10 +22,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -115,6 +120,118 @@ public class CitaService {
             carga.add(CargaDiaria.de(dia, delDia.size(), horas, capacidad));
         }
         return carga;
+    }
+
+    /**
+     * La semana repartida por tecnico, con lo que le queda libre a cada uno.
+     *
+     * <p>Solo cuentan las citas vivas: una cancelada dejo de ocupar el hueco y
+     * sumarla diria que el taller esta lleno cuando no lo esta.
+     *
+     * <p>Las citas sin tecnico asignado no se reparten ni se esconden: van a su
+     * propia fila. Son trabajo comprometido que todavia no tiene a quien lo
+     * haga, y es lo primero que hay que colocar al planificar la semana.
+     */
+    @Transactional(readOnly = true)
+    public AgendaSemanal semana(LocalDate desde, LocalDate hasta) {
+        BigDecimal capacidad = configuracion().getCapacidadDiariaHoras();
+
+        List<LocalDate> dias = new ArrayList<>();
+        for (LocalDate dia = desde; !dia.isAfter(hasta); dia = dia.plusDays(1)) {
+            dias.add(dia);
+        }
+
+        List<Cita> citas = citaRepository.buscarVivasEntre(inicioDe(desde), inicioDe(hasta.plusDays(1)));
+
+        // Toda la plantilla, tenga citas o no: el tecnico con la semana vacia es
+        // justo el que se busca al mirar esta pantalla.
+        Map<Long, String> tecnicos = new LinkedHashMap<>();
+        for (Usuario t : usuarioRepository.buscarPorRol(Rol.TECNICO)) {
+            tecnicos.put(t.getId(), t.getNombreCompleto());
+        }
+        // Y quien tenga citas aunque ya no sea tecnico: su trabajo sigue ahi.
+        for (Cita c : citas) {
+            if (c.getTecnico() != null) {
+                tecnicos.putIfAbsent(c.getTecnico().getId(), c.getTecnico().getNombreCompleto());
+            }
+        }
+
+        List<AgendaSemanal.ColumnaTecnico> columnas = new ArrayList<>();
+        for (Map.Entry<Long, String> tecnico : tecnicos.entrySet()) {
+            columnas.add(columnaDe(tecnico.getKey(), tecnico.getValue(), dias, citas, capacidad));
+        }
+
+        boolean haySinAsignar = citas.stream().anyMatch(c -> c.getTecnico() == null);
+        if (haySinAsignar) {
+            columnas.add(columnaDe(null, "Sin asignar", dias, citas, capacidad));
+        }
+
+        BigDecimal comprometidas = columnas.stream()
+                .map(AgendaSemanal.ColumnaTecnico::horasComprometidas)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal libres = columnas.stream()
+                .filter(c -> c.tecnicoId() != null)
+                .map(AgendaSemanal.ColumnaTecnico::horasLibres)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new AgendaSemanal(desde, hasta, capacidad, dias, columnas, comprometidas, libres);
+    }
+
+    /**
+     * Los plantones de un periodo, con quien repite.
+     *
+     * <p>El porcentaje se calcula sobre las citas que llegaron a su dia
+     * —atendidas mas ausencias—, no sobre todas. Meter en el divisor las que se
+     * cancelaron con tiempo diluiria el dato: cancelar avisando libera el hueco
+     * y no tiene nada que ver con no aparecer.
+     */
+    @Transactional(readOnly = true)
+    public SeguimientoAusencias ausencias(LocalDate desde, LocalDate hasta) {
+        Instant inicio = inicioDe(desde);
+        Instant fin = inicioDe(hasta.plusDays(1));
+
+        List<Cita> faltas = citaRepository.buscarAusenciasEntre(inicio, fin);
+        List<Cita> delPeriodo = citaRepository.buscarEntre(inicio, fin);
+
+        long cerradas = delPeriodo.stream()
+                .filter(c -> c.getEstado() == EstadoCita.ATENDIDA
+                        || c.getEstado() == EstadoCita.NO_PRESENTADO)
+                .count();
+
+        BigDecimal horas = faltas.stream()
+                .map(Cita::getDuracionEstimada)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Se agrupa por el nombre con el que se apunto porque quien falta no
+        // siempre tiene ficha: media agenda entra por telefono.
+        Map<String, List<Cita>> porPersona = faltas.stream()
+                .filter(c -> c.nombreDeContacto() != null)
+                .collect(Collectors.groupingBy(Cita::nombreDeContacto, LinkedHashMap::new,
+                        Collectors.toList()));
+
+        List<SeguimientoAusencias.Reincidente> reincidentes = porPersona.entrySet().stream()
+                .filter(e -> e.getValue().size() > 1)
+                .map(e -> new SeguimientoAusencias.Reincidente(
+                        e.getKey(),
+                        e.getValue().get(0).telefonoDeContacto(),
+                        e.getValue().size()))
+                .sorted(Comparator.comparingInt(SeguimientoAusencias.Reincidente::faltas).reversed())
+                .toList();
+
+        List<SeguimientoAusencias.Ausencia> ultimas = faltas.stream()
+                .map(c -> new SeguimientoAusencias.Ausencia(
+                        c.getId(), diaDe(c.getFechaHora()), c.nombreDeContacto(),
+                        c.telefonoDeContacto(), c.moto(), c.getMotivo(), c.getDuracionEstimada(),
+                        c.getTecnico() == null ? null : c.getTecnico().getNombreCompleto()))
+                .toList();
+
+        BigDecimal porcentaje = cerradas == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(faltas.size() * 100L)
+                        .divide(BigDecimal.valueOf(cerradas), 1, RoundingMode.HALF_UP);
+
+        return new SeguimientoAusencias(desde, hasta, faltas.size(), (int) cerradas, porcentaje,
+                horas, reincidentes, ultimas);
     }
 
     // ------------------------------------------------------------------
@@ -239,10 +356,52 @@ public class CitaService {
         }
     }
 
+    /** Los siete días de un técnico, con lo comprometido y lo que le queda. */
+    private AgendaSemanal.ColumnaTecnico columnaDe(Long tecnicoId, String nombre, List<LocalDate> dias,
+                                                   List<Cita> citas, BigDecimal capacidad) {
+        List<Cita> suyas = citas.stream()
+                .filter(c -> tecnicoId == null
+                        ? c.getTecnico() == null
+                        : c.getTecnico() != null && tecnicoId.equals(c.getTecnico().getId()))
+                .toList();
+
+        Map<LocalDate, List<Cita>> porDia = suyas.stream()
+                .collect(Collectors.groupingBy(c -> diaDe(c.getFechaHora())));
+
+        List<AgendaSemanal.DiaTecnico> detalle = new ArrayList<>();
+        BigDecimal comprometidas = BigDecimal.ZERO;
+        BigDecimal libres = BigDecimal.ZERO;
+
+        for (LocalDate dia : dias) {
+            List<Cita> delDia = porDia.getOrDefault(dia, List.of());
+            BigDecimal horas = delDia.stream()
+                    .map(Cita::getDuracionEstimada)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            // El hueco no baja de cero: un dia con mas trabajo del que cabe no
+            // tiene «horas libres negativas», tiene un problema, y para eso esta
+            // la marca de saturado.
+            BigDecimal hueco = capacidad.subtract(horas).max(BigDecimal.ZERO);
+
+            detalle.add(new AgendaSemanal.DiaTecnico(
+                    dia,
+                    delDia.stream().map(AgendaSemanal.CitaBreve::de).toList(),
+                    horas, hueco, horas.compareTo(capacidad) > 0));
+
+            comprometidas = comprometidas.add(horas);
+            libres = libres.add(hueco);
+        }
+
+        // Lo que esta sin asignar no tiene jornada que llenar: sus «horas libres»
+        // serian capacidad inventada.
+        return new AgendaSemanal.ColumnaTecnico(tecnicoId, nombre, detalle, comprometidas,
+                tecnicoId == null ? BigDecimal.ZERO : libres, suyas.size());
+    }
+
     private ConfiguracionTaller configuracion() {
         return configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)
                 .orElseThrow(() -> new RecursoNoEncontradoException(
-                        "No hay configuracion del taller. Revise la instalacion."));
+                        "Faltan los datos del taller: rellenelos en Ajustes > Empresa y facturacion."));
     }
 
     private Cliente cargarCliente(Long clienteId) {

@@ -1,6 +1,7 @@
 package com.motorsport19.taller.factura.domain;
 
 import com.motorsport19.taller.common.domain.EntidadAuditable;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -50,4 +51,85 @@ public class SerieFactura extends EntidadAuditable {
 
     @Column(name = "activa", nullable = false)
     private boolean activa;
+
+    // ==================================================================
+    // Alta y mantenimiento
+    // ==================================================================
+
+    /**
+     * Abre una serie de facturacion.
+     *
+     * <p>El contador empieza en cero: la primera factura de la serie sera el
+     * numero 1. Nace activa, porque una serie que se acaba de crear es la que se
+     * va a usar.
+     */
+    public static SerieFactura crear(String codigo, Integer ejercicio, String descripcion,
+                                     TipoFactura tipo) {
+        String codigoLimpio = textoONulo(codigo);
+        if (codigoLimpio == null) {
+            throw new ReglaNegocioException("La serie necesita un codigo (A, R, F...).");
+        }
+        if (codigoLimpio.length() > 10) {
+            throw new ReglaNegocioException("El codigo de la serie no puede pasar de 10 caracteres.");
+        }
+        if (ejercicio == null || ejercicio < 2000 || ejercicio > 2200) {
+            throw new ReglaNegocioException("El ejercicio de la serie no es un año valido.");
+        }
+        if (tipo == null) {
+            throw new ReglaNegocioException("Hay que decir si la serie es ordinaria o rectificativa.");
+        }
+
+        SerieFactura serie = new SerieFactura();
+        serie.codigo = codigoLimpio.toUpperCase();
+        serie.ejercicio = ejercicio;
+        serie.descripcion = textoONulo(descripcion) != null
+                ? textoONulo(descripcion)
+                : "Serie %s de %d".formatted(serie.codigo, ejercicio);
+        serie.tipo = tipo;
+        serie.ultimoNumero = 0;
+        serie.activa = true;
+        return serie;
+    }
+
+    /**
+     * Cambia solo el texto descriptivo.
+     *
+     * <p>El codigo, el ejercicio y el tipo NO se tocan nunca: van impresos en el
+     * numero de cada factura ya emitida y forman parte de la cadena de huellas.
+     * Cambiarlos dejaria facturas cuyo numero no se corresponde con su serie.
+     */
+    public void renombrar(String descripcion) {
+        String limpio = textoONulo(descripcion);
+        if (limpio == null) {
+            throw new ReglaNegocioException("La descripcion de la serie no puede quedar vacia.");
+        }
+        this.descripcion = limpio;
+    }
+
+    public void activar() {
+        this.activa = true;
+    }
+
+    /**
+     * Cierra la serie para nuevas facturas.
+     *
+     * <p>No borra nada: las facturas ya emitidas siguen donde estan, con su
+     * numeracion intacta. Es lo que se hace al terminar un ejercicio.
+     */
+    public void desactivar() {
+        this.activa = false;
+    }
+
+    /** Si ya ha emitido alguna factura. Una serie estrenada no se puede borrar. */
+    public boolean tieneFacturas() {
+        return ultimoNumero != null && ultimoNumero > 0;
+    }
+
+    private static String textoONulo(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String limpio = valor.trim();
+        return limpio.isEmpty() ? null : limpio;
+    }
 }

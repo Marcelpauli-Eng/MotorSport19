@@ -1,5 +1,11 @@
 package com.motorsport19.taller.factura.service;
 
+import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
+import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
+import com.motorsport19.taller.documento.ArmadorDocumento;
+import com.motorsport19.taller.documento.GeneradorPdfDocumento;
 import com.motorsport19.taller.factura.domain.DesgloseIvaFactura;
 import com.motorsport19.taller.factura.domain.Factura;
 import com.motorsport19.taller.factura.domain.TipoEventoFactura;
@@ -12,10 +18,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /**
  * Exportacion del libro registro de facturacion.
@@ -40,16 +50,35 @@ public class ExportacionFacturacionService {
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final char SEPARADOR = ';';
 
+    /**
+     * Tope de facturas por ZIP.
+     *
+     * <p>Cada PDF se dibuja entero en memoria, asi que una peticion con el libro
+     * completo dejaria la API sin aire mientras dura. Para eso estan el CSV y el
+     * JSON, que no generan documentos. Cincuenta cubre de sobra el caso real:
+     * mandar un grupo concreto de facturas a alguien.
+     */
+    private static final int MAXIMO_FACTURAS_ZIP = 50;
+
     private final FacturaRepository facturaRepository;
     private final RegistroEventosService registroEventos;
     private final ObjectMapper objectMapper;
+    private final GeneradorPdfDocumento generadorPdf;
+    private final ArmadorDocumento armador;
+    private final ConfiguracionTallerService configuracion;
 
     public ExportacionFacturacionService(FacturaRepository facturaRepository,
                                          RegistroEventosService registroEventos,
-                                         ObjectMapper objectMapper) {
+                                         ObjectMapper objectMapper,
+                                         GeneradorPdfDocumento generadorPdf,
+                                         ArmadorDocumento armador,
+                                         ConfiguracionTallerService configuracion) {
         this.facturaRepository = facturaRepository;
         this.registroEventos = registroEventos;
         this.objectMapper = objectMapper;
+        this.generadorPdf = generadorPdf;
+        this.armador = armador;
+        this.configuracion = configuracion;
     }
 
     /**
@@ -187,6 +216,84 @@ public class ExportacionFacturacionService {
     }
 
     // ------------------------------------------------------------------
+
+    /**
+     * Los PDF de varias facturas dentro de un ZIP.
+     *
+     * <p>Sirve para lo de todos los meses: mandarle a un cliente, a un seguro o a
+     * la gestoria un puñado de facturas concretas sin abrirlas y guardarlas de
+     * una en una.
+     *
+     * <p>Cada PDF se regenera aqui y ahora, igual que al abrir una suelta. No hay
+     * PDF guardados en ninguna parte: el documento que vale es la fila de la base
+     * de datos, y como todos sus datos estan congelados, regenerarlo da siempre
+     * exactamente el mismo papel.
+     *
+     * <p>Las facturas van en el orden del registro, no en el que llegaron los
+     * identificadores: dentro del ZIP salen ordenadas como en el libro.
+     *
+     * @param ids identificadores de las facturas pedidas; se ignoran repetidos
+     * @return el ZIP y los nombres que lleva dentro
+     */
+    @Transactional
+    public byte[] exportarPdfsEnZip(List<Long> ids, Long usuarioId) {
+        if (ids == null || ids.isEmpty()) {
+            throw new ReglaNegocioException("No se ha seleccionado ninguna factura.");
+        }
+        List<Long> unicos = ids.stream().distinct().toList();
+        if (unicos.size() > MAXIMO_FACTURAS_ZIP) {
+            throw new ReglaNegocioException(
+                    ("Se han pedido %d facturas y el maximo por descarga son %d. "
+                     + "Para el libro entero use la exportacion CSV o JSON.")
+                            .formatted(unicos.size(), MAXIMO_FACTURAS_ZIP));
+        }
+
+        List<Factura> facturas = facturaRepository.findAllById(unicos).stream()
+                .sorted(java.util.Comparator.comparing(Factura::getNumeroRegistro))
+                .toList();
+
+        if (facturas.size() < unicos.size()) {
+            // Mejor negarse que entregar un ZIP al que le falta una factura sin
+            // decirlo: quien lo descarga lo reenvia sin contarlas.
+            throw new RecursoNoEncontradoException(
+                    "Alguna de las facturas seleccionadas ya no existe. Actualice la pantalla.");
+        }
+
+        ByteArrayOutputStream salida = new ByteArrayOutputStream();
+        ConfiguracionTaller taller = configuracion.obligatoria();
+
+        try (ZipOutputStream zip = new ZipOutputStream(salida, StandardCharsets.UTF_8)) {
+            for (Factura f : facturas) {
+                byte[] pdf = generadorPdf.generar(armador.factura(f, f.getLineas(), taller));
+
+                zip.putNextEntry(new ZipEntry(nombrePdf(f)));
+                zip.write(pdf);
+                zip.closeEntry();
+
+                registroEventos.anotar(f, TipoEventoFactura.GENERACION_PDF, usuarioId,
+                        "Generacion del PDF de la factura %s en una descarga agrupada"
+                                .formatted(f.getNumeroCompleto()),
+                        null, null);
+            }
+        } catch (IOException e) {
+            // A memoria; si esto falla, no es un problema de disco ni de red.
+            throw new IllegalStateException("No se ha podido armar el ZIP de facturas.", e);
+        }
+
+        registroEventos.anotar(null, TipoEventoFactura.EXPORTACION, usuarioId,
+                "Descarga agrupada de %d facturas en PDF".formatted(facturas.size()),
+                """
+                {"formato":"ZIP","facturas":%d}""".formatted(facturas.size()),
+                null);
+
+        log.info("Descarga agrupada de {} facturas en PDF", facturas.size());
+        return salida.toByteArray();
+    }
+
+    /** {@code factura-A-2026-000007.pdf}: la barra del numero no vale en un nombre de fichero. */
+    private static String nombrePdf(Factura factura) {
+        return "factura-%s.pdf".formatted(factura.getNumeroCompleto().replace('/', '-'));
+    }
 
     private void anotarExportacion(String formato, LocalDate desde, LocalDate hasta,
                                    List<Factura> facturas, Long usuarioId) {

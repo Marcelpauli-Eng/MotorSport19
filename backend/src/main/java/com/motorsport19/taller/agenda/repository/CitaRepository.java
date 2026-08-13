@@ -74,6 +74,27 @@ public interface CitaRepository extends JpaRepository<Cita, Long> {
     List<Cita> buscarPorMoto(@Param("motoId") Long motoId);
 
     /**
+     * Citas de un rango que acabaron en ausencia.
+     *
+     * <p>Alimenta el seguimiento de plantones. Se traen las entidades y no un
+     * conteo agrupado porque quien falta no siempre es un cliente con ficha: la
+     * mitad de la agenda se coge por telefono a gente que llama por primera vez,
+     * y agrupar eso en SQL obligaria a mezclar tres columnas distintas.
+     */
+    @Query("""
+            SELECT c FROM Cita c
+              LEFT JOIN FETCH c.moto m
+              LEFT JOIN FETCH m.cliente
+              LEFT JOIN FETCH c.cliente
+              LEFT JOIN FETCH c.tecnico
+             WHERE c.fechaHora >= :desde
+               AND c.fechaHora <  :hasta
+               AND c.estado = com.motorsport19.taller.agenda.domain.EstadoCita.NO_PRESENTADO
+             ORDER BY c.fechaHora DESC
+            """)
+    List<Cita> buscarAusenciasEntre(@Param("desde") Instant desde, @Param("hasta") Instant hasta);
+
+    /**
      * Citas vivas de una moto a partir de un instante.
      *
      * <p>Se usa para avisar de que esa moto ya tiene hueco apartado: dar dos

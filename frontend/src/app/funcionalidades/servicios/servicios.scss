@@ -1,0 +1,21 @@
+/* Un servicio retirado sigue en la lista, pero apagado: está ahí para poder
+   reactivarlo o para entender una OT antigua, no para elegirlo hoy. */
+.fila--retirada {
+  color: var(--gris-400);
+}
+
+.fila--retirada .celda-doble__principal {
+  color: var(--gris-500);
+  font-weight: 500;
+}
+
+/* La columna de «qué incluye» es la primera que sobra cuando falta anchura: el
+   nombre ya identifica el servicio y el detalle se ve al abrirlo. */
+.servicios__incluye {
+  max-width: 320px;
+  color: var(--gris-500);
+}
+
+@media (max-width: 900px) {
+  .servicios__incluye { display: none; }
+}

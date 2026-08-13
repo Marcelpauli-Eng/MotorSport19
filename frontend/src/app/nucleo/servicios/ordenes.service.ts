@@ -10,6 +10,7 @@ import {
   OrdenTrabajoResumen,
   ResultadoConsumo,
 } from '../modelos/taller';
+import { PdfService } from './pdf.service';
 
 export interface FiltroOrdenes {
   estado?: EstadoOT | null;
@@ -24,7 +25,18 @@ export interface FiltroOrdenes {
 @Injectable({ providedIn: 'root' })
 export class OrdenesService {
   private readonly http = inject(HttpClient);
+  private readonly pdf = inject(PdfService);
   private readonly base = `${environment.urlApi}/ordenes`;
+
+  /**
+   * Abre el presupuesto en PDF, con el formato de siempre del taller.
+   *
+   * Es el papel que se le enseña o se le manda al cliente para que decida, y
+   * sale igual que la factura para que reconozca el documento.
+   */
+  abrirPresupuestoPdf(id: number, codigo: string): void {
+    this.pdf.abrir(`${this.base}/${id}/presupuesto/pdf`, `presupuesto-${codigo}.pdf`);
+  }
 
   buscar(filtro: FiltroOrdenes = {}): Observable<Pagina<OrdenTrabajoResumen>> {
     let params = new HttpParams()
@@ -108,6 +120,39 @@ export class OrdenesService {
     });
   }
 
+  /**
+   * Aplica el mismo descuento a todas las líneas: el «hazme un 10 % en todo».
+   *
+   * Pisa los descuentos pactados línea a línea, que es justo para lo que se
+   * pulsa. El servidor lo escribe en cada línea, así que la respuesta trae los
+   * totales ya recalculados.
+   */
+  aplicarDescuentoGeneral(id: number, descuentoPct: number): Observable<OrdenTrabajo> {
+    return this.http.put<OrdenTrabajo>(`${this.base}/${id}/descuento-general`, { descuentoPct });
+  }
+
+  cambiarDescuentoDeLinea(
+    id: number,
+    lineaId: number,
+    descuentoPct: number,
+  ): Observable<LineaOT> {
+    return this.http.put<LineaOT>(`${this.base}/${id}/lineas/${lineaId}/descuento`, {
+      descuentoPct,
+    });
+  }
+
+  cambiarCantidadDeLinea(id: number, lineaId: number, cantidad: number): Observable<LineaOT> {
+    return this.http.put<LineaOT>(`${this.base}/${id}/lineas/${lineaId}/cantidad`, { cantidad });
+  }
+
+  /** Fecha estimada de salida y notas internas. */
+  actualizarDatos(
+    id: number,
+    datos: { fechaEstimadaSalida?: string | null; observaciones?: string | null },
+  ): Observable<OrdenTrabajo> {
+    return this.http.put<OrdenTrabajo>(`${this.base}/${id}/datos`, datos);
+  }
+
   quitarLinea(id: number, lineaId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}/lineas/${lineaId}`);
   }
@@ -118,6 +163,18 @@ export class OrdenesService {
     let params = new HttpParams();
     if (tecnicoId) params = params.set('tecnicoId', tecnicoId);
     return this.http.post<OrdenTrabajo>(`${this.base}/${id}/diagnostico`, null, { params });
+  }
+
+  /**
+   * Deja la orden preparada para el taller y, si se indica, se la asigna a un
+   * técnico.
+   *
+   * Es la vía del trabajo ya cerrado con el cliente: se salta el diagnóstico y
+   * la aprobación del presupuesto porque el precio ya se pactó fuera. A partir
+   * de aquí dirección compone las líneas y el técnico solo tiene que empezar.
+   */
+  preparar(id: number, tecnicoId: number | null = null): Observable<OrdenTrabajo> {
+    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/preparacion`, { tecnicoId });
   }
 
   presupuestar(id: number): Observable<OrdenTrabajo> {

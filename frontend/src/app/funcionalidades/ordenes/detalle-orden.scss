@@ -1,4 +1,10 @@
-/* ---------- Cabecera ---------- */
+/* ============================================================
+   Ficha de la orden de trabajo
+
+   Montada alrededor del recorrido de la moto por el taller: en qué punto está
+   y qué toca hacer ahora. La composición del presupuesto vive en su propia
+   pantalla; aquí solo se resume.
+   ============================================================ */
 
 .volver {
   display: inline-flex;
@@ -11,26 +17,167 @@
 
 .volver:hover { color: var(--gris-900); text-decoration: none; }
 
-.titulo-orden {
-  display: flex;
-  align-items: center;
-  gap: var(--e3);
-  flex-wrap: wrap;
+/* ---------- Cabecera del documento ----------
+   Etiqueta encima y valor debajo, en fila. Es como está impreso el papel que
+   tienen al lado, y así nadie busca la matrícula dentro de un párrafo. */
+
+.doc-cabecera {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--e3) var(--e5);
+  margin-bottom: var(--e4);
+  padding: var(--e4) var(--e5);
+  background: var(--blanco);
+  border: var(--borde);
+  border-radius: var(--radio-g);
 }
 
-/* ---------- Acciones ---------- */
+.doc-campo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 
-/* Es a lo que se viene a esta pantalla, así que va destacado; pero con un tinte
-   de fondo en lugar de la franja de color que llevaba a un lado. */
-.acciones {
-  background: linear-gradient(var(--azul-suave), var(--blanco) 90px);
+/* Propietario y vehículo llevan dos datos, así que piden algo más de sitio. */
+.doc-campo--ancho { grid-column: span 2; }
+
+.doc-campo > label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gris-500);
+  letter-spacing: 0.01em;
+}
+
+.doc-valor {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  min-height: 26px;
+  font-size: 0.9375rem;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.doc-secundario {
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doc-select {
+  width: 100%;
+  max-width: 190px;
+  padding: 2px var(--e2);
+  font-size: 0.875rem;
+}
+
+/* ---------- El recorrido, paso a paso ---------- */
+
+.pasos-tarjeta {
+  background: linear-gradient(var(--azul-suave), var(--blanco) 120px);
   border-color: var(--azul-borde);
 }
 
-.facturar {
-  margin-top: var(--e4);
+.pasos {
+  display: flex;
+  list-style: none;
+  margin: 0 0 var(--e5);
+  padding: 0;
+  overflow-x: auto;
+}
+
+.paso {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e2);
+  flex: 1 1 0;
+  min-width: 140px;
+  padding-right: var(--e4);
+}
+
+/* La línea que une un paso con el siguiente. Va detrás de la marca para que no
+   se vea asomar por debajo del círculo. */
+.paso__linea {
+  position: absolute;
+  top: 13px;
+  left: calc(28px + var(--e2));
+  right: var(--e2);
+  height: 2px;
+  background: var(--gris-200);
+  z-index: 0;
+}
+
+.paso--hecho .paso__linea { background: var(--verde-borde); }
+
+.paso__marca {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--blanco);
+  border: 2px solid var(--gris-300);
+  color: var(--gris-500);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.paso--hecho .paso__marca {
+  background: var(--verde-suave);
+  border-color: var(--verde);
+  color: var(--verde);
+}
+
+/* El paso actual es el único que se busca de un vistazo, así que es el único
+   que lleva relleno sólido. */
+.paso--actual .paso__marca {
+  background: var(--azul);
+  border-color: var(--azul);
+  color: var(--blanco);
+}
+
+.paso__texto { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+
+.paso__titulo {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--gris-500);
+}
+
+.paso--hecho .paso__titulo { color: var(--gris-700); }
+.paso--actual .paso__titulo { color: var(--gris-900); font-weight: 600; }
+
+.paso__detalle {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--gris-400);
+}
+
+.paso--actual .paso__detalle { color: var(--gris-600); }
+
+/* ---------- Qué toca hacer ahora ---------- */
+
+.siguiente {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
   padding-top: var(--e4);
   border-top: var(--borde);
+}
+
+.siguiente__botones {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 /* ---------- Faltan piezas ---------- */
@@ -55,38 +202,43 @@
   color: var(--gris-800);
 }
 
+/* ---------- Resumen del presupuesto ---------- */
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--e3) var(--e5);
+}
+
+.resumen__dato { display: flex; flex-direction: column; gap: 2px; }
+
+.resumen__etiqueta {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gris-500);
+}
+
+.resumen__valor {
+  font-size: 1rem;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.resumen__valor--ahorro { color: var(--verde); font-weight: 600; }
+
+.resumen__dato--total .resumen__etiqueta { color: var(--azul-fuerte); }
+
+.resumen__dato--total .resumen__valor {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+}
+
 /* ---------- Fichas de datos ---------- */
 
 .rejilla--dos {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   align-items: start;
-}
-
-/* ---------- Totales ---------- */
-
-.totales {
-  margin-left: auto;
-  padding: var(--e3) var(--e5);
-  max-width: 330px;
-}
-
-.totales__fila {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--e6);
-  padding: 3px 0;
-  font-size: 0.875rem;
-  color: var(--gris-600);
-  font-variant-numeric: tabular-nums;
-}
-
-.totales__fila--total {
-  margin-top: 6px;
-  padding-top: var(--e2);
-  border-top: 1px solid var(--gris-300);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--gris-900);
 }
 
 /* ---------- Historial ---------- */
@@ -111,46 +263,13 @@
   font-size: 0.8125rem;
 }
 
-/* Fila para dar de alta una línea, dentro de la propia tarjeta del
-   presupuesto: no merece una modal porque son dos campos y se encadenan varias
-   seguidas. */
-.alta-linea {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--e2);
-  flex-wrap: wrap;
-  margin-bottom: var(--e3);
-  padding: var(--e3);
-  background: var(--azul-suave);
-  border: 1px solid var(--azul-borde);
-  border-radius: var(--radio);
-}
+/* ---------- Pantallas estrechas ----------
+   Los pasos pasan a columna: en horizontal no caben seis con su explicación, y
+   recortarlos a un número suelto los deja sin significado. */
+@media (max-width: 860px) {
+  .doc-campo--ancho { grid-column: span 1; }
 
-.alta-linea .campo { margin-bottom: 0; }
-.alta-linea .crece { flex: 1 1 240px; min-width: 0; }
-
-/* El técnico se cambia en el sitio donde se lee, sin abrir nada: reasignar una
-   moto a otro compañero pasa a diario y no merece un formulario aparte. */
-.selector-tecnico {
-  width: 100%;
-  max-width: 220px;
-  padding: 3px var(--e2);
-  font-size: 0.875rem;
-}
-
-/* El precio de la mano de obra se retoca donde se lee. Se pinta como el resto
-   de la columna, con un subrayado de puntos que solo delata que es pulsable:
-   un botón de verdad en cada fila convertiría la tabla en una botonera. */
-.precio-editable {
-  padding: 0 2px;
-  font-variant-numeric: tabular-nums;
-  border: none;
-  background: none;
-  text-decoration: underline dotted var(--gris-400);
-  text-underline-offset: 3px;
-}
-
-.precio-editable:hover {
-  color: var(--azul);
-  text-decoration-color: var(--azul);
+  .pasos { flex-direction: column; gap: var(--e3); overflow-x: visible; }
+  .paso { min-width: 0; padding-right: 0; }
+  .paso__linea { display: none; }
 }

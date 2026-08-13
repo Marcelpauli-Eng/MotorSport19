@@ -49,8 +49,10 @@ public class InventarioController {
     /** Piezas que han caido al minimo o por debajo. */
     @GetMapping("/alertas")
     public List<AlertaStockResponse> alertas() {
+        boolean sinPrecio = usuarioActual.esTecnico();
         return inventarioService.alertasDeStock().stream()
                 .map(AlertaStockResponse::de)
+                .map(a -> sinPrecio ? a.sinPrecio() : a)
                 .toList();
     }
 
@@ -65,7 +67,7 @@ public class InventarioController {
 
         Page<MovimientoStock> pagina = inventarioService.consultarMovimientos(piezaId, tipo, desde, hasta,
                 pageable);
-        return PaginaResponse.de(pagina, MovimientoStockResponse::de);
+        return PaginaResponse.de(pagina, this::asiento);
     }
 
     /** Historial completo de una pieza concreta. */
@@ -75,7 +77,13 @@ public class InventarioController {
             @PageableDefault(size = 50) Pageable pageable) {
 
         Page<MovimientoStock> pagina = inventarioService.consultarMovimientosDePieza(piezaId, pageable);
-        return PaginaResponse.de(pagina, MovimientoStockResponse::de);
+        return PaginaResponse.de(pagina, this::asiento);
+    }
+
+    /** Asiento del libro, sin el coste si quien pregunta es un tecnico. */
+    private MovimientoStockResponse asiento(MovimientoStock movimiento) {
+        MovimientoStockResponse respuesta = MovimientoStockResponse.de(movimiento);
+        return usuarioActual.esTecnico() ? respuesta.sinPrecio() : respuesta;
     }
 
     @PostMapping("/piezas/{piezaId}/entradas")

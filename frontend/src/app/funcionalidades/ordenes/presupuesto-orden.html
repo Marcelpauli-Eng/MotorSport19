@@ -1,0 +1,567 @@
+@if (cargando()) {
+  <app-cargando mensaje="Cargando presupuesto…" />
+} @else if (orden(); as o) {
+  <a [routerLink]="['/ordenes', o.id]" class="volver">
+    <app-icono nombre="flecha-izquierda" [tamano]="14" />
+    Volver a la orden {{ o.codigo }}
+  </a>
+
+  <div class="pagina-cabecera">
+    <div class="pagina-cabecera__texto">
+      <h1>{{ vePrecios ? 'Presupuesto' : 'Trabajo a realizar' }}</h1>
+      <p class="pagina-cabecera__sub">
+        <span class="codigo">{{ o.codigo }}</span>
+        <span class="punto"></span>{{ o.descripcionMoto }}
+        <span class="punto"></span>{{ o.matricula }}
+        <span class="punto"></span>{{ o.clienteNombre }}
+      </p>
+    </div>
+
+    <div class="fila">
+      @if (vePrecios) {
+        <span class="tarifa">
+          <span class="tarifa__etiqueta">Precio de la hora</span>
+          @if (editandoTarifa()) {
+            <span class="tarifa__editor">
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                aria-label="Precio de la hora para esta orden"
+                [ngModel]="borradorTarifa()"
+                (ngModelChange)="borradorTarifa.set($event === '' || $event === null ? null : +$event)"
+                (keyup.enter)="guardarTarifa()"
+              />
+              <button
+                type="button"
+                class="boton boton--pequeno boton--principal"
+                [disabled]="trabajando() || !borradorTarifa()"
+                (click)="guardarTarifa()"
+              >
+                ✓
+              </button>
+              <button type="button" class="boton boton--pequeno" (click)="editandoTarifa.set(false)">
+                <app-icono nombre="cerrar" [tamano]="12" />
+              </button>
+            </span>
+          } @else {
+            <span class="tarifa__valor">{{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h</span>
+            @if (puedeCambiarTarifa()) {
+              <button
+                type="button"
+                class="tarifa__lapiz"
+                (click)="empezarTarifa()"
+                title="Cambiar el precio de la hora solo para esta orden"
+              >
+                <app-icono nombre="lapiz" [tamano]="13" />
+              </button>
+            }
+          }
+        </span>
+      }
+      <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
+    </div>
+  </div>
+
+  <section class="tarjeta presupuesto">
+    <div class="presupuesto__cabecera">
+      <div class="pestanas pestanas--doc">
+        <button
+          type="button"
+          class="pestana"
+          [class.pestana--activa]="pestana() === 'mano-obra'"
+          (click)="cambiarPestana('mano-obra')"
+        >
+          Mano de obra
+          <span class="contador">{{ numManoDeObra() }}</span>
+        </button>
+        <button
+          type="button"
+          class="pestana"
+          [class.pestana--activa]="pestana() === 'materiales'"
+          (click)="cambiarPestana('materiales')"
+        >
+          Materiales
+          <span class="contador">{{ numMateriales() }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="presupuesto__barra">
+      <div class="buscador">
+        <input
+          type="search"
+          placeholder="Buscar…"
+          aria-label="Buscar en las líneas"
+          [ngModel]="busqueda()"
+          (ngModelChange)="busqueda.set($event); pagina.set(1)"
+        />
+        <app-icono nombre="buscar" [tamano]="15" />
+      </div>
+
+      <button
+        type="button"
+        class="boton boton--pequeno"
+        [disabled]="!hayFiltros()"
+        (click)="limpiarFiltros()"
+      >
+        Limpiar filtros
+      </button>
+
+      @if (puedeEditarLineas()) {
+        <!--
+          Volcar un servicio tipo. Va aquí, junto a «añadir», porque es la misma
+          decisión —meter trabajo en el presupuesto— solo que de golpe. Se
+          esconde entero si el taller no ha definido ninguna plantilla: un
+          desplegable vacío solo hace preguntarse qué falta.
+        -->
+        @if (servicios().length) {
+          <div class="volcar-servicio">
+            <select
+              [ngModel]="servicioElegido()"
+              (ngModelChange)="servicioElegido.set($event)"
+              [disabled]="trabajando()"
+              aria-label="Servicio tipo a volcar en el presupuesto"
+            >
+              <option [ngValue]="null">Volcar un servicio…</option>
+              @for (s of servicios(); track s.id) {
+                <option [ngValue]="s.id">{{ s.nombre }}</option>
+              }
+            </select>
+
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              [disabled]="!servicioSeleccionado() || trabajando()"
+              (click)="aplicarServicio()"
+            >
+              <app-icono nombre="mas" [tamano]="14" />
+              Volcar
+            </button>
+
+            @if (servicioSeleccionado(); as s) {
+              <span class="pequeno silenciado sin-envolver">
+                {{ s.horasTotales | number: '1.0-2' : 'es' }} h ·
+                {{ s.numeroDePiezas }} {{ s.numeroDePiezas === 1 ? 'pieza' : 'piezas' }}
+              </span>
+            }
+          </div>
+        }
+
+        <button type="button" class="boton boton--pequeno boton--tinta" (click)="agregarNuevo()">
+          <app-icono nombre="mas" [tamano]="14" />
+          {{ pestana() === 'mano-obra' ? 'Añadir mano de obra' : 'Añadir material' }}
+        </button>
+      } @else if (!o.permiteEditarLineas) {
+        <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
+      }
+    </div>
+
+    <!-- Alta de una línea de mano de obra -->
+    @if (anadiendo() === 'mano-obra') {
+      <div class="alta-linea">
+        <div class="campo crece">
+          <label for="descTrabajo">Trabajo realizado</label>
+          <input
+            id="descTrabajo"
+            [ngModel]="descripcionTrabajo()"
+            (ngModelChange)="descripcionTrabajo.set($event)"
+            placeholder="Sustitución de pastillas y purga del circuito"
+          />
+        </div>
+        <div class="campo" style="width: 110px">
+          <label for="horas">Horas</label>
+          <input
+            id="horas"
+            type="number"
+            step="0.5"
+            min="0"
+            [ngModel]="horas()"
+            (ngModelChange)="horas.set($event === '' || $event === null ? null : +$event)"
+          />
+        </div>
+        @if (vePrecios) {
+          <div class="campo" style="width: 110px">
+            <label for="dtoManoObra">Descuento %</label>
+            <input
+              id="dtoManoObra"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              [ngModel]="descuento()"
+              (ngModelChange)="descuento.set(+$event || 0)"
+            />
+          </div>
+        }
+        <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
+        <button
+          type="button"
+          class="boton boton--principal"
+          [disabled]="trabajando() || !horas() || !descripcionTrabajo().trim()"
+          (click)="anadirManoDeObra()"
+        >
+          Añadir
+        </button>
+      </div>
+      @if (vePrecios) {
+        <p class="pie-alta">
+          Se cobra a {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h, el precio pactado para esta
+          orden. Se cambia arriba, en «Precio de la hora».
+        </p>
+      } @else {
+        <p class="pie-alta">Apunta las horas que has echado. De cobrarlas se encarga el mostrador.</p>
+      }
+    }
+
+    <!-- Alta de una línea de material -->
+    @if (anadiendo() === 'pieza') {
+      <div class="alta-linea">
+        <div class="campo" style="min-width: 180px">
+          <label for="familia">Grupo</label>
+          <select id="familia" [ngModel]="familia()" (ngModelChange)="elegirFamilia($event)">
+            <option value="">Todos los grupos</option>
+            @for (f of familias(); track f) {
+              <option [value]="f">{{ f }}</option>
+            }
+          </select>
+        </div>
+        <div class="campo crece">
+          <label for="pieza">Pieza</label>
+          <select id="pieza" [ngModel]="piezaId()" (ngModelChange)="piezaId.set($event ? +$event : null)">
+            <option [ngValue]="null">
+              {{ familia() ? 'Elige la pieza de ' + familia() + '…' : 'Elige del almacén…' }}
+            </option>
+            @for (p of piezas(); track p.id) {
+              <option [ngValue]="p.id">
+                {{ p.sku }} · {{ p.descripcion }}
+                @if (vePrecios) { — {{ p.precioVenta | number: '1.2-2' : 'es' }} € }
+                (quedan {{ p.stockActual | number: '1.0-2' : 'es' }})
+              </option>
+            }
+          </select>
+        </div>
+        <div class="campo" style="width: 110px">
+          <label for="cantidad">Cantidad</label>
+          <input
+            id="cantidad"
+            type="number"
+            step="1"
+            min="1"
+            [ngModel]="cantidad()"
+            (ngModelChange)="cantidad.set(+$event || 1)"
+          />
+        </div>
+        @if (vePrecios) {
+          <div class="campo" style="width: 110px">
+            <label for="dtoPieza">Descuento %</label>
+            <input
+              id="dtoPieza"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              [ngModel]="descuento()"
+              (ngModelChange)="descuento.set(+$event || 0)"
+            />
+          </div>
+        }
+        <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
+        <button
+          type="button"
+          class="boton boton--principal"
+          [disabled]="trabajando() || !piezaId()"
+          (click)="anadirPieza()"
+        >
+          Añadir
+        </button>
+      </div>
+      <p class="pie-alta">
+        Añadirla al presupuesto no la saca del almacén: eso ocurre al entrar en reparación.
+      </p>
+    }
+
+    <!-- Tabla de líneas -->
+    @if (!lineasFiltradas().length) {
+      <div class="vacio">
+        <app-icono class="vacio__icono" nombre="ordenes" [tamano]="28" />
+        @if (hayFiltros()) {
+          <span class="vacio__titulo">Ninguna línea coincide con «{{ busqueda() }}»</span>
+          <button type="button" class="boton boton--pequeno" (click)="limpiarFiltros()">
+            Limpiar filtros
+          </button>
+        } @else if (pestana() === 'mano-obra') {
+          <span class="vacio__titulo">Sin mano de obra todavía</span>
+          <span class="pequeno">Las horas de taller que lleve esta orden van aquí.</span>
+          @if (puedeEditarLineas()) {
+            <button type="button" class="boton boton--pequeno boton--principal" (click)="abrirAlta('mano-obra')">
+              <app-icono nombre="mas" [tamano]="14" />
+              Añadir mano de obra
+            </button>
+          }
+        } @else {
+          <span class="vacio__titulo">Sin materiales todavía</span>
+          <span class="pequeno">Las piezas que monte esta moto van aquí.</span>
+          @if (puedeEditarLineas()) {
+            <button type="button" class="boton boton--pequeno boton--principal" (click)="abrirAlta('pieza')">
+              <app-icono nombre="mas" [tamano]="14" />
+              Añadir material
+            </button>
+          }
+        }
+      </div>
+    } @else {
+      <div class="tabla-envoltorio">
+        <table class="tabla-lineas">
+          <thead>
+            <tr>
+              <th>Orden</th>
+              <th>Código</th>
+              <th>Descripción</th>
+              <th class="num">Uds.</th>
+              @if (vePrecios) {
+                <th class="num">Precio</th>
+                <th class="num">Dto.</th>
+                <th class="num">Neto</th>
+                <th class="num">IVA</th>
+                <th class="num">Total sin IVA</th>
+              }
+              @if (puedeEditarLineas()) { <th class="num">Acción</th> }
+            </tr>
+          </thead>
+          <tbody>
+            @for (l of lineasPagina(); track l.id) {
+              @if (lineaEnEdicion() === l.id) {
+                <tr class="fila--editando">
+                  <td>{{ l.numeroLinea }}</td>
+                  <td class="mono pequeno">{{ codigoDe(l) }}</td>
+                  <td>{{ l.descripcion }}</td>
+                  <td class="num">
+                    <input
+                      type="number"
+                      class="celda-input"
+                      step="0.5"
+                      min="0"
+                      aria-label="Unidades"
+                      [ngModel]="edCantidad()"
+                      (ngModelChange)="edCantidad.set($event === '' || $event === null ? null : +$event)"
+                      (keyup.enter)="guardarEdicion(l)"
+                    />
+                  </td>
+                  @if (vePrecios) {
+                    <td class="num">
+                      @if (l.tipo === 'MANO_DE_OBRA') {
+                        <input
+                          type="number"
+                          class="celda-input"
+                          step="0.01"
+                          min="0"
+                          aria-label="Precio unitario"
+                          [ngModel]="edPrecio()"
+                          (ngModelChange)="edPrecio.set($event === '' || $event === null ? null : +$event)"
+                          (keyup.enter)="guardarEdicion(l)"
+                        />
+                      } @else {
+                        <span title="El precio de una pieza viene del catálogo y quedó congelado">
+                          {{ l.precioUnitario | number: '1.2-2' : 'es' }} €
+                        </span>
+                      }
+                    </td>
+                    <td class="num">
+                      <input
+                        type="number"
+                        class="celda-input"
+                        step="1"
+                        min="0"
+                        max="100"
+                        aria-label="Descuento en porcentaje"
+                        [ngModel]="edDescuento()"
+                        (ngModelChange)="edDescuento.set($event === '' || $event === null ? null : +$event)"
+                        (keyup.enter)="guardarEdicion(l)"
+                      />
+                    </td>
+                    <td class="num silenciado">—</td>
+                    <td class="num silenciado">{{ l.porcentajeIva | number: '1.0-2' : 'es' }} %</td>
+                    <td class="num silenciado">—</td>
+                  }
+                  <td class="num">
+                    <div class="acciones-fila">
+                      <button
+                        type="button"
+                        class="icono-accion icono-accion--ok"
+                        [disabled]="trabajando()"
+                        (click)="guardarEdicion(l)"
+                        title="Guardar los cambios"
+                      >
+                        <app-icono nombre="correcto" [tamano]="16" />
+                      </button>
+                      <button type="button" class="icono-accion" (click)="cancelarEdicion()" title="Cancelar">
+                        <app-icono nombre="cerrar" [tamano]="16" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              } @else {
+                <tr>
+                  <td>{{ l.numeroLinea }}</td>
+                  <td class="mono pequeno">{{ codigoDe(l) }}</td>
+                  <td><span class="truncado">{{ l.descripcion }}</span></td>
+                  <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
+                  @if (vePrecios) {
+                    <td class="num">{{ l.precioUnitario | number: '1.2-2' : 'es' }} €</td>
+                    <td class="num" [class.silenciado]="!l.descuentoPct">
+                      @if (l.descuentoPct) {
+                        <span class="dto-pct">{{ l.descuentoPct | number: '1.2-2' : 'es' }} %</span>
+                        <span class="dto-euros">−{{ l.importeDescuento | number: '1.2-2' : 'es' }} €</span>
+                      } @else {
+                        0,00 %
+                      }
+                    </td>
+                    <td class="num">{{ neto(l) | number: '1.2-3' : 'es' }} €</td>
+                    <td class="num">{{ l.porcentajeIva | number: '1.2-2' : 'es' }} %</td>
+                    <td class="num importe importe--fuerte">
+                      {{ l.baseImponible | number: '1.2-3' : 'es' }} €
+                    </td>
+                  }
+                  @if (puedeEditarLineas()) {
+                    <td class="num">
+                      <div class="acciones-fila">
+                        <button
+                          type="button"
+                          class="icono-accion"
+                          [disabled]="trabajando()"
+                          (click)="empezarEdicion(l)"
+                          title="Editar la línea"
+                        >
+                          <app-icono nombre="lapiz" [tamano]="16" />
+                        </button>
+                        <button
+                          type="button"
+                          class="icono-accion icono-accion--peligro"
+                          [disabled]="trabajando()"
+                          (click)="quitarLinea(l.id)"
+                          title="Quitar del presupuesto"
+                        >
+                          <app-icono nombre="papelera" [tamano]="16" />
+                        </button>
+                      </div>
+                    </td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="paginacion">
+        @if (totalPaginas() > 1) {
+          <div class="paginacion__botones">
+            <button type="button" [disabled]="paginaActual() === 1" (click)="irAPagina(1)" title="Primera">«</button>
+            <button type="button" [disabled]="paginaActual() === 1" (click)="irAPagina(paginaActual() - 1)" title="Anterior">‹</button>
+            @for (p of paginas(); track p) {
+              <button type="button" [class.activa]="p === paginaActual()" (click)="irAPagina(p)">{{ p }}</button>
+            }
+            <button type="button" [disabled]="paginaActual() === totalPaginas()" (click)="irAPagina(paginaActual() + 1)" title="Siguiente">›</button>
+            <button type="button" [disabled]="paginaActual() === totalPaginas()" (click)="irAPagina(totalPaginas())" title="Última">»</button>
+          </div>
+        }
+        <span class="paginacion__resumen pequeno silenciado">
+          Página {{ paginaActual() }} de {{ totalPaginas() }}
+        </span>
+        <span class="paginacion__resumen pequeno silenciado">
+          {{ lineasFiltradas().length }} {{ lineasFiltradas().length === 1 ? 'registro' : 'registros' }}
+        </span>
+      </div>
+    }
+  </section>
+
+  <!-- Totales y acciones, fijos abajo -->
+  <div class="barra-inferior">
+    @if (vePrecios) {
+      <div class="barra-totales">
+        <div class="tot">
+          <span class="tot__etiqueta">Importe €</span>
+          <span class="tot__valor">{{ o.importeBruto | number: '1.2-2' : 'es' }}</span>
+        </div>
+
+        <div class="tot tot--editable">
+          <span class="tot__etiqueta">Dto. General %</span>
+          @if (puedeDescontar()) {
+            <input
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              aria-label="Descuento general en porcentaje"
+              [ngModel]="borradorDtoGeneral()"
+              (ngModelChange)="borradorDtoGeneral.set($event === '' || $event === null ? null : +$event)"
+              (keyup.enter)="aplicarDtoGeneral()"
+              (blur)="aplicarDtoGeneral()"
+              [placeholder]="dtoGeneral() === null ? 'varios' : '0,00'"
+            />
+          } @else {
+            <span class="tot__valor">
+              {{ dtoGeneral() === null ? 'varios' : (dtoGeneral() | number: '1.2-2' : 'es') }}
+            </span>
+          }
+        </div>
+
+        <div class="tot">
+          <span class="tot__etiqueta">Importe descuento €</span>
+          <span class="tot__valor" [class.tot__valor--ahorro]="o.totalDescuento">
+            {{ o.totalDescuento | number: '1.2-2' : 'es' }}
+          </span>
+        </div>
+
+        <div class="tot">
+          <span class="tot__etiqueta">Base imponible €</span>
+          <span class="tot__valor">{{ o.baseImponible | number: '1.2-2' : 'es' }}</span>
+        </div>
+
+        <div class="tot">
+          <span class="tot__etiqueta">Importe IVA €</span>
+          <span class="tot__valor">{{ o.totalIva | number: '1.2-2' : 'es' }}</span>
+        </div>
+
+        <div class="tot tot--total">
+          <span class="tot__etiqueta">TOTAL €</span>
+          <span class="tot__valor">{{ o.total | number: '1.2-2' : 'es' }}</span>
+        </div>
+      </div>
+    } @else {
+      <div class="barra-totales">
+        <div class="tot">
+          <span class="tot__etiqueta">Conceptos</span>
+          <span class="tot__valor">{{ numManoDeObra() + numMateriales() }}</span>
+        </div>
+        <div class="tot tot--total">
+          <span class="tot__etiqueta">HORAS APUNTADAS</span>
+          <span class="tot__valor">{{ o.horasManoDeObra | number: '1.0-2' : 'es' }} h</span>
+        </div>
+      </div>
+    }
+
+    <div class="barra-acciones">
+      <div class="barra-acciones__izq">
+        @if (vePrecios && todasLasLineas().length) {
+          <button type="button" class="boton" (click)="abrirPresupuestoPdf()">
+            <app-icono nombre="descargar" [tamano]="16" />
+            Presupuesto en PDF
+          </button>
+          <button type="button" class="boton" (click)="enviarPorWhatsapp()">
+            <app-icono nombre="whatsapp" [tamano]="16" />
+            Enviar por WhatsApp
+          </button>
+        }
+      </div>
+
+      <div class="barra-acciones__der">
+        <span class="pequeno silenciado">Los cambios se guardan solos</span>
+        <a [routerLink]="['/ordenes', o.id]" class="boton boton--principal">
+          Volver a la orden
+        </a>
+      </div>
+    </div>
+  </div>
+}

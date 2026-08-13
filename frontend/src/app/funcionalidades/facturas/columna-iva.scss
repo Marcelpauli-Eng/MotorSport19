@@ -1,0 +1,106 @@
+/*
+  Las dos columnas del libro. La única diferencia visual entre ellas es la
+  franja de color de arriba: con más señales (fondos teñidos, bordes de color)
+  la página empieza a parecer un semáforo y deja de leerse que son lo mismo
+  contado dos veces.
+*/
+.columna {
+  border-top: 3px solid var(--azul);
+}
+
+.columna--sin {
+  border-top-color: var(--gris-400);
+}
+
+.explicacion {
+  margin: calc(var(--e4) * -1 + 2px) 0 var(--e4);
+}
+
+.subtitulo {
+  display: flex;
+  align-items: baseline;
+  gap: var(--e2);
+  margin: var(--e5) 0 var(--e2);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gris-500);
+}
+
+/* ---------- Acumulado del periodo ---------- */
+
+.cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px;
+  background: var(--gris-200);
+  border: var(--borde);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+
+.cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e3);
+  background: var(--blanco);
+}
+
+.cifra--destacada { background: var(--gris-50); }
+
+.cifra__valor {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cifra--destacada .cifra__valor { font-size: 1.25rem; }
+
+.cifra__etiqueta {
+  font-size: 0.75rem;
+  color: var(--gris-500);
+}
+
+/* ---------- Mes a mes ---------- */
+
+/* Un año caben doce filas; un histórico largo, no. Se limita el alto y se
+   desplaza dentro, que es preferible a una página de tres pantallas. */
+.tabla-meses {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tabla-meses tfoot th {
+  position: sticky;
+  bottom: 0;
+  background: var(--gris-50);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Un mes sin facturas no se oculta —desalinearía las dos columnas— pero se
+   apaga para que no compita con los que sí tienen movimiento. */
+.mes--vacio td { color: var(--gris-400); }
+
+/* ---------- Selección para la descarga agrupada ---------- */
+
+.col-marca {
+  width: 32px;
+  padding-right: 0;
+}
+
+.col-marca input {
+  cursor: pointer;
+  margin: 0;
+  vertical-align: middle;
+}
+
+/* Teñir la fila marcada, y no solo la casilla, es lo que deja contar de un
+   vistazo lo que va a caer en el ZIP. */
+.fila--marcada td { background: var(--azul-suave); }
+
+.negativo { color: var(--rojo); }
+
+.truncado { max-width: 180px; }

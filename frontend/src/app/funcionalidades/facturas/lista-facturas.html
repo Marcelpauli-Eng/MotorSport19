@@ -72,10 +72,11 @@
     <p class="pequeno silenciado ayuda">
       El <strong>CSV</strong> es el que abre la gestoría en su hoja de cálculo: una fila por factura.
       El <strong>JSON</strong> incluye las líneas y la cadena de huellas, con lo que la integridad
-      del libro se puede comprobar sin este programa.
+      del libro se puede comprobar sin este programa. La exportación lleva el libro entero del
+      periodo, sin separar por IVA: es el documento que se entrega.
     </p>
 
-    @if (informe(); as inf) {
+    @if (informeVerificacion(); as inf) {
       <div class="informe" [class.informe--error]="!inf.integra">
         <p class="negrita">{{ inf.resumen }}</p>
         @if (inf.anomalias.length) {
@@ -91,114 +92,89 @@
     }
   </section>
 
-  <!-- Listado -->
-  <section class="tarjeta tarjeta--ajustada">
-    <div class="tarjeta__titulo">
-      <h2>Emitidas <span class="contador">{{ totalItems() }}</span></h2>
-      @if (filas().length) {
-        <span class="pequeno silenciado">
-          Total en pantalla: <strong>{{ totalPeriodo() | currency: 'EUR' : 'symbol' : '1.2-2' : 'es' }}</strong>
-        </span>
-      }
+  <!-- Cabecera del periodo: lo que suman las dos columnas juntas -->
+  @if (informe(); as i) {
+    <div class="resumen-periodo">
+      <span class="pequeno silenciado">
+        Periodo del
+        <strong>{{ i.desde | date: 'd MMM yyyy' : undefined : 'es' }}</strong>
+        al
+        <strong>{{ i.hasta | date: 'd MMM yyyy' : undefined : 'es' }}</strong>
+      </span>
+      <span class="pequeno silenciado">
+        {{ totalFacturas() }} {{ totalFacturas() === 1 ? 'factura' : 'facturas' }} ·
+        <strong>{{ totalPeriodo() | number: '1.2-2' : 'es' }} €</strong> facturados
+      </span>
+    </div>
+  }
+
+  <!--
+    Barra de la selección. Solo aparece con algo marcado: mientras no se
+    selecciona nada, no hay ninguna acción posible y ocuparía sitio en la
+    pantalla para no decir nada.
+  -->
+  @if (seleccionadas() > 0) {
+    <div class="barra-seleccion">
+      <span class="negrita">
+        {{ seleccionadas() }}
+        {{ seleccionadas() === 1 ? 'factura seleccionada' : 'facturas seleccionadas' }}
+      </span>
+      <div class="fila">
+        <button type="button" class="boton boton--pequeno" (click)="limpiarSeleccion()">
+          Quitar selección
+        </button>
+        <button
+          type="button"
+          class="boton boton--pequeno boton--principal"
+          [disabled]="descargandoZip()"
+          (click)="descargarSeleccion()"
+        >
+          <app-icono nombre="descargar" [tamano]="14" />
+          {{ descargandoZip() ? 'Preparando el ZIP…' : 'Descargar en un ZIP' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (cargandoInforme()) {
+    <app-cargando mensaje="Calculando el reparto por IVA…" />
+  } @else {
+    <div class="columnas-iva">
+      <app-columna-iva
+        [resumen]="informe()?.conIva ?? null"
+        [facturas]="conIva.filas()"
+        [cargando]="conIva.cargando()"
+        [pagina]="conIva.pagina()"
+        [totalPaginas]="conIva.totalPaginas()"
+        [totalItems]="conIva.totalItems()"
+        [seleccionadas]="seleccion()"
+        (irAPagina)="cargarColumna(true, $event)"
+        (abrirPdf)="verPdf($event)"
+        (alternarSeleccion)="alternarSeleccion($event)"
+        (alternarPagina)="alternarPagina(true, $event)"
+      />
+      <app-columna-iva
+        [resumen]="informe()?.sinIva ?? null"
+        [facturas]="sinIva.filas()"
+        [cargando]="sinIva.cargando()"
+        [pagina]="sinIva.pagina()"
+        [totalPaginas]="sinIva.totalPaginas()"
+        [totalItems]="sinIva.totalItems()"
+        [seleccionadas]="seleccion()"
+        (irAPagina)="cargarColumna(false, $event)"
+        (abrirPdf)="verPdf($event)"
+        (alternarSeleccion)="alternarSeleccion($event)"
+        (alternarPagina)="alternarPagina(false, $event)"
+      />
     </div>
 
-    @if (cargando()) {
-      <app-cargando mensaje="Cargando facturas…" />
-    } @else if (!filas().length) {
-      <div class="vacio">
-        <app-icono class="vacio__icono" nombre="facturas" [tamano]="30" />
-        <span class="vacio__titulo">Ninguna factura en este periodo</span>
-        <span class="pequeno">Cambia las fechas o pulsa «Todo».</span>
-      </div>
-    } @else {
-      <div class="tabla-envoltorio">
-        <table>
-          <thead>
-            <tr>
-              <th>Número</th>
-              <th>Tipo</th>
-              <th>Fecha</th>
-              <th>Cliente</th>
-              <th class="num">Base</th>
-              <th class="num">IVA</th>
-              <th class="num">Total</th>
-              <th class="col-opcional">Orden</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (f of filas(); track f.id) {
-              <tr>
-                <td>
-                  <div class="celda-doble">
-                    <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
-                    @if (f.tipo === 'RECTIFICATIVA' && f.rectificaA) {
-                      <span class="celda-doble__secundario">corrige a {{ f.rectificaA }}</span>
-                    }
-                  </div>
-                </td>
-                <td class="sin-envolver">
-                  @if (f.tipo === 'RECTIFICATIVA') {
-                    <span class="etiqueta etiqueta--ambar">Rectificativa</span>
-                  } @else {
-                    <span class="etiqueta etiqueta--gris">Ordinaria</span>
-                  }
-                </td>
-                <td class="silenciado sin-envolver">
-                  {{ f.fechaEmision | date: 'd MMM yyyy' : undefined : 'es' }}
-                </td>
-                <td>
-                  <div class="celda-doble">
-                    <span class="celda-doble__principal">{{ f.receptorNombre }}</span>
-                    <span class="celda-doble__secundario mono">{{ f.receptorNif }}</span>
-                  </div>
-                </td>
-                <td class="num importe silenciado">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
-                <td class="num importe silenciado">{{ f.totalIva | number: '1.2-2' : 'es' }}</td>
-                <td class="num importe importe--fuerte" [class.negativo]="f.total < 0">
-                  {{ f.total | number: '1.2-2' : 'es' }} €
-                </td>
-                <td class="silenciado codigo col-opcional">{{ f.codigoOt || '—' }}</td>
-                <td class="num">
-                  <button
-                    type="button"
-                    class="boton boton--pequeno"
-                    (click)="verPdf(f.id)"
-                    title="Ver el PDF de la factura"
-                  >
-                    <app-icono nombre="documento" [tamano]="14" />
-                    PDF
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      @if (totalPaginas() > 1) {
-        <div class="paginacion">
-          <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
-          <div class="fila">
-            <button
-              type="button"
-              class="boton boton--pequeno"
-              [disabled]="pagina() === 0"
-              (click)="cargar(pagina() - 1)"
-            >
-              <app-icono nombre="flecha-izquierda" [tamano]="14" /> Anterior
-            </button>
-            <button
-              type="button"
-              class="boton boton--pequeno"
-              [disabled]="pagina() + 1 >= totalPaginas()"
-              (click)="cargar(pagina() + 1)"
-            >
-              Siguiente <app-icono nombre="flecha-derecha" [tamano]="14" />
-            </button>
-          </div>
-        </div>
-      }
-    }
-  </section>
+    <p class="pequeno silenciado ayuda">
+      Una factura cuenta como <strong>sin IVA</strong> cuando no lleva ninguna cuota; si una sola de
+      sus líneas lleva IVA, la factura entera va a la columna de la izquierda. El
+      <strong>gasto</strong> es el coste del material que se fue en esos trabajos, al precio que
+      tenía la pieza cuando salió del almacén. Las compras de reposición del almacén no aparecen
+      aquí, porque no cuelgan de ninguna factura de venta: esa cifra está entera en
+      <strong>Informes</strong>.
+    </p>
+  }
 </div>

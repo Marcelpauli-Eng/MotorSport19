@@ -2,13 +2,19 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
-import { CargaDiaria, Cita } from '../../nucleo/modelos/agenda';
+import {
+  AgendaSemanal,
+  CargaDiaria,
+  Cita,
+  CitaBreve,
+  SeguimientoAusencias,
+} from '../../nucleo/modelos/agenda';
 import { CitasService } from '../../nucleo/servicios/citas.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { DetalleCita } from './detalle-cita';
 import { FormularioCita } from './formulario-cita';
 
-type Vista = 'semana' | 'dia';
+type Vista = 'semana' | 'dia' | 'tecnicos';
 
 /** Un día del calendario, con lo que entra y cuánto ocupa. */
 interface DiaAgenda {
@@ -67,6 +73,11 @@ export class Agenda {
 
   protected readonly citas = signal<Cita[]>([]);
   protected readonly carga = signal<CargaDiaria[]>([]);
+
+  /** Parrilla de la semana por técnico. Solo se pide en su vista. */
+  protected readonly parrilla = signal<AgendaSemanal | null>(null);
+  /** Plantones del periodo que se está mirando. */
+  protected readonly ausencias = signal<SeguimientoAusencias | null>(null);
 
   protected readonly creando = signal(false);
   protected readonly editando = signal<Cita | null>(null);
@@ -128,7 +139,8 @@ export class Agenda {
   }
 
   protected mover(pasos: number): void {
-    const salto = this.vista() === 'semana' ? 7 : 1;
+    // Solo la vista de día avanza de uno en uno; las otras dos son semanales.
+    const salto = this.vista() === 'dia' ? 1 : 7;
     const nueva = new Date(this.referencia());
     nueva.setDate(nueva.getDate() + pasos * salto);
     this.referencia.set(nueva);
@@ -219,6 +231,21 @@ export class Agenda {
     const hasta = fechas[fechas.length - 1];
 
     this.cargando.set(true);
+
+    if (this.vista() === 'tecnicos') {
+      // La parrilla ya trae sus citas dentro: pedir además el listado del día
+      // sería traerse lo mismo dos veces.
+      this.servicio.semana(desde, hasta).subscribe({
+        next: (p) => {
+          this.parrilla.set(p);
+          this.cargando.set(false);
+        },
+        error: () => this.cargando.set(false),
+      });
+      this.servicio.ausencias(desde, hasta).subscribe((a) => this.ausencias.set(a));
+      return;
+    }
+
     this.servicio.agenda(desde, hasta).subscribe({
       next: (citas) => {
         this.citas.set(citas);
@@ -227,5 +254,28 @@ export class Agenda {
       error: () => this.cargando.set(false),
     });
     this.servicio.carga(desde, hasta).subscribe((c) => this.carga.set(c));
+  }
+
+  // ----- Parrilla por técnico -----
+
+  /** Un técnico está libre toda la semana: es a quien se le puede dar trabajo. */
+  protected sinTrabajo(horas: number): boolean {
+    return horas === 0;
+  }
+
+  protected esHoy(dia: string): boolean {
+    return dia === comoDia(new Date());
+  }
+
+  protected horaBreve(cita: CitaBreve): string {
+    return new Date(cita.fechaHora).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  /** Abre la ficha completa de una cita pinchada en la parrilla. */
+  protected abrirDeParrilla(cita: CitaBreve): void {
+    this.servicio.obtener(cita.id).subscribe((c) => this.abierta.set(c));
   }
 }

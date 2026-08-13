@@ -67,4 +67,13 @@ public record MovimientoStockResponse(
                 movimiento.getDocumentoProveedor(),
                 movimiento.getPrecioCosteUnitario());
     }
+
+    /** El asiento sin el coste, para quien no tiene por que ver lo que paga el taller. */
+    public MovimientoStockResponse sinPrecio() {
+        return new MovimientoStockResponse(
+                id, piezaId, piezaSku, piezaDescripcion, tipo, tipoDescripcion,
+                cantidad, stockAnterior, stockResultante, fecha,
+                usuarioId, usuarioNombre, ordenTrabajoId, ordenCodigo, matricula, descripcionMoto,
+                motivo, documentoProveedor, null);
+    }
 }

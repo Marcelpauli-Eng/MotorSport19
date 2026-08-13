@@ -78,8 +78,9 @@ export interface Pieza {
   stockMinimo: number;
   bajoMinimo: boolean;
   sinExistencias: boolean;
-  precioCoste: number;
-  precioVenta: number;
+  /** Nulos para un técnico: el catálogo le dice qué hay, no lo que cuesta. */
+  precioCoste: number | null;
+  precioVenta: number | null;
   tipoIva: string;
   proveedorId: number | null;
   proveedorNombre: string | null;
@@ -101,7 +102,7 @@ export interface AlertaStock {
   sinExistencias: boolean;
   proveedorId: number | null;
   proveedorNombre: string | null;
-  precioCoste: number;
+  precioCoste: number | null;
 }
 
 export interface MovimientoStock {
@@ -148,6 +149,8 @@ export interface Proveedor {
 
 export type EstadoOT =
   | 'RECIBIDA'
+  /** Compuesta por dirección y esperando a que el técnico la empiece. */
+  | 'PREPARADA'
   | 'EN_DIAGNOSTICO'
   | 'PRESUPUESTADA'
   | 'APROBADA'
@@ -159,6 +162,14 @@ export type EstadoOT =
 
 export type TipoLinea = 'MANO_DE_OBRA' | 'PIEZA';
 
+/**
+ * Línea de una orden de trabajo.
+ *
+ * Todos los importes son opcionales porque a un técnico el servidor se los
+ * envía a nulo: el taller puede decidir que quien monta la moto no vea a cuánto
+ * se la cobra la casa al cliente. No es que la pantalla los oculte, es que no
+ * llegan.
+ */
 export interface LineaOT {
   id: number;
   numeroLinea: number;
@@ -168,13 +179,17 @@ export interface LineaOT {
   piezaId: number | null;
   piezaSku: string | null;
   cantidad: number;
-  precioUnitario: number;
-  descuentoPct: number;
-  tipoIva: string;
-  porcentajeIva: number;
-  baseImponible: number;
-  cuotaIva: number;
-  total: number;
+  precioUnitario: number | null;
+  descuentoPct: number | null;
+  tipoIva: string | null;
+  porcentajeIva: number | null;
+  /** Lo que valdría sin descuento: cantidad × precio de tarifa. */
+  importeBruto: number | null;
+  /** Rebaja aplicada, en euros. Cero si no hay descuento. */
+  importeDescuento: number | null;
+  baseImponible: number | null;
+  cuotaIva: number | null;
+  total: number | null;
 }
 
 export interface CambioEstado {
@@ -217,16 +232,22 @@ export interface OrdenTrabajo {
   tecnicoId: number | null;
   tecnicoNombre: string | null;
 
-  tarifaHora: number;
+  /** Nulo para un técnico: el precio de la hora no es asunto del taller. */
+  tarifaHora: number | null;
   fechaPresupuesto: string | null;
   fechaAprobacion: string | null;
   aprobadoPor: string | null;
   motivoRechazo: string | null;
   observaciones: string | null;
 
-  baseImponible: number;
-  totalIva: number;
-  total: number;
+  /** Suma de las líneas a precio de tarifa, antes de descuentos. */
+  importeBruto: number | null;
+  /** Rebaja total aplicada al cliente. Cero si no hay descuentos. */
+  totalDescuento: number | null;
+  baseImponible: number | null;
+  totalIva: number | null;
+  total: number | null;
+  /** Horas apuntadas. Son trabajo, no dinero: el técnico sí las ve. */
   horasManoDeObra: number;
 
   lineas: LineaOT[];

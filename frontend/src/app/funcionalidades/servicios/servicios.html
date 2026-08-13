@@ -1,0 +1,102 @@
+@if (formularioAbierto()) {
+  <app-formulario-servicio
+    [servicio]="editando() ?? null"
+    (cerrar)="cerrarFormulario()"
+    (guardado)="trasGuardar($event)"
+  />
+}
+
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Servicios</h1>
+    <p class="pagina-cabecera__sub">
+      Plantillas que se vuelcan de golpe en una orden de trabajo.
+    </p>
+  </div>
+  <button type="button" class="boton boton--principal" (click)="nuevo()">
+    <app-icono nombre="mas" [tamano]="16" />
+    Nuevo servicio
+  </button>
+</div>
+
+<div class="filtros">
+  <label class="casilla">
+    <input
+      type="checkbox"
+      [ngModel]="incluirRetirados()"
+      (ngModelChange)="alternarRetirados($event)"
+    />
+    Mostrar también los retirados
+  </label>
+</div>
+
+<section class="tarjeta tarjeta--ajustada">
+  <div class="tarjeta__titulo">
+    <h2>En uso <span class="contador">{{ activos() }}</span></h2>
+  </div>
+
+  @if (cargando()) {
+    <app-cargando mensaje="Cargando servicios…" />
+  } @else if (!filas().length) {
+    <div class="vacio">
+      <app-icono class="vacio__icono" nombre="ordenes" [tamano]="30" />
+      <span class="vacio__titulo">Todavía no hay servicios</span>
+      <span class="pequeno">
+        Crea uno con las horas y las piezas de un trabajo que repitas: una revisión,
+        un cambio de aceite, un kit de transmisión.
+      </span>
+    </div>
+  } @else {
+    <div class="tabla-envoltorio">
+      <table>
+        <thead>
+          <tr>
+            <th>Servicio</th>
+            <th class="num">Horas</th>
+            <th class="num">Piezas</th>
+            <th class="servicios__incluye">Incluye</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of filas(); track s.id) {
+            <tr [class.fila--retirada]="!s.activo">
+              <td>
+                <div class="celda-doble">
+                  <span class="celda-doble__principal">{{ s.nombre }}</span>
+                  @if (!s.activo) {
+                    <span class="celda-doble__secundario">
+                      <span class="etiqueta etiqueta--gris etiqueta--simple">Retirado</span>
+                    </span>
+                  }
+                </div>
+              </td>
+              <td class="num tabular">{{ s.horasTotales | number: '1.0-2' : 'es' }} h</td>
+              <td class="num tabular">{{ s.numeroDePiezas }}</td>
+              <td class="servicios__incluye">
+                <span class="truncado">{{ s.descripcion || '—' }}</span>
+              </td>
+              <td class="num sin-envolver">
+                <button
+                  type="button"
+                  class="boton boton--plano boton--pequeno"
+                  (click)="editar(s)"
+                >
+                  <app-icono nombre="lapiz" [tamano]="15" />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  class="boton boton--plano boton--pequeno"
+                  (click)="cambiarActivo(s)"
+                >
+                  {{ s.activo ? 'Retirar' : 'Reactivar' }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

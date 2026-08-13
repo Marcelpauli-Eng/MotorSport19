@@ -9,6 +9,8 @@ import com.motorsport19.taller.orden.web.dto.AbrirOrdenRequest;
 import com.motorsport19.taller.orden.web.dto.AprobacionRequest;
 import com.motorsport19.taller.orden.web.dto.AsignarTecnicoRequest;
 import com.motorsport19.taller.orden.web.dto.CantidadRequest;
+import com.motorsport19.taller.orden.web.dto.DatosOrdenRequest;
+import com.motorsport19.taller.orden.web.dto.DescuentoRequest;
 import com.motorsport19.taller.orden.web.dto.DevolucionLineaRequest;
 import com.motorsport19.taller.orden.web.dto.DiagnosticoRequest;
 import com.motorsport19.taller.orden.web.dto.LineaOTResponse;
@@ -20,7 +22,15 @@ import com.motorsport19.taller.orden.web.dto.PiezaLineaRequest;
 import com.motorsport19.taller.orden.web.dto.PrecioLineaRequest;
 import com.motorsport19.taller.orden.web.dto.ResultadoConsumoResponse;
 import com.motorsport19.taller.orden.web.dto.TarifaHoraRequest;
+import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
+import com.motorsport19.taller.documento.ArmadorDocumento;
+import com.motorsport19.taller.documento.GeneradorPdfDocumento;
 import com.motorsport19.taller.seguridad.UsuarioActual;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,10 +66,18 @@ public class OrdenTrabajoController {
 
     private final OrdenTrabajoService ordenService;
     private final UsuarioActual usuarioActual;
+    private final GeneradorPdfDocumento generadorDocumento;
+    private final ArmadorDocumento armador;
+    private final ConfiguracionTallerService configuracion;
 
-    public OrdenTrabajoController(OrdenTrabajoService ordenService, UsuarioActual usuarioActual) {
+    public OrdenTrabajoController(OrdenTrabajoService ordenService, UsuarioActual usuarioActual,
+                                  GeneradorPdfDocumento generadorDocumento, ArmadorDocumento armador,
+                                  ConfiguracionTallerService configuracion) {
         this.ordenService = ordenService;
         this.usuarioActual = usuarioActual;
+        this.generadorDocumento = generadorDocumento;
+        this.armador = armador;
+        this.configuracion = configuracion;
     }
 
     // ------------------------------------------------------------------
@@ -85,6 +103,26 @@ public class OrdenTrabajoController {
     @GetMapping("/{id}")
     public OrdenTrabajoResponse obtener(@PathVariable Long id) {
         return detalle(ordenService.obtener(id));
+    }
+
+    /**
+     * El presupuesto en PDF, con el formato de siempre del taller.
+     *
+     * <p>Se regenera en cada peticion a partir de la orden. Mientras la orden
+     * siga viva el presupuesto puede cambiar, y eso es correcto: lo que queda
+     * congelado para siempre es la factura, no el presupuesto.
+     */
+    @GetMapping(value = "/{id}/presupuesto/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<Resource> presupuestoPdf(@PathVariable Long id) {
+        OrdenTrabajo orden = ordenService.obtener(id);
+        byte[] pdf = generadorDocumento.generar(
+                armador.presupuesto(orden, ordenService.lineasDe(id), configuracion.obligatoria()));
+
+        String nombre = "presupuesto-%s.pdf".formatted(orden.codigoVisible());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"%s\"".formatted(nombre))
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(new ByteArrayResource(pdf));
     }
 
     @GetMapping("/codigo/{codigo}")
@@ -135,6 +173,27 @@ public class OrdenTrabajoController {
         return detalle(ordenService.cambiarTarifaHora(id, peticion.tarifaHora()));
     }
 
+    /**
+     * Mismo descuento en todas las lineas.
+     *
+     * <p>Es el «Dto. General» del pie del presupuesto. Se escribe en cada linea en
+     * vez de guardarse aparte en la cabecera, de modo que la base imponible, el
+     * PDF y la factura siguen saliendo de una sola fuente.
+     */
+    @PutMapping("/{id}/descuento-general")
+    public OrdenTrabajoResponse aplicarDescuentoGeneral(@PathVariable Long id,
+                                                        @Valid @RequestBody DescuentoRequest peticion) {
+        return detalle(ordenService.aplicarDescuentoGeneral(id, peticion.descuentoPct()));
+    }
+
+    /** Fecha estimada de salida y notas internas. */
+    @PutMapping("/{id}/datos")
+    public OrdenTrabajoResponse actualizarDatos(@PathVariable Long id,
+                                                @RequestBody DatosOrdenRequest peticion) {
+        return detalle(ordenService.actualizarDatos(
+                id, peticion.fechaEstimadaSalida(), peticion.observaciones()));
+    }
+
     @PutMapping("/{id}/diagnostico")
     public OrdenTrabajoResponse registrarDiagnostico(@PathVariable Long id,
                                                      @Valid @RequestBody DiagnosticoRequest peticion) {
@@ -143,14 +202,14 @@ public class OrdenTrabajoController {
 
     @GetMapping("/{id}/lineas")
     public List<LineaOTResponse> lineas(@PathVariable Long id) {
-        return ordenService.lineasDe(id).stream().map(LineaOTResponse::de).toList();
+        return ordenService.lineasDe(id).stream().map(this::linea).toList();
     }
 
     @PostMapping("/{id}/lineas/mano-de-obra")
     @ResponseStatus(HttpStatus.CREATED)
     public LineaOTResponse anadirManoDeObra(@PathVariable Long id,
                                             @Valid @RequestBody ManoDeObraRequest peticion) {
-        return LineaOTResponse.de(ordenService.anadirManoDeObra(
+        return linea(ordenService.anadirManoDeObra(
                 id, peticion.descripcion(), peticion.horas(), peticion.descuentoPct(), peticion.tipoIva()));
     }
 
@@ -158,22 +217,44 @@ public class OrdenTrabajoController {
     @ResponseStatus(HttpStatus.CREATED)
     public LineaOTResponse anadirPieza(@PathVariable Long id,
                                        @Valid @RequestBody PiezaLineaRequest peticion) {
-        return LineaOTResponse.de(ordenService.anadirPieza(
+        return linea(ordenService.anadirPieza(
                 id, peticion.piezaId(), peticion.cantidad(), peticion.descuentoPct()));
+    }
+
+    /**
+     * Vuelca un servicio tipo entero: la revision de 10.000 km con sus horas y
+     * su kit de piezas, en una sola llamada en vez de siete.
+     *
+     * <p>Devuelve solo las lineas anadidas, no la orden entera: la pantalla las
+     * anade a la tabla que ya tiene pintada y de paso puede senalar cuales
+     * acaban de entrar.
+     */
+    @PostMapping("/{id}/servicios-tipo/{servicioTipoId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<LineaOTResponse> aplicarServicioTipo(@PathVariable Long id,
+                                                     @PathVariable Long servicioTipoId) {
+        return ordenService.aplicarServicioTipo(id, servicioTipoId).stream().map(this::linea).toList();
     }
 
     @PutMapping("/{id}/lineas/{lineaId}/cantidad")
     public LineaOTResponse cambiarCantidad(@PathVariable Long id, @PathVariable Long lineaId,
                                            @Valid @RequestBody CantidadRequest peticion) {
-        return LineaOTResponse.de(ordenService.cambiarCantidadDeLinea(id, lineaId, peticion.cantidad()));
+        return linea(ordenService.cambiarCantidadDeLinea(id, lineaId, peticion.cantidad()));
     }
 
     /** Precio cerrado para una linea de mano de obra, al margen de la tarifa/hora. */
     @PutMapping("/{id}/lineas/{lineaId}/precio")
     public LineaOTResponse cambiarPrecio(@PathVariable Long id, @PathVariable Long lineaId,
                                          @Valid @RequestBody PrecioLineaRequest peticion) {
-        return LineaOTResponse.de(ordenService.cambiarPrecioDeManoDeObra(
+        return linea(ordenService.cambiarPrecioDeManoDeObra(
                 id, lineaId, peticion.precioUnitario()));
+    }
+
+    /** Descuento de una linea suelta, para el regateo concepto a concepto. */
+    @PutMapping("/{id}/lineas/{lineaId}/descuento")
+    public LineaOTResponse cambiarDescuento(@PathVariable Long id, @PathVariable Long lineaId,
+                                            @Valid @RequestBody DescuentoRequest peticion) {
+        return linea(ordenService.cambiarDescuentoDeLinea(id, lineaId, peticion.descuentoPct()));
     }
 
     @DeleteMapping("/{id}/lineas/{lineaId}")
@@ -190,7 +271,7 @@ public class OrdenTrabajoController {
         return ordenService.lineasDe(id).stream()
                 .filter(l -> l.getId().equals(lineaId))
                 .findFirst()
-                .map(LineaOTResponse::de)
+                .map(this::linea)
                 .orElseThrow();
     }
 
@@ -202,6 +283,22 @@ public class OrdenTrabajoController {
     public OrdenTrabajoResponse iniciarDiagnostico(@PathVariable Long id,
                                                    @RequestParam(required = false) Long tecnicoId) {
         return detalle(ordenService.iniciarDiagnostico(id, tecnicoId, usuarioActual.id()));
+    }
+
+    /**
+     * Deja la orden preparada para el taller y, si se indica, se la asigna a un
+     * tecnico.
+     *
+     * <p>Es el atajo para el trabajo ya cerrado con el cliente: se salta el
+     * diagnostico y la aprobacion del presupuesto porque el precio ya se pacto
+     * fuera. A partir de aqui direccion compone las lineas y el tecnico solo
+     * tiene que empezar.
+     */
+    @PostMapping("/{id}/preparacion")
+    public OrdenTrabajoResponse preparar(@PathVariable Long id,
+                                         @RequestBody(required = false) AsignarTecnicoRequest peticion) {
+        Long tecnicoId = peticion == null ? null : peticion.tecnicoId();
+        return detalle(ordenService.preparar(id, tecnicoId, usuarioActual.id()));
     }
 
     @PostMapping("/{id}/presupuesto")
@@ -265,10 +362,23 @@ public class OrdenTrabajoController {
      *
      * <p>Lineas e historial se piden aparte en vez de traerse con la cabecera:
      * cargar dos colecciones en la misma consulta multiplicaria las filas.
+     *
+     * <p>A un tecnico se le sirve sin importes. Eso se decide aqui y no en la
+     * pantalla: la pantalla puede no pintar una columna, pero el JSON sigue
+     * llevando el dato y basta con abrir las herramientas del navegador para
+     * verlo. Si el taller decide que el taller no ve precios, los precios no
+     * salen del servidor.
      */
     private OrdenTrabajoResponse detalle(OrdenTrabajo orden) {
-        return OrdenTrabajoResponse.de(orden,
+        OrdenTrabajoResponse ficha = OrdenTrabajoResponse.de(orden,
                 ordenService.lineasDe(orden.getId()),
                 ordenService.historialDe(orden.getId()));
+        return usuarioActual.esTecnico() ? ficha.sinImportes() : ficha;
+    }
+
+    /** Una linea suelta, con el mismo criterio de importes que {@link #detalle}. */
+    private LineaOTResponse linea(com.motorsport19.taller.orden.domain.LineaOT linea) {
+        LineaOTResponse respuesta = LineaOTResponse.de(linea);
+        return usuarioActual.esTecnico() ? respuesta.sinImportes() : respuesta;
     }
 }

@@ -1,44 +1,61 @@
 <div class="entrada">
-  <form class="entrada__caja" (ngSubmit)="entrar()">
-    <div class="entrada__marca" style="display: flex; justify-content: center; margin-bottom: 24px;">
-      <img src="/assets/logo-derecha.png" alt="19 Racing Motorsport" style="height: 60px; width: auto; object-fit: contain;" />
+  <!--
+    Panel de marca a la izquierda, formulario a la derecha. En móvil el panel
+    lateral no cabe, pero su fondo negro pasa a ser el fondo de toda la
+    pantalla y el logotipo se coloca encima del formulario: la marca se ve
+    igual, solo que apilada en vez de al lado.
+  -->
+  <aside class="entrada__panel" aria-hidden="true">
+    <img src="assets/logo-horizontal-claro.png" alt="" class="entrada__panel-logo" />
+    <p class="entrada__panel-texto">Gestión del taller</p>
+    <p class="entrada__panel-pie">Órdenes de trabajo, agenda, inventario y facturación.</p>
+  </aside>
+
+  <div class="entrada__columna">
+    <div class="entrada__marca">
+      <img src="assets/logo-horizontal-claro.png" alt="19 Racing Motorsport" class="entrada__logo-img" />
     </div>
 
-    @if (error(); as mensaje) {
-      <p class="entrada__error" role="alert">{{ mensaje }}</p>
-    }
+    <form class="entrada__caja" (ngSubmit)="entrar()">
+      <h1 class="entrada__titulo">Entrar</h1>
+      <p class="entrada__ayuda">Identifícate para acceder al taller.</p>
 
-    <div class="campo">
-      <label for="username">Usuario</label>
-      <input
-        id="username"
-        name="username"
-        type="text"
-        autocomplete="username"
-        autocapitalize="none"
-        spellcheck="false"
-        [ngModel]="username()"
-        (ngModelChange)="username.set($event)"
-        [disabled]="enviando()"
-        autofocus
-      />
-    </div>
+      @if (error(); as mensaje) {
+        <p class="entrada__error" role="alert">{{ mensaje }}</p>
+      }
 
-    <div class="campo">
-      <label for="password">Contraseña</label>
-      <input
-        id="password"
-        name="password"
-        type="password"
-        autocomplete="current-password"
-        [ngModel]="password()"
-        (ngModelChange)="password.set($event)"
-        [disabled]="enviando()"
-      />
-    </div>
+      <div class="campo">
+        <label for="username">Usuario</label>
+        <input
+          id="username"
+          name="username"
+          type="text"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          [ngModel]="username()"
+          (ngModelChange)="username.set($event)"
+          [disabled]="enviando()"
+          autofocus
+        />
+      </div>
 
-    <button type="submit" class="boton boton--principal entrada__enviar" [disabled]="enviando()">
-      {{ enviando() ? 'Entrando…' : 'Entrar' }}
-    </button>
-  </form>
+      <div class="campo">
+        <label for="password">Contraseña</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          [disabled]="enviando()"
+        />
+      </div>
+
+      <button type="submit" class="boton boton--principal entrada__enviar" [disabled]="enviando()">
+        {{ enviando() ? 'Entrando…' : 'Entrar' }}
+      </button>
+    </form>
+  </div>
 </div>

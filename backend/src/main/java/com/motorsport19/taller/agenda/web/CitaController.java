@@ -1,7 +1,10 @@
 package com.motorsport19.taller.agenda.web;
 
+import com.motorsport19.taller.agenda.service.AgendaSemanal;
 import com.motorsport19.taller.agenda.service.CargaDiaria;
 import com.motorsport19.taller.agenda.service.CitaService;
+import com.motorsport19.taller.agenda.service.SeguimientoAusencias;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.agenda.web.dto.AtenderCitaRequest;
 import com.motorsport19.taller.agenda.web.dto.CitaResponse;
 import com.motorsport19.taller.agenda.web.dto.GuardarCitaRequest;
@@ -23,6 +26,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -35,6 +39,9 @@ import java.util.List;
 @RestController
 @RequestMapping("/citas")
 public class CitaController {
+
+    /** Tope del rango de las consultas que agrupan en memoria. */
+    private static final int MAXIMO_DIAS = 366;
 
     private final CitaService citaService;
     private final UsuarioActual usuarioActual;
@@ -69,6 +76,47 @@ public class CitaController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
 
         return citaService.carga(desde, hasta).stream().map(CargaDiariaResponse::de).toList();
+    }
+
+    /**
+     * La semana repartida por tecnico, con el hueco que le queda a cada uno.
+     *
+     * <p>Es la vista con la que se coge el telefono: dice a la vez cuando cabe
+     * la moto y quien la puede coger.
+     */
+    @GetMapping("/semana")
+    public AgendaSemanal semana(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        exigirRango(desde, hasta);
+        return citaService.semana(desde, hasta);
+    }
+
+    /** Plantones del periodo: cuantos, cuantas horas se perdieron y quien repite. */
+    @GetMapping("/ausencias")
+    public SeguimientoAusencias ausencias(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        exigirRango(desde, hasta);
+        return citaService.ausencias(desde, hasta);
+    }
+
+    /**
+     * Corta los rangos absurdos o gigantescos.
+     *
+     * <p>Estas dos consultas se traen las citas del periodo a memoria para
+     * agruparlas; un rango de diez años las traeria todas.
+     */
+    private void exigirRango(LocalDate desde, LocalDate hasta) {
+        if (hasta.isBefore(desde)) {
+            throw new ReglaNegocioException("La fecha final del periodo es anterior a la inicial.");
+        }
+        if (ChronoUnit.DAYS.between(desde, hasta) > MAXIMO_DIAS) {
+            throw new ReglaNegocioException(
+                    "El periodo no puede pasar de %d dias.".formatted(MAXIMO_DIAS));
+        }
     }
 
     @GetMapping("/{id}")

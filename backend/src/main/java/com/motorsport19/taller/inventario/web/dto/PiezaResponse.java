@@ -49,4 +49,18 @@ public record PiezaResponse(
                 pieza.isActivo(),
                 pieza.getFechaBaja());
     }
+
+    /**
+     * La misma pieza sin lo que cuesta ni lo que se cobra.
+     *
+     * <p>De poco serviria tapar los precios en la orden de trabajo si el tecnico
+     * los tiene a un clic en el catalogo del almacen.
+     */
+    public PiezaResponse sinPrecios() {
+        return new PiezaResponse(
+                id, sku, descripcion, marca, ubicacion, familia,
+                stockActual, stockMinimo, bajoMinimo, sinExistencias,
+                null, null, tipoIva,
+                proveedorId, proveedorNombre, unidadMedida, observaciones, activo, fechaBaja);
+    }
 }

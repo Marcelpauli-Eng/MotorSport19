@@ -13,6 +13,8 @@ export interface TipoIva {
  * copia de cómo estaba el taller el día que se emitió.
  */
 export interface ConfiguracionTaller {
+  /** false en un taller recién instalado, hasta que se guardan los datos una vez. */
+  configurado: boolean;
   razonSocial: string;
   nif: string;
   direccion: string;

@@ -66,6 +66,66 @@ class OrdenTrabajoTest {
     }
 
     @Nested
+    @DisplayName("Orden preparada por direccion")
+    class Preparada {
+
+        @Test
+        @DisplayName("pasa de recibida a preparada y lo deja en el historial")
+        void preparar() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+
+            orden.preparar(null, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.PREPARADA);
+            assertThat(orden.getHistorialEstados()).hasSize(2);
+            assertThat(orden.getHistorialEstados().get(1).getEstadoNuevo()).isEqualTo(EstadoOT.PREPARADA);
+        }
+
+        @Test
+        @DisplayName("se compone entera antes de que el tecnico la toque")
+        void admiteLineasEstandoPreparada() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.preparar(null, null);
+
+            orden.anadirManoDeObra("Revision de los 10.000", new BigDecimal("1.500"),
+                    BigDecimal.ZERO, "GENERAL", OrdenesDePrueba.IVA_GENERAL);
+
+            // Se compone con precios porque el trabajo ya se cerro con el
+            // cliente: lo que falta es hacerlo, no cuanto cuesta. Se mira el
+            // bruto y no el total porque la base y el IVA los calcula la base de
+            // datos, y aqui no hay ninguna.
+            assertThat(orden.getLineas()).hasSize(1);
+            assertThat(orden.importeBruto()).isGreaterThan(BigDecimal.ZERO);
+        }
+
+        @Test
+        @DisplayName("entra en reparacion sin pasar por presupuesto ni aprobacion")
+        void entraDirectaEnReparacion() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.preparar(null, null);
+
+            orden.entrarEnReparacion(null, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.EN_REPARACION);
+            assertThat(orden.getFechaPresupuesto()).isNull();
+            assertThat(orden.getFechaAprobacion()).isNull();
+        }
+
+        @Test
+        @DisplayName("no se puede presupuestar una orden que ya iba preparada")
+        void noSePresupuesta() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.preparar(null, null);
+            orden.registrarDiagnostico("Mantenimiento programado");
+            orden.anadirManoDeObra("Revision", BigDecimal.ONE, BigDecimal.ZERO, "GENERAL",
+                    OrdenesDePrueba.IVA_GENERAL);
+
+            assertThatThrownBy(() -> orden.presupuestar(null))
+                    .isInstanceOf(TransicionInvalidaException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("Presupuesto")
     class Presupuesto {
 

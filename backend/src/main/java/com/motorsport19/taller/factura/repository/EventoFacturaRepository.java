@@ -25,20 +25,27 @@ public interface EventoFacturaRepository extends JpaRepository<EventoFactura, Lo
             """)
     List<EventoFactura> buscarPorFactura(@Param("facturaId") Long facturaId);
 
+    /**
+     * Registro de eventos, filtrable por tipo y por fechas.
+     *
+     * <p>Las fechas van con {@code COALESCE} contra la propia columna —que es
+     * NOT NULL— porque PostgreSQL no deduce el tipo de un parametro temporal que
+     * solo aparece dentro de un {@code IS NULL} y tumba la consulta entera.
+     */
     @Query(value = """
             SELECT e FROM EventoFactura e
               LEFT JOIN FETCH e.usuario
               LEFT JOIN FETCH e.factura
              WHERE (:tipo  IS NULL OR e.tipoEvento = :tipo)
-               AND (:desde IS NULL OR e.fecha >= :desde)
-               AND (:hasta IS NULL OR e.fecha <= :hasta)
+               AND e.fecha >= COALESCE(:desde, e.fecha)
+               AND e.fecha <= COALESCE(:hasta, e.fecha)
              ORDER BY e.fecha DESC, e.id DESC
             """,
             countQuery = """
             SELECT COUNT(e) FROM EventoFactura e
              WHERE (:tipo  IS NULL OR e.tipoEvento = :tipo)
-               AND (:desde IS NULL OR e.fecha >= :desde)
-               AND (:hasta IS NULL OR e.fecha <= :hasta)
+               AND e.fecha >= COALESCE(:desde, e.fecha)
+               AND e.fecha <= COALESCE(:hasta, e.fecha)
             """)
     Page<EventoFactura> buscar(@Param("tipo") TipoEventoFactura tipo,
                                @Param("desde") Instant desde,

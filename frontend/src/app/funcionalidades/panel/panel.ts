@@ -80,6 +80,14 @@ export class Panel {
       atencion: false,
     },
     {
+      // Trabajo ya compuesto por dirección esperando a que alguien lo coja. Un
+      // técnico ve aquí solo el suyo: el backend le filtra el tablero.
+      valor: this.porEstado('PREPARADA').length,
+      texto: 'trabajos por empezar',
+      ruta: '/ordenes',
+      atencion: false,
+    },
+    {
       valor: this.porEstado('LISTA').length,
       texto: 'listas para entregar',
       ruta: '/ordenes',
@@ -136,6 +144,7 @@ export class Panel {
 
   protected readonly columnas: { estado: EstadoOT; titulo: string }[] = [
     { estado: 'RECIBIDA', titulo: 'Recibidas' },
+    { estado: 'PREPARADA', titulo: 'Por empezar' },
     { estado: 'EN_DIAGNOSTICO', titulo: 'En diagnóstico' },
     { estado: 'PRESUPUESTADA', titulo: 'Esperando respuesta' },
     { estado: 'APROBADA', titulo: 'Aprobadas' },

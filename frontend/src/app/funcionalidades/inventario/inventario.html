@@ -90,7 +90,7 @@
                 <th class="num">Stock</th>
                 <th class="num">Mínimo</th>
                 @if (gestionaAlmacen) { <th class="num">Coste</th> }
-                <th class="num">Venta</th>
+                @if (vePrecios) { <th class="num">Venta</th> }
                 <th></th>
               </tr>
             </thead>
@@ -129,9 +129,11 @@
                   @if (gestionaAlmacen) {
                     <td class="num importe silenciado">{{ p.precioCoste | number: '1.2-2' : 'es' }} €</td>
                   }
-                  <td class="num importe importe--fuerte">
-                    {{ p.precioVenta | number: '1.2-2' : 'es' }} €
-                  </td>
+                  @if (vePrecios) {
+                    <td class="num importe importe--fuerte">
+                      {{ p.precioVenta | number: '1.2-2' : 'es' }} €
+                    </td>
+                  }
                   <td>
                     <!-- Mover el almacen es cosa de direccion: al resto no se le
                          ensena un boton que la API va a rechazar. -->
@@ -186,7 +188,7 @@
                 <th class="num">Mínimo</th>
                 <th class="num">Pedir</th>
                 <th>Proveedor</th>
-                <th class="num">Coste</th>
+                @if (vePrecios) { <th class="num">Coste</th> }
               </tr>
             </thead>
             <tbody>
@@ -206,7 +208,9 @@
                   <td class="silenciado">
                     <span class="truncado" style="max-width: 200px">{{ a.proveedorNombre || '—' }}</span>
                   </td>
-                  <td class="num importe silenciado">{{ a.precioCoste | number: '1.2-2' : 'es' }} €</td>
+                  @if (vePrecios) {
+                    <td class="num importe silenciado">{{ a.precioCoste | number: '1.2-2' : 'es' }} €</td>
+                  }
                 </tr>
               }
             </tbody>

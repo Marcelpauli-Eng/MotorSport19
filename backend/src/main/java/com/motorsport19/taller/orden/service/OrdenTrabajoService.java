@@ -24,6 +24,9 @@ import com.motorsport19.taller.orden.repository.ContadorOtRepository;
 import com.motorsport19.taller.orden.repository.LineaOTRepository;
 import com.motorsport19.taller.orden.repository.OrdenTrabajoRepository;
 import com.motorsport19.taller.seguridad.UsuarioActual;
+import com.motorsport19.taller.servicio.domain.LineaServicioTipo;
+import com.motorsport19.taller.servicio.domain.ServicioTipo;
+import com.motorsport19.taller.servicio.service.ServicioTipoService;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -64,6 +67,7 @@ public class OrdenTrabajoService {
     private final TipoIvaRepository tipoIvaRepository;
     private final ConfiguracionTallerRepository configuracionRepository;
     private final UsuarioActual usuarioActual;
+    private final ServicioTipoService servicioTipoService;
 
     public OrdenTrabajoService(OrdenTrabajoRepository ordenRepository,
                                LineaOTRepository lineaRepository,
@@ -76,7 +80,8 @@ public class OrdenTrabajoService {
                                UsuarioRepository usuarioRepository,
                                TipoIvaRepository tipoIvaRepository,
                                ConfiguracionTallerRepository configuracionRepository,
-                               UsuarioActual usuarioActual) {
+                               UsuarioActual usuarioActual,
+                               ServicioTipoService servicioTipoService) {
         this.ordenRepository = ordenRepository;
         this.lineaRepository = lineaRepository;
         this.contadorRepository = contadorRepository;
@@ -89,6 +94,7 @@ public class OrdenTrabajoService {
         this.tipoIvaRepository = tipoIvaRepository;
         this.configuracionRepository = configuracionRepository;
         this.usuarioActual = usuarioActual;
+        this.servicioTipoService = servicioTipoService;
     }
 
     // ==================================================================
@@ -138,8 +144,11 @@ public class OrdenTrabajoService {
         }
         Long tecnicoAsignado = idDelTecnico(orden);
         if (tecnicoAsignado == null) {
+            // Antes decia «pasala a diagnostico», que dejo de ser cierto en
+            // cuanto una orden puede llegar preparada desde direccion: ahi el
+            // diagnostico no pinta nada y el tecnico solo tiene que cogerla.
             throw new org.springframework.security.access.AccessDeniedException(
-                    "La orden %s no tiene tecnico asignado. Pasala a diagnostico para hacerte cargo."
+                    "La orden %s no tiene tecnico asignado. Hazte cargo de ella para poder trabajarla."
                             .formatted(orden.codigoVisible()));
         }
         if (!tecnicoAsignado.equals(usuarioActual.id())) {
@@ -249,6 +258,22 @@ public class OrdenTrabajoService {
     }
 
     /**
+     * Deja la orden preparada y, si se indica, se la asigna a un tecnico.
+     *
+     * <p>Es la via del trabajo ya cerrado con el cliente: direccion compone la
+     * orden entera y el taller solo la ejecuta. Quien puede hacerlo se decide en
+     * las rutas ({@code ADMIN} y {@code MOSTRADOR}): un tecnico no se autoasigna
+     * trabajo por aqui, se lo dan.
+     */
+    @Transactional
+    public OrdenTrabajo preparar(Long id, Long tecnicoId, Long usuarioId) {
+        OrdenTrabajo orden = obtener(id);
+        orden.preparar(cargarUsuario(tecnicoId), cargarUsuario(usuarioId));
+        log.info("Orden {} preparada para el taller", orden.codigoVisible());
+        return orden;
+    }
+
+    /**
      * Pone (o quita) el tecnico que lleva la orden.
      *
      * <p>Se admite en cualquier momento mientras la orden siga viva, y no solo al
@@ -327,7 +352,7 @@ public class OrdenTrabajoService {
     public ResultadoConsumo iniciarReparacion(Long id, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
         exigirPermisoDeTrabajo(orden);
-        exigirEstado(orden, EstadoOT.APROBADA, EstadoOT.ESPERANDO_PIEZAS);
+        exigirEstado(orden, EstadoOT.APROBADA, EstadoOT.PREPARADA, EstadoOT.ESPERANDO_PIEZAS);
         return consumirMaterialYResolverEstado(orden, usuarioId);
     }
 
@@ -407,6 +432,54 @@ public class OrdenTrabajoService {
         return orden.anadirPieza(pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
     }
 
+    /**
+     * Vuelca un servicio tipo entero en la orden.
+     *
+     * <p>Es el atajo que evita teclear una revision linea a linea. Lo que anade
+     * son lineas normales y corrientes: se editan, se borran y se cambian de
+     * cantidad como cualquier otra, y la plantilla no queda enganchada de
+     * ninguna forma. Si manana se retoca la plantilla, esta orden no se entera,
+     * que es justo lo que hace falta cuando lo que se facturo ya se facturo.
+     *
+     * <p><b>Todo o nada.</b> Va en una sola transaccion: si la cuarta linea
+     * falla —una pieza dada de baja entre medias, por ejemplo— no se queda
+     * media revision metida que alguien tenga que limpiar a mano.
+     *
+     * <p>Los precios NO salen de la plantilla, que no guarda ninguno: la mano
+     * de obra se valora a la tarifa congelada de esta OT y las piezas al precio
+     * de catalogo del momento, exactamente igual que si se hubieran tecleado.
+     */
+    @Transactional
+    public List<LineaOT> aplicarServicioTipo(Long ordenId, Long servicioTipoId) {
+        OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
+
+        ServicioTipo servicio = servicioTipoService.obtener(servicioTipoId);
+        if (!servicio.isActivo()) {
+            throw new ReglaNegocioException(
+                    ("El servicio «%s» esta retirado. Vuelve a activarlo en Servicios si todavia "
+                     + "se ofrece.").formatted(servicio.getNombre()));
+        }
+
+        List<LineaOT> anadidas = new ArrayList<>();
+        for (LineaServicioTipo plantilla : servicio.getLineas()) {
+            if (plantilla.esManoDeObra()) {
+                TipoIva tipoIva = cargarTipoIva(null);
+                anadidas.add(orden.anadirManoDeObra(plantilla.getDescripcion(),
+                        plantilla.getCantidad(), null, tipoIva.getCodigo(), tipoIva.getPorcentaje()));
+            } else {
+                Pieza pieza = plantilla.getPieza();
+                TipoIva tipoIva = cargarTipoIva(pieza.getTipoIva());
+                anadidas.add(orden.anadirPieza(pieza, plantilla.getCantidad(), null,
+                        tipoIva.getPorcentaje()));
+            }
+        }
+
+        log.info("Volcado el servicio tipo {} ({} lineas) en la orden {}",
+                servicio.getNombre(), anadidas.size(), orden.getCodigo());
+        return anadidas;
+    }
+
     @Transactional
     public LineaOT cambiarCantidadDeLinea(Long ordenId, Long lineaId, BigDecimal cantidad) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
@@ -414,6 +487,35 @@ public class OrdenTrabajoService {
         LineaOT linea = buscarLinea(orden, lineaId);
         linea.cambiarCantidad(cantidad, consumoDe(linea));
         return linea;
+    }
+
+    /** Mismo descuento en todas las lineas: el «hazme un 10 % en todo». */
+    @Transactional
+    public OrdenTrabajo aplicarDescuentoGeneral(Long ordenId, BigDecimal descuentoPct) {
+        OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
+        orden.aplicarDescuentoGeneral(descuentoPct);
+        log.info("Descuento general del {} % aplicado a la orden {}", descuentoPct,
+                orden.codigoVisible());
+        return orden;
+    }
+
+    @Transactional
+    public LineaOT cambiarDescuentoDeLinea(Long ordenId, Long lineaId, BigDecimal descuentoPct) {
+        OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
+        LineaOT linea = buscarLinea(orden, lineaId);
+        orden.cambiarDescuentoDeLinea(linea, descuentoPct);
+        return linea;
+    }
+
+    /** Fecha estimada de salida y notas internas de la orden. */
+    @Transactional
+    public OrdenTrabajo actualizarDatos(Long id, LocalDate fechaEstimadaSalida, String observaciones) {
+        OrdenTrabajo orden = obtener(id);
+        exigirPermisoDeTrabajo(orden);
+        orden.actualizarDatos(fechaEstimadaSalida, observaciones);
+        return orden;
     }
 
     /** Pone un precio cerrado a una linea de mano de obra de esta orden. */
@@ -485,7 +587,7 @@ public class OrdenTrabajoService {
         // con razon. Lo que ocurre de verdad es que el trabajo empieza y, si falta
         // material, se bloquea; el historial refleja las dos cosas por separado en
         // vez de fingir que nunca se intento.
-        if (orden.getEstado() == EstadoOT.APROBADA) {
+        if (orden.getEstado() == EstadoOT.APROBADA || orden.getEstado() == EstadoOT.PREPARADA) {
             orden.entrarEnReparacion(usuario, null);
         }
 
@@ -552,7 +654,8 @@ public class OrdenTrabajoService {
         return configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)
                 .map(ConfiguracionTaller::getTarifaHoraDefecto)
                 .orElseThrow(() -> new ConflictoException(
-                        "No hay configuracion del taller: defina la tarifa por hora antes de abrir ordenes."));
+                        "Faltan los datos del taller: defina la tarifa por hora en Ajustes > "
+                        + "Empresa y facturacion antes de abrir ordenes."));
     }
 
     /** Unidades que la linea tiene ahora mismo sacadas del almacen. */

@@ -33,4 +33,12 @@ public interface SerieFacturaRepository extends JpaRepository<SerieFactura, Long
                                      @Param("tipo") TipoFactura tipo);
 
     List<SerieFactura> findByActivaTrueOrderByEjercicioDescCodigoAsc();
+
+    /** Todas, incluidas las cerradas: es lo que se mantiene desde Ajustes. */
+    List<SerieFactura> findAllByOrderByEjercicioDescCodigoAsc();
+
+    /** Para avisar de un duplicado antes de que lo haga el UNIQUE de la tabla. */
+    @Query("SELECT s FROM SerieFactura s WHERE s.codigo = :codigo AND s.ejercicio = :ejercicio")
+    Optional<SerieFactura> buscarPorCodigoYEjercicio(@Param("codigo") String codigo,
+                                                     @Param("ejercicio") Integer ejercicio);
 }

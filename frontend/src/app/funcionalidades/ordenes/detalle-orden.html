@@ -6,58 +6,136 @@
     Órdenes de trabajo
   </a>
 
-  <div class="pagina-cabecera">
-    <div class="pagina-cabecera__texto">
-      <h1 class="titulo-orden">
-        <span class="codigo">{{ o.codigo }}</span>
-        <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
-      </h1>
-      <p class="pagina-cabecera__sub">
-        {{ o.descripcionMoto }}<span class="punto"></span>{{ o.matricula }}<span class="punto"></span>{{ o.clienteNombre }}
-      </p>
+  <!-- ============ Cabecera del documento ============ -->
+  <section class="doc-cabecera">
+    <div class="doc-campo">
+      <label>Nº Orden</label>
+      <span class="doc-valor codigo">{{ o.codigo }}</span>
     </div>
-  </div>
 
-  <div class="apilado">
+    <div class="doc-campo">
+      <label>Fecha de entrada</label>
+      <span class="doc-valor">{{ o.fechaEntrada | date: 'dd/MM/yyyy HH:mm' }}</span>
+    </div>
 
-    <!-- Acciones disponibles segun la maquina de estados -->
-    <section class="tarjeta acciones">
-      <div class="tarjeta__titulo">
-        <h2>¿Qué hacemos con esta orden?</h2>
+    <div class="doc-campo">
+      <label>Kilometraje</label>
+      <span class="doc-valor">{{ o.kmEntrada | number: '1.0-0' : 'es' }} km</span>
+    </div>
+
+    <div class="doc-campo doc-campo--ancho">
+      <label>Propietario</label>
+      <span class="doc-valor">
+        <a [routerLink]="['/clientes', o.clienteId]">{{ o.clienteNombre }}</a>
+        @if (o.clienteTelefono) {
+          <span class="doc-secundario">{{ o.clienteTelefono }}</span>
+        }
+      </span>
+    </div>
+
+    <div class="doc-campo doc-campo--ancho">
+      <label>Vehículo</label>
+      <span class="doc-valor">
+        <a [routerLink]="['/motos', o.motoId]" class="codigo">{{ o.matricula }}</a>
+        <span class="doc-secundario">{{ o.descripcionMoto }}</span>
+      </span>
+    </div>
+
+    <div class="doc-campo">
+      <label>Técnico</label>
+      <span class="doc-valor">
+        @if (puedeReasignar) {
+          <select
+            class="doc-select"
+            [ngModel]="o.tecnicoId"
+            (ngModelChange)="asignarTecnico($event)"
+            [disabled]="trabajando()"
+            aria-label="Técnico que lleva la orden"
+          >
+            <option [ngValue]="null">Sin asignar</option>
+            @for (t of tecnicos(); track t.id) {
+              <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
+            }
+          </select>
+        } @else if (puedeCogerLaOrden()) {
+          <button
+            type="button"
+            class="boton boton--pequeno boton--principal"
+            [disabled]="trabajando()"
+            (click)="cogerLaOrden()"
+          >
+            Hacerme cargo
+          </button>
+        } @else {
+          <span [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</span>
+        }
+      </span>
+    </div>
+  </section>
+
+  <!-- ============ Por dónde va ============
+       Es lo que se viene a mirar a esta pantalla: en qué punto está la moto y
+       qué toca hacer ahora. Por eso va lo primero y ocupa sitio. -->
+  <section class="tarjeta pasos-tarjeta">
+    <div class="tarjeta__titulo">
+      <h2>Por dónde va</h2>
+      <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
+    </div>
+
+    <ol class="pasos">
+      @for (p of pasos(); track p.titulo; let i = $index; let ultimo = $last) {
+        <li class="paso" [class.paso--hecho]="p.hecho" [class.paso--actual]="p.actual">
+          <span class="paso__marca">
+            @if (p.hecho) {
+              <app-icono nombre="correcto" [tamano]="14" />
+            } @else {
+              {{ i + 1 }}
+            }
+          </span>
+          <span class="paso__texto">
+            <span class="paso__titulo">{{ p.titulo }}</span>
+            <span class="paso__detalle">{{ p.detalle }}</span>
+          </span>
+          @if (!ultimo) { <span class="paso__linea"></span> }
+        </li>
+      }
+    </ol>
+
+    <!-- Qué toca hacer ahora -->
+    <div class="siguiente">
+      <div class="siguiente__texto">
+        @if (!puedeTrabajarla()) {
+          <span class="pequeno silenciado">
+            Esta orden la lleva {{ o.tecnicoNombre }}. Puedes consultarla, pero no trabajarla.
+          </span>
+        } @else if (esperaAMostrador()) {
+          <span class="pequeno silenciado">
+            Está {{ o.estadoDescripcion | lowercase }}. El siguiente paso lo da el mostrador.
+          </span>
+        } @else if (!acciones().length && !o.facturable) {
+          <span class="pequeno silenciado">
+            Está {{ o.estadoDescripcion | lowercase }} y ya no admite más cambios.
+          </span>
+        } @else {
+          <span class="pequeno silenciado">Siguiente paso</span>
+        }
       </div>
 
-      @if (!puedeTrabajarla()) {
-        <p class="pequeno silenciado">
-          Esta orden la lleva {{ o.tecnicoNombre }}. Puede consultarla, pero no trabajarla.
-        </p>
-      } @else if (esperaAMostrador()) {
-        <p class="pequeno silenciado">
-          Esta orden está {{ o.estadoDescripcion | lowercase }}. El siguiente paso lo da el
-          mostrador.
-        </p>
-      } @else if (!acciones().length) {
-        <p class="pequeno silenciado">
-          Esta orden está {{ o.estadoDescripcion | lowercase }} y ya no admite más cambios de estado.
-        </p>
-      } @else {
-        <div class="fila">
-          @for (a of acciones(); track a.destino) {
-            <button
-              type="button"
-              class="boton"
-              [class.boton--principal]="a.principal"
-              [class.boton--peligro]="a.destino === 'RECHAZADA'"
-              [disabled]="trabajando()"
-              (click)="ejecutar(a.destino)"
-            >
-              {{ a.texto }}
-            </button>
-          }
-        </div>
-      }
+      <div class="siguiente__botones">
+        @for (a of acciones(); track a.destino) {
+          <button
+            type="button"
+            class="boton"
+            [class.boton--principal]="a.principal"
+            [class.boton--peligro]="a.destino === 'RECHAZADA'"
+            [disabled]="trabajando()"
+            (click)="ejecutar(a.destino)"
+          >
+            {{ a.texto }}
+          </button>
+        }
 
-      @if (o.facturable && puedeFacturar) {
-        <div class="fila facturar">
+        @if (o.facturable && puedeFacturar) {
           <button
             type="button"
             class="boton boton--principal"
@@ -65,457 +143,222 @@
             (click)="facturar()"
           >
             <app-icono nombre="facturas" [tamano]="16" />
-          Emitir factura
+            Emitir factura
           </button>
-          <span class="pequeno silenciado">
-            Total a facturar: <strong>{{ o.total | number: '1.2-2' : 'es' }} €</strong>
-          </span>
-        </div>
-      }
-
-      @if (resultadoConsumo(); as r) {
-        @if (!r.completo) {
-          <div class="faltantes">
-            <p class="negrita">{{ r.mensaje }}</p>
-            <table>
-              <thead>
-                <tr>
-                  <th>Pieza</th>
-                  <th class="num">Necesarias</th>
-                  <th class="num">Hay</th>
-                  <th class="num">Faltan</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (p of r.faltantes; track p.piezaId) {
-                  <tr>
-                    <td><span class="mono">{{ p.sku }}</span> — {{ p.descripcion }}</td>
-                    <td class="num">{{ p.necesarias | number: '1.0-3' : 'es' }}</td>
-                    <td class="num">{{ p.disponibles | number: '1.0-3' : 'es' }}</td>
-                    <td class="num negrita">{{ p.faltan | number: '1.0-3' : 'es' }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-            <p class="pequeno">
-              El material que sí había ya se ha apartado para esta moto. Cuando llegue el pedido,
-              vuelva a pulsar «Entrar en reparación» y solo se servirá lo que falta.
-            </p>
-          </div>
         }
-      }
-    </section>
-
-    <div class="rejilla rejilla--dos">
-      <section class="tarjeta">
-        <div class="tarjeta__titulo"><h2>Entrada</h2></div>
-        <dl class="datos">
-          <dt>Fecha de entrada</dt>
-          <dd>{{ o.fechaEntrada | date: "d 'de' MMMM, HH:mm" : undefined : 'es' }}</dd>
-          <dt>Kilometraje</dt>
-          <dd>{{ o.kmEntrada | number: '1.0-0' : 'es' }} km</dd>
-          <dt>Salida estimada</dt>
-          <dd>{{ o.fechaEstimadaSalida ? (o.fechaEstimadaSalida | date: "d 'de' MMMM" : undefined : 'es') : '—' }}</dd>
-          <dt>Técnico</dt>
-          <dd>
-            @if (puedeReasignar) {
-              <select
-                class="selector-tecnico"
-                [ngModel]="o.tecnicoId"
-                (ngModelChange)="asignarTecnico($event)"
-                [disabled]="trabajando()"
-                aria-label="Técnico que lleva la orden"
-              >
-                <option [ngValue]="null">Sin asignar</option>
-                @for (t of tecnicos(); track t.id) {
-                  <option [ngValue]="t.id">{{ t.nombreCompleto }}</option>
-                }
-              </select>
-            } @else if (puedeCogerLaOrden()) {
-              <button
-                type="button"
-                class="boton boton--pequeno boton--principal"
-                [disabled]="trabajando()"
-                (click)="cogerLaOrden()"
-              >
-                Hacerme cargo
-              </button>
-            } @else {
-              <span [class.silenciado]="!o.tecnicoNombre">{{ o.tecnicoNombre || 'Sin asignar' }}</span>
-            }
-          </dd>
-          <dt>Precio de la hora</dt>
-          <dd>
-            @if (editandoTarifa()) {
-              <div class="fila" style="gap: 6px; flex-wrap: nowrap; align-items: center">
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  style="width: 100px"
-                  aria-label="Precio de la hora para esta orden"
-                  [ngModel]="borradorTarifa()"
-                  (ngModelChange)="borradorTarifa.set($event === '' || $event === null ? null : +$event)"
-                />
-                <button
-                  type="button"
-                  class="boton boton--pequeno boton--principal"
-                  [disabled]="trabajando() || !borradorTarifa()"
-                  (click)="guardarTarifa()"
-                >
-                  Guardar
-                </button>
-                <button
-                  type="button"
-                  class="boton boton--pequeno"
-                  (click)="editandoTarifa.set(false)"
-                >
-                  Cancelar
-                </button>
-              </div>
-              <span class="pequeno silenciado">
-                Solo para esta orden. Las horas ya apuntadas se recalculan.
-              </span>
-            } @else {
-              {{ o.tarifaHora | number: '1.2-2' : 'es' }} €
-              @if (puedeCambiarTarifa()) {
-                <button
-                  type="button"
-                  class="boton boton--pequeno boton--plano"
-                  (click)="empezarTarifa()"
-                  title="Cambiar el precio de la hora solo para esta orden"
-                >
-                  Cambiar
-                </button>
-              } @else {
-                <span class="pequeno silenciado">(congelada)</span>
-              }
-            }
-          </dd>
-        </dl>
-      </section>
-
-      <section class="tarjeta">
-        <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
-        <p class="etiqueta-campo">Lo que cuenta el cliente</p>
-        <p class="prosa">{{ o.problemaReportado }}</p>
-        <div class="fila prosa__titulo" style="justify-content: space-between">
-          <span class="etiqueta-campo">Diagnóstico del técnico</span>
-          @if (puedeTrabajarla() && !editandoDiagnostico()) {
-            <button type="button" class="boton boton--pequeno" (click)="empezarDiagnostico()">
-              {{ o.diagnostico ? 'Corregir' : 'Escribir diagnóstico' }}
-            </button>
-          }
-        </div>
-
-        @if (editandoDiagnostico()) {
-          <textarea
-            [ngModel]="borradorDiagnostico()"
-            (ngModelChange)="borradorDiagnostico.set($event)"
-            placeholder="Pastillas delanteras al límite y disco con alabeo leve."
-            autofocus
-          ></textarea>
-          <div class="fila fila--fin" style="margin-top: 8px">
-            <button type="button" class="boton boton--pequeno" (click)="editandoDiagnostico.set(false)">
-              Cancelar
-            </button>
-            <button
-              type="button"
-              class="boton boton--pequeno boton--principal"
-              [disabled]="trabajando() || !borradorDiagnostico().trim()"
-              (click)="guardarDiagnostico()"
-            >
-              Guardar
-            </button>
-          </div>
-        } @else {
-          <p class="prosa" [class.silenciado]="!o.diagnostico">
-            {{ o.diagnostico || 'Pendiente de diagnosticar.' }}
-          </p>
-        }
-        @if (o.motivoRechazo) {
-          <p class="etiqueta-campo prosa__titulo">Motivo del rechazo</p>
-          <p class="prosa">{{ o.motivoRechazo }}</p>
-        }
-      </section>
+      </div>
     </div>
 
-    <!-- Lineas -->
-    <section class="tarjeta">
-      <div class="tarjeta__titulo">
-        <h2>Presupuesto</h2>
-        <div class="fila">
-          @if (puedeFacturar && o.lineas.length) {
-            <button
-              type="button"
-              class="boton boton--pequeno"
-              (click)="enviarPorWhatsapp()"
-              title="Abrir WhatsApp con el presupuesto escrito"
-            >
-              <app-icono nombre="whatsapp" [tamano]="14" />
-              Enviar por WhatsApp
-            </button>
-          }
-          @if (puedeEditarLineas()) {
-            <button type="button" class="boton boton--pequeno" (click)="abrirAlta('mano-obra')">
-              <app-icono nombre="mas" [tamano]="14" />
-              Mano de obra
-            </button>
-            <button type="button" class="boton boton--pequeno" (click)="abrirAlta('pieza')">
-              <app-icono nombre="mas" [tamano]="14" />
-              Pieza
-            </button>
-          } @else if (!o.permiteEditarLineas) {
-            <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
-          }
-        </div>
-      </div>
-
-      @if (anadiendo() === 'mano-obra') {
-        <div class="alta-linea">
-          <div class="campo crece">
-            <label for="descTrabajo">Trabajo realizado</label>
-            <input
-              id="descTrabajo"
-              [ngModel]="descripcionTrabajo()"
-              (ngModelChange)="descripcionTrabajo.set($event)"
-              placeholder="Sustitución de pastillas y purga del circuito"
-            />
-          </div>
-          <div class="campo" style="width: 110px">
-            <label for="horas">Horas</label>
-            <input
-              id="horas"
-              type="number"
-              step="0.5"
-              min="0"
-              [ngModel]="horas()"
-              (ngModelChange)="horas.set($event === '' || $event === null ? null : +$event)"
-            />
-          </div>
-          <div class="campo" style="width: 110px">
-            <label for="dtoManoObra">Descuento %</label>
-            <input
-              id="dtoManoObra"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              [ngModel]="descuento()"
-              (ngModelChange)="descuento.set(+$event || 0)"
-            />
-          </div>
-          <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
-          <button
-            type="button"
-            class="boton boton--principal"
-            [disabled]="trabajando() || !horas() || !descripcionTrabajo().trim()"
-            (click)="anadirManoDeObra()"
-          >
-            Añadir
-          </button>
-        </div>
-        <p class="pequeno silenciado" style="margin: 4px 0 0">
-          Se cobra a {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h, el precio pactado para esta orden.
-          Se cambia arriba, en «Precio de la hora».
-        </p>
-      }
-
-      @if (anadiendo() === 'pieza') {
-        <div class="alta-linea">
-          <div class="campo" style="min-width: 180px">
-            <label for="familia">Grupo</label>
-            <select id="familia" [ngModel]="familia()" (ngModelChange)="elegirFamilia($event)">
-              <option value="">Todos los grupos</option>
-              @for (f of familias(); track f) {
-                <option [value]="f">{{ f }}</option>
-              }
-            </select>
-          </div>
-          <div class="campo crece">
-            <label for="pieza">Pieza</label>
-            <select id="pieza" [ngModel]="piezaId()" (ngModelChange)="piezaId.set($event ? +$event : null)">
-              <option [ngValue]="null">
-                {{ familia() ? 'Elige la pieza de ' + familia() + '…' : 'Elige del almacén…' }}
-              </option>
-              @for (p of piezas(); track p.id) {
-                <option [ngValue]="p.id">
-                  {{ p.sku }} · {{ p.descripcion }} — {{ p.precioVenta | number: '1.2-2' : 'es' }} €
-                  (quedan {{ p.stockActual | number: '1.0-2' : 'es' }})
-                </option>
-              }
-            </select>
-          </div>
-          <div class="campo" style="width: 110px">
-            <label for="cantidad">Cantidad</label>
-            <input
-              id="cantidad"
-              type="number"
-              step="1"
-              min="1"
-              [ngModel]="cantidad()"
-              (ngModelChange)="cantidad.set(+$event || 1)"
-            />
-          </div>
-          <div class="campo" style="width: 110px">
-            <label for="dtoPieza">Descuento %</label>
-            <input
-              id="dtoPieza"
-              type="number"
-              step="1"
-              min="0"
-              max="100"
-              [ngModel]="descuento()"
-              (ngModelChange)="descuento.set(+$event || 0)"
-            />
-          </div>
-          <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
-          <button
-            type="button"
-            class="boton boton--principal"
-            [disabled]="trabajando() || !piezaId()"
-            (click)="anadirPieza()"
-          >
-            Añadir
-          </button>
-        </div>
-        <p class="pequeno silenciado" style="margin: 4px 0 0">
-          Añadirla al presupuesto no la saca del almacén: eso ocurre al entrar en reparación.
-        </p>
-      }
-
-      @if (!o.lineas.length) {
-        <p class="vacio pequeno">Todavía no se ha añadido ningún concepto.</p>
-      } @else {
-        <div class="tabla-envoltorio">
+    <!-- Faltan piezas al entrar en reparación -->
+    @if (resultadoConsumo(); as r) {
+      @if (!r.completo) {
+        <div class="faltantes">
+          <p class="negrita">{{ r.mensaje }}</p>
           <table>
             <thead>
               <tr>
-                <th>#</th>
-                <th>Concepto</th>
-                <th>Ref.</th>
-                <th class="num">Cant.</th>
-                <th class="num">Precio</th>
-                <th class="num">Dto.</th>
-                <th class="num">IVA</th>
-                <th class="num">Importe</th>
-                @if (puedeEditarLineas()) { <th></th> }
+                <th>Pieza</th>
+                <th class="num">Necesarias</th>
+                <th class="num">Hay</th>
+                <th class="num">Faltan</th>
               </tr>
             </thead>
             <tbody>
-              @for (l of o.lineas; track l.id) {
+              @for (p of r.faltantes; track p.piezaId) {
                 <tr>
-                  <td>{{ l.numeroLinea }}</td>
-                  <td>
-                    {{ l.descripcion }}
-                    <span class="etiqueta etiqueta--gris pequeno">{{ l.tipoDescripcion }}</span>
-                  </td>
-                  <td class="mono pequeno">{{ l.piezaSku || '—' }}</td>
-                  <td class="num">{{ l.cantidad | number: '1.0-3' : 'es' }}</td>
-                  <td class="num">
-                    @if (lineaEnPrecio() === l.id) {
-                      <div class="fila" style="gap: 4px; flex-wrap: nowrap; justify-content: flex-end">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          style="width: 84px"
-                          aria-label="Precio de esta línea"
-                          [ngModel]="borradorPrecio()"
-                          (ngModelChange)="borradorPrecio.set($event === '' || $event === null ? null : +$event)"
-                          (keyup.enter)="guardarPrecio(l.id)"
-                        />
-                        <button
-                          type="button"
-                          class="boton boton--pequeno boton--principal"
-                          [disabled]="trabajando() || borradorPrecio() === null"
-                          (click)="guardarPrecio(l.id)"
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          class="boton boton--pequeno boton--plano"
-                          (click)="lineaEnPrecio.set(null)"
-                        >
-                          <app-icono nombre="cerrar" [tamano]="12" />
-                        </button>
-                      </div>
-                    } @else if (puedeEditarLineas() && puedeFacturar && l.tipo === 'MANO_DE_OBRA') {
-                      <button
-                        type="button"
-                        class="boton boton--pequeno boton--plano precio-editable"
-                        (click)="empezarPrecio(l)"
-                        title="Poner un precio cerrado para este trabajo"
-                      >
-                        {{ l.precioUnitario | number: '1.2-4' : 'es' }}
-                      </button>
-                    } @else {
-                      {{ l.precioUnitario | number: '1.2-4' : 'es' }}
-                    }
-                  </td>
-                  <td class="num" [class.silenciado]="!l.descuentoPct">
-                    {{ l.descuentoPct ? (l.descuentoPct | number: '1.0-2' : 'es') + '%' : '—' }}
-                  </td>
-                  <td class="num">{{ l.porcentajeIva | number: '1.0-2' : 'es' }}%</td>
-                  <td class="num importe importe--fuerte">
-                    {{ l.baseImponible | number: '1.2-2' : 'es' }}
-                  </td>
-                  @if (puedeEditarLineas()) {
-                    <td class="num">
-                      <button
-                        type="button"
-                        class="boton boton--pequeno boton--plano"
-                        [disabled]="trabajando()"
-                        (click)="quitarLinea(l.id)"
-                        title="Quitar del presupuesto"
-                      >
-                        <app-icono nombre="cerrar" [tamano]="14" />
-                      </button>
-                    </td>
-                  }
+                  <td><span class="mono">{{ p.sku }}</span> — {{ p.descripcion }}</td>
+                  <td class="num">{{ p.necesarias | number: '1.0-3' : 'es' }}</td>
+                  <td class="num">{{ p.disponibles | number: '1.0-3' : 'es' }}</td>
+                  <td class="num negrita">{{ p.faltan | number: '1.0-3' : 'es' }}</td>
                 </tr>
               }
             </tbody>
           </table>
+          <p class="pequeno">
+            El material que sí había ya se ha apartado para esta moto. Cuando llegue el pedido,
+            vuelva a pulsar «Entrar en reparación» y solo se servirá lo que falta.
+          </p>
+        </div>
+      }
+    }
+  </section>
+
+  <!-- ============ Presupuesto: solo el resumen ============
+       El detalle se compone en su propia pantalla. Aquí solo se dice si hay
+       algo y cuánto suma, que es lo que se consulta desde la ficha. -->
+  <section class="tarjeta resumen-presupuesto">
+    <div class="tarjeta__titulo">
+      <h2>{{ vePrecios ? 'Presupuesto' : 'Trabajo a realizar' }}</h2>
+      <a [routerLink]="['/ordenes', o.id, 'presupuesto']" class="boton boton--principal">
+        @if (sinPresupuesto()) {
+          <app-icono nombre="mas" [tamano]="16" />
+          {{ vePrecios ? 'Crear presupuesto' : 'Apuntar el trabajo' }}
+        } @else {
+          <app-icono nombre="documento" [tamano]="16" />
+          {{ o.permiteEditarLineas ? 'Ver y editar' : 'Ver el detalle' }}
+        }
+      </a>
+    </div>
+
+    @if (sinPresupuesto()) {
+      <p class="prosa silenciado">
+        Todavía no se ha añadido ningún concepto.
+        @if (vePrecios) {
+          Las horas de taller y las piezas se montan en la pantalla de presupuesto.
+        } @else {
+          El trabajo y el material que lleve se apuntan en su pantalla.
+        }
+      </p>
+    } @else {
+      <div class="resumen">
+        <div class="resumen__dato">
+          <span class="resumen__etiqueta">Mano de obra</span>
+          <span class="resumen__valor">
+            {{ numManoDeObra() }} {{ numManoDeObra() === 1 ? 'concepto' : 'conceptos' }}
+          </span>
+        </div>
+        <div class="resumen__dato">
+          <span class="resumen__etiqueta">Materiales</span>
+          <span class="resumen__valor">
+            {{ numMateriales() }} {{ numMateriales() === 1 ? 'referencia' : 'referencias' }}
+          </span>
+        </div>
+        <div class="resumen__dato">
+          <span class="resumen__etiqueta">Horas apuntadas</span>
+          <span class="resumen__valor">{{ o.horasManoDeObra | number: '1.0-2' : 'es' }} h</span>
         </div>
 
-        <div class="totales">
-          <div class="totales__fila">
-            <span>Base imponible</span>
-            <span class="num">{{ o.baseImponible | number: '1.2-2' : 'es' }} €</span>
+        @if (vePrecios) {
+          @if (o.totalDescuento) {
+            <div class="resumen__dato">
+              <span class="resumen__etiqueta">Descuento</span>
+              <span class="resumen__valor resumen__valor--ahorro">
+                −{{ o.totalDescuento | number: '1.2-2' : 'es' }} €
+              </span>
+            </div>
+          }
+          <div class="resumen__dato">
+            <span class="resumen__etiqueta">Base imponible</span>
+            <span class="resumen__valor">{{ o.baseImponible | number: '1.2-2' : 'es' }} €</span>
           </div>
-          <div class="totales__fila silenciado pequeno">
-            <span>IVA</span>
-            <span class="num">{{ o.totalIva | number: '1.2-2' : 'es' }} €</span>
+          <div class="resumen__dato resumen__dato--total">
+            <span class="resumen__etiqueta">TOTAL con IVA</span>
+            <span class="resumen__valor">{{ o.total | number: '1.2-2' : 'es' }} €</span>
           </div>
-          <div class="totales__fila totales__fila--total">
-            <span>TOTAL</span>
-            <span class="num">{{ o.total | number: '1.2-2' : 'es' }} €</span>
-          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <!-- ============ Avería, diagnóstico y notas ============ -->
+  <div class="rejilla rejilla--dos">
+    <section class="tarjeta">
+      <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
+      <p class="etiqueta-campo">Lo que cuenta el cliente</p>
+      <p class="prosa">{{ o.problemaReportado }}</p>
+      <div class="fila prosa__titulo" style="justify-content: space-between">
+        <span class="etiqueta-campo">Diagnóstico del técnico</span>
+        @if (puedeTrabajarla() && !editandoDiagnostico()) {
+          <button type="button" class="boton boton--pequeno" (click)="empezarDiagnostico()">
+            {{ o.diagnostico ? 'Corregir' : 'Escribir diagnóstico' }}
+          </button>
+        }
+      </div>
+
+      @if (editandoDiagnostico()) {
+        <textarea
+          [ngModel]="borradorDiagnostico()"
+          (ngModelChange)="borradorDiagnostico.set($event)"
+          placeholder="Pastillas delanteras al límite y disco con alabeo leve."
+          autofocus
+        ></textarea>
+        <div class="fila fila--fin" style="margin-top: 8px">
+          <button type="button" class="boton boton--pequeno" (click)="editandoDiagnostico.set(false)">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="boton boton--pequeno boton--principal"
+            [disabled]="trabajando() || !borradorDiagnostico().trim()"
+            (click)="guardarDiagnostico()"
+          >
+            Guardar
+          </button>
         </div>
+      } @else {
+        <p class="prosa" [class.silenciado]="!o.diagnostico">
+          {{ o.diagnostico || 'Pendiente de diagnosticar.' }}
+        </p>
+      }
+      @if (o.motivoRechazo) {
+        <p class="etiqueta-campo prosa__titulo">Motivo del rechazo</p>
+        <p class="prosa">{{ o.motivoRechazo }}</p>
       }
     </section>
 
-    <!-- Historial -->
     <section class="tarjeta">
-      <div class="tarjeta__titulo"><h2>Historial</h2></div>
-      <ol class="historial">
-        @for (h of o.historial; track h.id) {
-          <li>
-            <span class="etiqueta etiqueta--{{ h.estadoNuevo | colorEstado }}">
-              {{ h.estadoNuevoDescripcion }}
-            </span>
-            <span class="pequeno silenciado">
-              {{ h.fecha | date: 'dd/MM/yyyy HH:mm' }}
-              @if (h.usuarioNombre) { · {{ h.usuarioNombre }} }
-            </span>
-            @if (h.motivo) {
-              <div class="pequeno historial__motivo">{{ h.motivo }}</div>
-            }
-          </li>
+      <div class="tarjeta__titulo">
+        <h2>Observaciones</h2>
+        @if (puedeTrabajarla() && !editandoObservaciones()) {
+          <button type="button" class="boton boton--pequeno" (click)="abrirObservaciones()">
+            {{ o.observaciones ? 'Corregir' : 'Escribir' }}
+          </button>
         }
-      </ol>
+      </div>
+
+      @if (editandoObservaciones()) {
+        <textarea
+          [ngModel]="borradorObservaciones()"
+          (ngModelChange)="borradorObservaciones.set($event)"
+          placeholder="El cliente pasa a recogerla el viernes por la tarde."
+          autofocus
+        ></textarea>
+        <div class="fila fila--fin" style="margin-top: 8px">
+          <button type="button" class="boton boton--pequeno" (click)="editandoObservaciones.set(false)">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="boton boton--pequeno boton--principal"
+            [disabled]="trabajando()"
+            (click)="guardarObservaciones()"
+          >
+            Guardar
+          </button>
+        </div>
+      } @else {
+        <p class="prosa" [class.silenciado]="!o.observaciones">
+          {{ o.observaciones || 'Sin notas internas. No salen en el presupuesto ni en la factura.' }}
+        </p>
+      }
+
+      <p class="etiqueta-campo prosa__titulo">Salida estimada</p>
+      <p class="prosa" [class.silenciado]="!o.fechaEstimadaSalida">
+        {{ o.fechaEstimadaSalida
+            ? (o.fechaEstimadaSalida | date: "d 'de' MMMM 'de' y" : undefined : 'es')
+            : 'Sin fecha comprometida.' }}
+      </p>
     </section>
   </div>
+
+  <!-- ============ Historial ============ -->
+  <section class="tarjeta">
+    <div class="tarjeta__titulo"><h2>Historial</h2></div>
+    <ol class="historial">
+      @for (h of o.historial; track h.id) {
+        <li>
+          <span class="etiqueta etiqueta--{{ h.estadoNuevo | colorEstado }}">
+            {{ h.estadoNuevoDescripcion }}
+          </span>
+          <span class="pequeno silenciado">
+            {{ h.fecha | date: 'dd/MM/yyyy HH:mm' }}
+            @if (h.usuarioNombre) { · {{ h.usuarioNombre }} }
+          </span>
+          @if (h.motivo) {
+            <div class="pequeno historial__motivo">{{ h.motivo }}</div>
+          }
+        </li>
+      }
+    </ol>
+  </section>
 }

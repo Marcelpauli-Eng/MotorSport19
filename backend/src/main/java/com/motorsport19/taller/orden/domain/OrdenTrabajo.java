@@ -202,6 +202,24 @@ public class OrdenTrabajo extends EntidadAuditable {
     }
 
     /**
+     * Deja la orden preparada para que la ejecute el taller.
+     *
+     * <p>Es el atajo para el trabajo ya cerrado con el cliente: direccion compone
+     * la orden y se la pasa a un tecnico, sin pasar por diagnostico ni por la
+     * aprobacion de un presupuesto que ya se ha dado de palabra.
+     *
+     * <p>Se admite sin lineas todavia: pasar a PREPARADA es precisamente lo que
+     * abre la edicion del presupuesto, y componerlo viene despues.
+     */
+    public void preparar(Usuario tecnico, Usuario usuario) {
+        cambiarEstado(EstadoOT.PREPARADA, usuario,
+                tecnico == null ? null : "Asignada a " + tecnico.getNombreCompleto());
+        if (tecnico != null) {
+            this.tecnico = tecnico;
+        }
+    }
+
+    /**
      * Pasa a presupuestada.
      *
      * <p>Exige diagnostico y al menos una linea: un presupuesto sin conceptos no
@@ -361,6 +379,33 @@ public class OrdenTrabajo extends EntidadAuditable {
         linea.repreciarManoDeObra(precioUnitario);
     }
 
+    /**
+     * Aplica el mismo descuento a todas las lineas del presupuesto.
+     *
+     * <p>Es el «hazme un 10 % en todo» del mostrador. No se guarda como un campo
+     * aparte de la cabecera: se escribe en cada linea. Asi la base imponible, el
+     * desglose de IVA, el PDF y la factura siguen saliendo de una sola fuente —las
+     * lineas— y no hay forma de que el presupuesto y la factura acaben diciendo
+     * cosas distintas.
+     *
+     * <p>Como contrapartida, pisa los descuentos que se hubieran pactado linea a
+     * linea. Quien lo pulsa lo hace justamente para que mande sobre todo lo demas.
+     */
+    public void aplicarDescuentoGeneral(BigDecimal descuentoPct) {
+        exigirLineasEditables();
+        lineas.forEach(linea -> linea.cambiarDescuento(descuentoPct));
+    }
+
+    /** Descuento de una linea suelta, para el regateo concepto a concepto. */
+    public void cambiarDescuentoDeLinea(LineaOT linea, BigDecimal descuentoPct) {
+        exigirLineasEditables();
+        if (!lineas.contains(linea)) {
+            throw new ReglaNegocioException(
+                    "La linea indicada no pertenece a la orden %s.".formatted(codigoVisible()));
+        }
+        linea.cambiarDescuento(descuentoPct);
+    }
+
     public void quitarLinea(LineaOT linea) {
         exigirLineasEditables();
         if (!lineas.remove(linea)) {
@@ -397,6 +442,16 @@ public class OrdenTrabajo extends EntidadAuditable {
 
     public BigDecimal totalIva() {
         return sumar(LineaOT::getCuotaIva);
+    }
+
+    /** Lo que sumarian las lineas a precio de tarifa, antes de descuentos. */
+    public BigDecimal importeBruto() {
+        return sumar(LineaOT::importeBruto);
+    }
+
+    /** Cuanto se le rebaja al cliente en total. Cero si no hay descuentos. */
+    public BigDecimal totalDescuento() {
+        return sumar(LineaOT::importeDescuento);
     }
 
     public BigDecimal total() {
@@ -444,7 +499,7 @@ public class OrdenTrabajo extends EntidadAuditable {
         if (!estado.permiteEditarLineas()) {
             throw new ConflictoException(
                     ("No se pueden modificar las lineas de la orden %s en estado %s. "
-                     + "Solo se editan mientras se diagnostica, se presupuesta o se repara.")
+                     + "Solo se editan mientras se prepara, se diagnostica, se presupuesta o se repara.")
                             .formatted(codigoVisible(), estado.name()));
         }
     }

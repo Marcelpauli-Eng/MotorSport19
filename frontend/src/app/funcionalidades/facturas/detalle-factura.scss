@@ -103,3 +103,21 @@
 }
 
 .eventos li:last-child { border-bottom: none; }
+
+/* ---------- Descuento ----------
+   Igual que en el presupuesto: el porcentaje se acompaña de los euros, y el
+   importe de antes va tachado sobre el de después. */
+
+.dto-pct { display: block; font-variant-numeric: tabular-nums; color: var(--verde); font-weight: 600; }
+.dto-euros { display: block; font-size: 0.75rem; font-variant-numeric: tabular-nums; color: var(--verde); }
+
+.importe-antes {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--gris-400);
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+
+.totales__fila--ahorro { color: var(--verde); font-weight: 600; }

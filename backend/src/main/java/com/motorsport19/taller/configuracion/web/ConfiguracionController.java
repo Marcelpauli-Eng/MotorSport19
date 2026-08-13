@@ -1,6 +1,5 @@
 package com.motorsport19.taller.configuracion.web;
 
-import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
@@ -40,32 +39,43 @@ public class ConfiguracionController {
         this.tiposIva = tiposIva;
     }
 
+    /**
+     * Los datos del taller, o el formulario en blanco si todavia no se han
+     * puesto.
+     *
+     * <p>Un taller recien instalado no tiene fila de configuracion, y esto no es
+     * un error que haya que devolver como tal: es justo la pantalla desde la que
+     * se rellena. Ademas el catalogo de IVA viaja aqui, y sin el no se pueden
+     * dar de alta ni piezas, asi que negarlo dejaria la instalacion bloqueada
+     * sin manera de desbloquearla.
+     */
     @GetMapping
     @Transactional(readOnly = true)
     public ConfiguracionResponse obtener() {
-        return ConfiguracionResponse.de(cargar(), tiposIva.findAll());
+        List<TipoIva> tipos = tiposIva.findAll();
+        return repositorio.findById(ConfiguracionTaller.ID_UNICO)
+                .map(c -> ConfiguracionResponse.de(c, tipos))
+                .orElseGet(() -> ConfiguracionResponse.sinConfigurar(tipos));
     }
 
+    /** Guarda los datos del taller, creando la fila la primera vez. */
     @PutMapping
     @Transactional
     public ConfiguracionResponse actualizar(@Valid @RequestBody ActualizarConfiguracion peticion) {
-        ConfiguracionTaller cfg = cargar();
+        ConfiguracionTaller cfg = repositorio.findById(ConfiguracionTaller.ID_UNICO)
+                .orElseGet(ConfiguracionTaller::sinRellenar);
         cfg.actualizar(
                 peticion.razonSocial(), peticion.nif(), peticion.direccion(), peticion.codigoPostal(),
                 peticion.ciudad(), peticion.provincia(), peticion.pais(), peticion.telefono(),
                 peticion.email(), peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto(),
                 peticion.capacidadDiariaHoras());
-        return ConfiguracionResponse.de(cfg, tiposIva.findAll());
-    }
-
-    private ConfiguracionTaller cargar() {
-        return repositorio.findById(ConfiguracionTaller.ID_UNICO)
-                .orElseThrow(() -> new RecursoNoEncontradoException(
-                        "No hay configuracion del taller. Revise la instalacion."));
+        return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
     }
 
     /** Lo que se puede cambiar, mas el catalogo de IVA para el desplegable. */
     public record ConfiguracionResponse(
+            // false mientras el taller no haya guardado sus datos ni una vez.
+            boolean configurado,
             String razonSocial, String nif, String direccion, String codigoPostal,
             String ciudad, String provincia, String pais, String telefono, String email,
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
@@ -75,10 +85,21 @@ public class ConfiguracionController {
     ) {
         static ConfiguracionResponse de(ConfiguracionTaller c, List<TipoIva> tipos) {
             return new ConfiguracionResponse(
+                    true,
                     c.getRazonSocial(), c.getNif(), c.getDireccion(), c.getCodigoPostal(),
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
                     c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
+                    tipos.stream().map(TipoIvaResponse::de).toList());
+        }
+
+        /** Taller sin estrenar: campos en blanco para que el administrador los rellene. */
+        static ConfiguracionResponse sinConfigurar(List<TipoIva> tipos) {
+            return new ConfiguracionResponse(
+                    false,
+                    null, null, null, null, null, null, "ES", null, null,
+                    null, "GENERAL", null,
+                    ConfiguracionTaller.SOFTWARE_NOMBRE, ConfiguracionTaller.SOFTWARE_VERSION,
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
     }

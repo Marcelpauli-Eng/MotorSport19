@@ -7,7 +7,9 @@ import com.motorsport19.taller.factura.domain.TipoEventoFactura;
 import com.motorsport19.taller.factura.domain.TipoFactura;
 import com.motorsport19.taller.factura.service.ExportacionFacturacionService;
 import com.motorsport19.taller.factura.service.FacturacionService;
-import com.motorsport19.taller.factura.service.GeneradorPdfFactura;
+import com.motorsport19.taller.documento.ArmadorDocumento;
+import com.motorsport19.taller.documento.GeneradorPdfDocumento;
+import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
 import com.motorsport19.taller.factura.service.InformeVerificacion;
 import com.motorsport19.taller.factura.service.RegistroEventosService;
 import com.motorsport19.taller.factura.web.dto.EmitirFacturaRequest;
@@ -51,18 +53,24 @@ import java.util.List;
 public class FacturaController {
 
     private final FacturacionService facturacionService;
-    private final GeneradorPdfFactura generadorPdf;
+    private final GeneradorPdfDocumento generadorDocumento;
+    private final ArmadorDocumento armador;
+    private final ConfiguracionTallerService configuracion;
     private final ExportacionFacturacionService exportacionService;
     private final RegistroEventosService registroEventos;
     private final UsuarioActual usuarioActual;
 
     public FacturaController(FacturacionService facturacionService,
-                             GeneradorPdfFactura generadorPdf,
+                             GeneradorPdfDocumento generadorDocumento,
+                             ArmadorDocumento armador,
+                             ConfiguracionTallerService configuracion,
                              ExportacionFacturacionService exportacionService,
                              RegistroEventosService registroEventos,
                              UsuarioActual usuarioActual) {
         this.facturacionService = facturacionService;
-        this.generadorPdf = generadorPdf;
+        this.generadorDocumento = generadorDocumento;
+        this.armador = armador;
+        this.configuracion = configuracion;
         this.exportacionService = exportacionService;
         this.registroEventos = registroEventos;
         this.usuarioActual = usuarioActual;
@@ -78,9 +86,10 @@ public class FacturaController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) Long receptorId,
+            @RequestParam(required = false) Boolean conIva,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<Factura> pagina = facturacionService.buscar(tipo, desde, hasta, receptorId, pageable);
+        Page<Factura> pagina = facturacionService.buscar(tipo, desde, hasta, receptorId, conIva, pageable);
         return PaginaResponse.de(pagina, FacturaResumenResponse::de);
     }
 
@@ -154,7 +163,10 @@ public class FacturaController {
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<Resource> pdf(@PathVariable Long id) {
         Factura factura = facturacionService.obtener(id);
-        byte[] pdf = generadorPdf.generar(factura, factura.getLineas(), factura.getDesgloseIva());
+        // Con el formato del taller: mismas bandas y mismos rotulos que el
+        // documento que sus clientes llevan años recibiendo.
+        byte[] pdf = generadorDocumento.generar(
+                armador.factura(factura, factura.getLineas(), configuracion.obligatoria()));
 
         registroEventos.anotar(factura, TipoEventoFactura.GENERACION_PDF, usuarioActual.id(),
                 "Generacion del PDF de la factura " + factura.getNumeroCompleto(), null, null);
@@ -188,6 +200,24 @@ public class FacturaController {
 
         byte[] csv = exportacionService.exportarCsv(desde, hasta, usuarioActual.id());
         return descarga(csv, "libro-facturas.csv", "text/csv; charset=UTF-8");
+    }
+
+    /**
+     * Los PDF de las facturas seleccionadas, en un ZIP.
+     *
+     * <p>Los identificadores van en la URL y no en el cuerpo porque esto es una
+     * descarga: asi el navegador puede pedirla como cualquier otra y la peticion
+     * sigue siendo una lectura. Con el tope de facturas por descarga, la URL no
+     * se acerca a ningun limite.
+     */
+    @GetMapping(value = "/exportacion/pdf", produces = "application/zip")
+    public ResponseEntity<Resource> exportarPdfs(@RequestParam(required = false) List<Long> ids) {
+        // El parametro se declara opcional para que una peticion sin facturas la
+        // conteste el servicio con su motivo, y no Spring con un error generico.
+        byte[] zip = exportacionService.exportarPdfsEnZip(ids, usuarioActual.id());
+
+        String nombre = "facturas-%d.zip".formatted(ids.stream().distinct().count());
+        return descarga(zip, nombre, "application/zip");
     }
 
     @GetMapping(value = "/exportacion/json", produces = MediaType.APPLICATION_JSON_VALUE)

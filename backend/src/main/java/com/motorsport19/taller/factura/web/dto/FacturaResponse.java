@@ -104,12 +104,14 @@ public record FacturaResponse(
     public record LineaFacturaResponse(Integer numeroLinea, String tipo, String descripcion, String piezaSku,
                                        BigDecimal cantidad, BigDecimal precioUnitario,
                                        BigDecimal descuentoPct, String tipoIva, BigDecimal porcentajeIva,
+                                       BigDecimal importeBruto, BigDecimal importeDescuento,
                                        BigDecimal baseImponible, BigDecimal cuotaIva, BigDecimal total) {
         static LineaFacturaResponse de(LineaFactura l) {
             var importes = l.importes();
             return new LineaFacturaResponse(l.getNumeroLinea(), l.getTipo().name(), l.getDescripcion(),
                     l.getPiezaSku(), l.getCantidad(), l.getPrecioUnitario(), l.getDescuentoPct(),
                     l.getTipoIva(), l.getPorcentajeIva(),
+                    l.importeBruto(), l.importeDescuento(),
                     importes.baseImponible(), importes.cuotaIva(), importes.total());
         }
     }

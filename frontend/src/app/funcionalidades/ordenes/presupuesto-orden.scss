@@ -1,0 +1,359 @@
+/* ============================================================
+   Composición del presupuesto
+
+   Pantalla completa: la tabla, el buscador y los totales a la vista a la vez.
+   Montar un presupuesto es encadenar diez o quince conceptos, y con el bloque
+   metido dentro de la ficha de la orden había que subir y bajar por cada línea.
+   ============================================================ */
+
+.volver {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: var(--e3);
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
+
+.volver:hover { color: var(--gris-900); text-decoration: none; }
+
+.pagina-cabecera { align-items: flex-start; }
+
+/* ---------- Precio de la hora ----------
+   Vive aquí y no en la ficha de la orden porque es un parámetro del
+   presupuesto: manda sobre todas las líneas de mano de obra. */
+
+.tarifa {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e2) var(--e3);
+  background: var(--gris-50);
+  border: var(--borde);
+  border-radius: var(--radio);
+}
+
+.tarifa__etiqueta {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--gris-500);
+}
+
+.tarifa__valor {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.tarifa__editor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e1);
+  flex-wrap: nowrap;
+}
+
+.tarifa__editor input { width: 92px; }
+
+.tarifa__lapiz {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: none;
+  border-radius: var(--radio-s);
+  color: var(--gris-400);
+  cursor: pointer;
+}
+
+.tarifa:hover .tarifa__lapiz { color: var(--gris-600); }
+.tarifa__lapiz:hover { background: var(--gris-150); color: var(--azul); }
+
+/* ---------- Tarjeta del presupuesto ---------- */
+
+.presupuesto { padding: 0; overflow: hidden; }
+
+.presupuesto__cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+  padding: 0 var(--e5);
+  border-bottom: var(--borde);
+}
+
+/* Las pestañas se pegan al borde inferior de la cabecera para que la activa
+   parezca continuar en la tabla, que es lo que hace. */
+.pestanas--doc { margin-bottom: -1px; border-bottom: none; }
+
+.presupuesto__barra {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  padding: var(--e3) var(--e5);
+}
+
+.buscador { position: relative; margin-right: auto; }
+
+.buscador input {
+  width: 260px;
+  max-width: 100%;
+  padding-right: var(--e8);
+}
+
+.buscador app-icono {
+  position: absolute;
+  top: 50%;
+  right: var(--e3);
+  transform: translateY(-50%);
+  color: var(--gris-400);
+  pointer-events: none;
+}
+
+/* Fila para dar de alta una línea: no merece una modal porque son dos campos y
+   se encadenan varias seguidas. */
+.alta-linea {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  margin: 0 var(--e5) var(--e3);
+  padding: var(--e3);
+  background: var(--azul-suave);
+  border: 1px solid var(--azul-borde);
+  border-radius: var(--radio);
+}
+
+.alta-linea .campo { margin-bottom: 0; }
+.alta-linea .crece { flex: 1 1 240px; min-width: 0; }
+
+.pie-alta {
+  margin: -4px var(--e5) var(--e3);
+  font-size: 0.8125rem;
+  color: var(--gris-500);
+}
+
+/* ---------- Tabla de líneas ---------- */
+
+.tabla-lineas { font-variant-numeric: tabular-nums; }
+
+/* La tarjeta no tiene relleno para que la tabla ocupe todo el ancho, así que
+   son las celdas de los extremos las que guardan el margen. */
+.tabla-lineas th:first-child,
+.tabla-lineas td:first-child { padding-left: var(--e5); }
+
+.tabla-lineas th:last-child,
+.tabla-lineas td:last-child { padding-right: var(--e5); }
+
+.tabla-lineas td .truncado { display: block; max-width: 420px; }
+
+.fila--editando { background: var(--azul-suave); }
+
+.celda-input {
+  width: 84px;
+  padding: 2px var(--e2);
+  text-align: right;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.acciones-fila {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+/* Iconos en vez de botones con texto: son dos por fila y con etiqueta la tabla
+   se convertiría en una botonera. El title dice lo que hacen. */
+.icono-accion {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: var(--radio-s);
+  color: var(--gris-400);
+  cursor: pointer;
+}
+
+.icono-accion:hover:not(:disabled) { background: var(--gris-100); color: var(--gris-800); }
+.icono-accion:disabled { opacity: 0.4; cursor: not-allowed; }
+.icono-accion--peligro:hover:not(:disabled) { background: var(--rojo-suave); color: var(--rojo); }
+.icono-accion--ok { color: var(--verde); }
+.icono-accion--ok:hover:not(:disabled) { background: var(--verde-suave); color: var(--verde); }
+
+/* El descuento se enseña en porcentaje y en euros: nadie calcula de cabeza el
+   15 % de 137,45, y lo que el cliente pregunta es cuánto se ahorra. */
+.dto-pct { display: block; color: var(--verde); font-weight: 600; }
+.dto-euros { display: block; font-size: 0.75rem; color: var(--verde); }
+
+/* ---------- Paginación ---------- */
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  gap: var(--e4);
+  padding: var(--e3) var(--e5);
+  border-top: var(--borde);
+}
+
+.paginacion__resumen:first-of-type { margin-left: auto; }
+.paginacion__botones { display: flex; gap: 2px; }
+
+.paginacion__botones button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 var(--e2);
+  border: var(--borde);
+  background: var(--blanco);
+  border-radius: var(--radio-s);
+  color: var(--gris-600);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.paginacion__botones button:hover:not(:disabled) { background: var(--gris-50); }
+.paginacion__botones button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.paginacion__botones button.activa {
+  background: var(--gris-900);
+  border-color: var(--gris-900);
+  color: var(--blanco);
+  font-weight: 600;
+}
+
+/* ---------- Barra inferior fija ----------
+   El total es el número que se mira mientras se toca el presupuesto, y
+   perderlo de vista al bajar la tabla obliga a subir y bajar por cada línea. */
+
+.barra-inferior {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: var(--e5) calc(-1 * var(--e5)) calc(-1 * var(--e5));
+  background: var(--blanco);
+  border-top: var(--borde);
+  box-shadow: 0 -6px 18px rgb(20 23 31 / 7%);
+}
+
+.barra-totales {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  background: var(--gris-100);
+  border-bottom: var(--borde);
+}
+
+.tot {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 118px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--e2) var(--e3);
+  border-right: 1px solid var(--gris-200);
+  text-align: right;
+}
+
+.tot:last-child { border-right: none; }
+
+.tot__etiqueta {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--gris-500);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.tot__valor {
+  font-size: 0.9375rem;
+  color: var(--gris-900);
+  font-variant-numeric: tabular-nums;
+}
+
+.tot__valor--ahorro { color: var(--verde); font-weight: 600; }
+
+.tot--editable input {
+  width: 100%;
+  padding: 1px var(--e2);
+  text-align: right;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* El total va destacado: es la única cifra de la barra que se busca de un
+   vistazo, y las demás están ahí para explicarla. */
+.tot--total {
+  background: var(--azul-suave);
+  border-left: 1px solid var(--azul-borde);
+}
+
+.tot--total .tot__etiqueta { color: var(--azul-fuerte); }
+
+.tot--total .tot__valor {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--azul-oscuro);
+}
+
+.barra-acciones {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e4);
+  flex-wrap: wrap;
+  padding: var(--e3) var(--e5);
+}
+
+.barra-acciones__izq,
+.barra-acciones__der {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  flex-wrap: wrap;
+}
+
+.barra-acciones__der { margin-left: auto; justify-content: flex-end; }
+
+/* ---------- Pantallas estrechas ---------- */
+
+@media (max-width: 720px) {
+  .barra-totales { flex-wrap: wrap; }
+  .tot { flex-basis: 33%; }
+
+  .buscador { margin-right: 0; }
+  .buscador input { width: 100%; }
+}
+
+/* Volcar un servicio tipo: desplegable, botón y el «2,5 h · 4 piezas» que
+   confirma qué va a entrar antes de pulsar. Van juntos y con un borde propio
+   para que se lean como un solo control y no como tres cosas de la barra. */
+.volcar-servicio {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: 4px 4px 4px var(--e2);
+  background: var(--gris-50);
+  border: var(--borde);
+  border-radius: var(--radio);
+}
+
+.volcar-servicio select {
+  min-width: 190px;
+  height: 30px;
+  min-height: 30px;
+  font-size: 0.8125rem;
+}
+
+/* En móvil ocupa su propia línea de la barra: al lado del buscador se queda en
+   un desplegable de 90 px donde no se lee ningún nombre de servicio. */
+@media (max-width: 640px) {
+  .volcar-servicio { flex-wrap: wrap; width: 100%; }
+  .volcar-servicio select { flex: 1 1 100%; min-width: 0; }
+}

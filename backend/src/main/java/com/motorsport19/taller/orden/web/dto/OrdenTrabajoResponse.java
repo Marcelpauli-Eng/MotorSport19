@@ -55,6 +55,8 @@ public record OrdenTrabajoResponse(
         String motivoRechazo,
         String observaciones,
 
+        BigDecimal importeBruto,
+        BigDecimal totalDescuento,
         BigDecimal baseImponible,
         BigDecimal totalIva,
         BigDecimal total,
@@ -66,6 +68,8 @@ public record OrdenTrabajoResponse(
 
     public static OrdenTrabajoResponse de(OrdenTrabajo orden, List<LineaOT> lineas,
                                           List<CambioEstadoOT> historial) {
+        BigDecimal bruto = sumar(lineas, LineaOT::importeBruto);
+        BigDecimal descuento = sumar(lineas, LineaOT::importeDescuento);
         BigDecimal base = sumar(lineas, LineaOT::getBaseImponible);
         BigDecimal iva = sumar(lineas, LineaOT::getCuotaIva);
         BigDecimal total = sumar(lineas, LineaOT::getTotal);
@@ -109,10 +113,36 @@ public record OrdenTrabajoResponse(
                 orden.getMotivoRechazo(),
                 orden.getObservaciones(),
 
-                base, iva, total, horas,
+                bruto, descuento, base, iva, total, horas,
 
                 lineas.stream().map(LineaOTResponse::de).toList(),
                 historial.stream().map(CambioEstadoResponse::de).toList());
+    }
+
+    /**
+     * La misma ficha con el dinero fuera: sin tarifa, sin totales y con las
+     * lineas tambien limpias.
+     *
+     * <p>Es lo que ve un tecnico. Un taller puede querer que quien monta la moto
+     * no sepa a cuanto se la cobra la casa al cliente —ni el precio de la hora ni
+     * el de las piezas— y esa decision no puede quedarse en ocultar columnas en
+     * la pantalla: la API devuelve JSON y cualquiera puede mirarlo. Por eso los
+     * importes no salen del servidor, en vez de salir y no pintarse.
+     *
+     * <p>Se conserva {@code horasManoDeObra}: son horas de trabajo, no dinero, y
+     * el tecnico necesita saber cuantas tiene apuntadas.
+     */
+    public OrdenTrabajoResponse sinImportes() {
+        return new OrdenTrabajoResponse(
+                id, codigo, ejercicio, numero, estado, estadoDescripcion, estadosPosibles,
+                facturable, permiteEditarLineas,
+                motoId, matricula, descripcionMoto, clienteId, clienteNombre, clienteTelefono,
+                fechaEntrada, fechaEstimadaSalida, fechaRealSalida, kmEntrada,
+                problemaReportado, diagnostico, tecnicoId, tecnicoNombre,
+                null, fechaPresupuesto, fechaAprobacion, aprobadoPor, motivoRechazo, observaciones,
+                null, null, null, null, null, horasManoDeObra,
+                lineas.stream().map(LineaOTResponse::sinImportes).toList(),
+                historial);
     }
 
     private static BigDecimal sumar(List<LineaOT> lineas,
