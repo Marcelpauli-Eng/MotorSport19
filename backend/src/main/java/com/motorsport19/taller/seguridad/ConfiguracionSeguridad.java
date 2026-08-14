@@ -1,5 +1,6 @@
 package com.motorsport19.taller.seguridad;
 
+import com.motorsport19.taller.usuario.domain.Permiso;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -18,7 +19,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -55,9 +58,15 @@ import java.util.List;
 @EnableWebSecurity
 public class ConfiguracionSeguridad {
 
-    private static final String ADMIN = "ADMIN";
-    private static final String MOSTRADOR = "MOSTRADOR";
-    private static final String TECNICO = "TECNICO";
+    /**
+     * Nombre de la autoridad que representa un permiso.
+     *
+     * <p>Un metodo de una letra a proposito: el mapa de rutas se lee de un
+     * vistazo y meter {@code .name()} en cada linea lo llenaria de ruido.
+     */
+    private static String p(Permiso permiso) {
+        return permiso.name();
+    }
 
     /**
      * Clave con la que se firman los tokens.
@@ -77,7 +86,8 @@ public class ConfiguracionSeguridad {
     }
 
     @Bean
-    public SecurityFilterChain cadenaDeFiltros(HttpSecurity http) throws Exception {
+    public SecurityFilterChain cadenaDeFiltros(HttpSecurity http,
+                                              UsuarioRepository usuarioRepository) throws Exception {
         http
             // La API no usa cookies de sesion, solo el token de la cabecera
             // Authorization, asi que no hay superficie para CSRF.
@@ -92,95 +102,114 @@ public class ConfiguracionSeguridad {
                 // Las peticiones de sondeo del navegador (CORS) van sin token.
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ----- Usuarios: solo el administrador -----
-                // Mostrador necesita saber a que tecnico asignar el trabajo; el
-                // resto de la gestion de usuarios sigue siendo de direccion.
-                .requestMatchers(HttpMethod.GET, "/usuarios/tecnicos").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/usuarios/**").hasRole(ADMIN)
+                // ----- Usuarios y roles -----
+                // El listado de quien puede recibir trabajo lo necesita quien
+                // reparte ordenes, no solo quien administra el programa.
+                .requestMatchers(HttpMethod.GET, "/usuarios/tecnicos").hasAuthority(p(Permiso.ORDENES_ASIGNAR_TECNICO))
+                .requestMatchers(HttpMethod.GET, "/roles/permisos").hasAuthority(p(Permiso.ROLES_GESTIONAR))
+                // El desplegable de rol del alta de usuarios necesita la lista.
+                .requestMatchers(HttpMethod.GET, "/roles/**").hasAuthority(p(Permiso.USUARIOS_GESTIONAR))
+                .requestMatchers("/roles/**").hasAuthority(p(Permiso.ROLES_GESTIONAR))
+                .requestMatchers("/usuarios/**").hasAuthority(p(Permiso.USUARIOS_GESTIONAR))
 
-                // ----- Configuracion fiscal y precios: solo el administrador -----
-                // Leerla si la abre mostrador: son los datos que van impresos en
-                // cada factura, y los necesita para comprobar antes de emitir.
-                .requestMatchers(HttpMethod.GET, "/configuracion").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/configuracion/**").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.PUT, "/piezas/*/precios").hasRole(ADMIN)
+                // ----- Ajustes del taller -----
+                // Leerlos si los abre mostrador: son los datos que van impresos
+                // en cada factura, y los necesita para comprobar antes de emitir.
+                .requestMatchers(HttpMethod.GET, "/configuracion").hasAuthority(p(Permiso.AJUSTES_VER))
+                .requestMatchers("/configuracion/**").hasAuthority(p(Permiso.AJUSTES_EDITAR))
 
-                // El precio de la hora de una orden se negocia con el cliente, y
-                // eso pasa en el mostrador. Un tecnico apunta horas, no las tarifa.
-                .requestMatchers(HttpMethod.PUT, "/ordenes/*/tarifa-hora").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/precio").hasAnyRole(ADMIN, MOSTRADOR)
-                // Un descuento es dinero: lo pacta quien atiende al cliente.
-                .requestMatchers(HttpMethod.PUT, "/ordenes/*/descuento-general").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/descuento").hasAnyRole(ADMIN, MOSTRADOR)
+                // ----- Dinero -----
+                // El precio de la hora, los precios cerrados y el IVA de la orden
+                // se negocian con el cliente: los toca quien lo atiende.
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/tarifa-hora").hasAuthority(p(Permiso.PRECIOS_EDITAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/tipo-iva").hasAuthority(p(Permiso.PRECIOS_EDITAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/precio").hasAuthority(p(Permiso.PRECIOS_EDITAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/descuento-general").hasAuthority(p(Permiso.DESCUENTOS_APLICAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/lineas/*/descuento").hasAuthority(p(Permiso.DESCUENTOS_APLICAR))
+                .requestMatchers(HttpMethod.PUT, "/piezas/*/precios").hasAuthority(p(Permiso.PIEZAS_PRECIOS))
 
-                .requestMatchers(HttpMethod.POST, "/piezas").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.PUT, "/piezas/**").hasRole(ADMIN)
-
-                // ----- Almacen: las entradas y los ajustes los firma el administrador -----
-                // El consumo de piezas en una orden no pasa por aqui: lo genera
+                // ----- Almacen -----
+                // El consumo de piezas de una orden no pasa por aqui: lo genera
                 // el propio flujo de la OT, que si puede lanzar un tecnico.
-                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/entradas").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/ajustes").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/salidas").hasRole(ADMIN)
-                .requestMatchers(HttpMethod.POST, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers(HttpMethod.PUT, "/proveedores/**").hasAnyRole(ADMIN, MOSTRADOR)
+                .requestMatchers(HttpMethod.POST, "/piezas").hasAuthority(p(Permiso.PIEZAS_CREAR))
+                .requestMatchers(HttpMethod.PUT, "/piezas/**").hasAuthority(p(Permiso.PIEZAS_EDITAR))
+                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/entradas").hasAuthority(p(Permiso.ALMACEN_MOVER))
+                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/ajustes").hasAuthority(p(Permiso.ALMACEN_MOVER))
+                .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/salidas").hasAuthority(p(Permiso.ALMACEN_MOVER))
+                .requestMatchers(HttpMethod.POST, "/proveedores/**").hasAuthority(p(Permiso.PROVEEDORES_GESTIONAR))
+                .requestMatchers(HttpMethod.PUT, "/proveedores/**").hasAuthority(p(Permiso.PROVEEDORES_GESTIONAR))
+                .requestMatchers(HttpMethod.GET, "/inventario/**").hasAuthority(p(Permiso.ALMACEN_VER))
+                .requestMatchers(HttpMethod.GET, "/piezas/**").hasAuthority(p(Permiso.ALMACEN_VER))
+                .requestMatchers(HttpMethod.GET, "/proveedores/**").hasAuthority(p(Permiso.ALMACEN_VER))
 
-                // ----- Servicios tipo: los define direccion, los usa todo el taller -----
-                // Una plantilla fija cuantas horas se cobran por una revision: es
-                // una decision de precio, aunque aqui no aparezca ningun euro. La
-                // consulta si la abre cualquiera, porque el desplegable que las
-                // vuelca en la OT lo usan el mostrador y el propio tecnico.
-                .requestMatchers(HttpMethod.GET, "/servicios-tipo/**").authenticated()
-                .requestMatchers("/servicios-tipo/**").hasRole(ADMIN)
+                // ----- Plantillas de trabajo -----
+                // Definir cuantas horas se cobran por una revision es una decision
+                // de precio; volcarlas en una orden lo hace cualquiera.
+                .requestMatchers(HttpMethod.GET, "/servicios-tipo/**").hasAuthority(p(Permiso.SERVICIOS_VER))
+                .requestMatchers("/servicios-tipo/**").hasAuthority(p(Permiso.SERVICIOS_GESTIONAR))
 
-                // ----- Agenda: la consulta todo el taller, la gestiona mostrador -----
-                // Un tecnico necesita ver que entra manana para organizarse el dia;
-                // dar y mover citas es trabajo de quien coge el telefono.
-                .requestMatchers(HttpMethod.GET, "/citas/**").authenticated()
-                .requestMatchers("/citas/**").hasAnyRole(ADMIN, MOSTRADOR)
+                // ----- Agenda -----
+                .requestMatchers(HttpMethod.GET, "/citas/**").hasAuthority(p(Permiso.AGENDA_VER))
+                .requestMatchers("/citas/**").hasAuthority(p(Permiso.AGENDA_GESTIONAR))
 
-                // ----- Facturacion: mostrador y administrador -----
-                .requestMatchers("/facturas/**").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/facturacion/**").hasAnyRole(ADMIN, MOSTRADOR)
+                // ----- Facturacion -----
+                // Abrir o cerrar una serie es decidir con que numeracion factura
+                // el taller. Consultarlas basta con poder emitir.
+                .requestMatchers(HttpMethod.POST, "/facturas/series").hasAuthority(p(Permiso.FACTURAS_SERIES))
+                .requestMatchers(HttpMethod.PUT, "/facturas/series/**").hasAuthority(p(Permiso.FACTURAS_SERIES))
+                .requestMatchers(HttpMethod.POST, "/facturas/*/rectificativas").hasAuthority(p(Permiso.FACTURAS_RECTIFICAR))
+                .requestMatchers(HttpMethod.GET, "/facturas/exportacion/**").hasAuthority(p(Permiso.FACTURACION_EXPORTAR))
+                .requestMatchers(HttpMethod.POST, "/facturas").hasAuthority(p(Permiso.FACTURAS_EMITIR))
+                .requestMatchers(HttpMethod.GET, "/facturas/**").hasAuthority(p(Permiso.FACTURAS_VER))
+                .requestMatchers("/facturas/**").hasAuthority(p(Permiso.FACTURAS_EMITIR))
+                .requestMatchers("/facturacion/**").hasAuthority(p(Permiso.FACTURACION_EXPORTAR))
 
-                // Los informes son datos economicos: margenes, compras y IVA.
-                // Un tecnico no tiene por que ver cuanto gana el taller.
-                .requestMatchers("/estadisticas/**").hasAnyRole(ADMIN, MOSTRADOR)
+                // Los informes son datos economicos: margenes, compras e IVA.
+                .requestMatchers("/estadisticas/**").hasAuthority(p(Permiso.INFORMES_VER))
 
-                // ----- Clientes y motos: los gestiona mostrador -----
-                // El tecnico los CONSULTA, porque necesita saber de quien es la
-                // moto que tiene delante, pero no los modifica.
-                .requestMatchers(HttpMethod.GET, "/clientes/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/motos/**").authenticated()
-                .requestMatchers("/clientes/**").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/motos/**").hasAnyRole(ADMIN, MOSTRADOR)
+                // ----- Clientes -----
+                .requestMatchers(HttpMethod.GET, "/clientes/**").hasAuthority(p(Permiso.CLIENTES_VER))
+                .requestMatchers(HttpMethod.POST, "/clientes").hasAuthority(p(Permiso.CLIENTES_CREAR))
+                .requestMatchers(HttpMethod.PUT, "/clientes/*/datos-fiscales").hasAuthority(p(Permiso.CLIENTES_DATOS_FISCALES))
+                .requestMatchers(HttpMethod.POST, "/clientes/*/baja").hasAuthority(p(Permiso.CLIENTES_BAJA))
+                .requestMatchers("/clientes/**").hasAuthority(p(Permiso.CLIENTES_EDITAR))
+
+                // ----- Motos -----
+                .requestMatchers(HttpMethod.GET, "/motos/**").hasAuthority(p(Permiso.MOTOS_VER))
+                .requestMatchers(HttpMethod.POST, "/motos").hasAuthority(p(Permiso.MOTOS_CREAR))
+                .requestMatchers(HttpMethod.PUT, "/motos/*/propietario").hasAuthority(p(Permiso.MOTOS_CAMBIAR_PROPIETARIO))
+                .requestMatchers(HttpMethod.POST, "/motos/*/baja").hasAuthority(p(Permiso.MOTOS_BAJA))
+                .requestMatchers("/motos/**").hasAuthority(p(Permiso.MOTOS_EDITAR))
 
                 // ----- Ordenes de trabajo -----
-                // Abrirlas y cerrarlas es cosa de mostrador; trabajarlas, del
-                // tecnico. El filtro por tecnico asignado se aplica ademas en
-                // el servicio, porque eso ya no es cuestion de rutas.
-                .requestMatchers(HttpMethod.POST, "/ordenes").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/ordenes/*/entrega").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/ordenes/*/aprobacion").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/ordenes/*/rechazo").hasAnyRole(ADMIN, MOSTRADOR)
-                // Dejar una orden preparada es repartir trabajo, y el trabajo lo
-                // reparte quien lo ha vendido. Un tecnico la ejecuta, no se la da.
-                .requestMatchers("/ordenes/*/preparacion").hasAnyRole(ADMIN, MOSTRADOR)
+                // El filtro por tecnico asignado se aplica ademas en el servicio:
+                // eso ya no es cuestion de rutas sino de que datos se devuelven.
+                .requestMatchers(HttpMethod.POST, "/ordenes").hasAuthority(p(Permiso.ORDENES_ABRIR))
+                .requestMatchers("/ordenes/*/preparacion").hasAuthority(p(Permiso.ORDENES_PREPARAR))
+                .requestMatchers("/ordenes/*/entrega").hasAuthority(p(Permiso.ORDENES_ENTREGAR))
+                .requestMatchers("/ordenes/*/aprobacion").hasAuthority(p(Permiso.ORDENES_APROBAR))
+                .requestMatchers("/ordenes/*/rechazo").hasAuthority(p(Permiso.ORDENES_APROBAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/diagnostico").hasAuthority(p(Permiso.ORDENES_DIAGNOSTICAR))
+                .requestMatchers(HttpMethod.PUT, "/ordenes/*/tecnico").hasAuthority(p(Permiso.ORDENES_ASIGNAR_TECNICO))
+                .requestMatchers(HttpMethod.POST, "/ordenes/*/lineas/mano-de-obra").hasAuthority(p(Permiso.ORDENES_LINEAS_MANO_OBRA))
+                .requestMatchers(HttpMethod.POST, "/ordenes/*/lineas/piezas").hasAuthority(p(Permiso.ORDENES_LINEAS_MATERIAL))
+                .requestMatchers(HttpMethod.DELETE, "/ordenes/*/lineas/**").hasAuthority(p(Permiso.ORDENES_LINEAS_QUITAR))
                 // El presupuesto en PDF lleva los precios impresos: es el papel
-                // que se le enseña al cliente, no al taller. Los importes que un
-                // tecnico no ve en pantalla tampoco pueden salir por aqui.
-                .requestMatchers(HttpMethod.GET, "/ordenes/*/presupuesto/pdf").hasAnyRole(ADMIN, MOSTRADOR)
-                .requestMatchers("/ordenes/**").authenticated()
-
-                // ----- Inventario: todos consultan -----
-                .requestMatchers(HttpMethod.GET, "/inventario/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/piezas/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/proveedores/**").authenticated()
+                // que se le enseña al cliente, no al taller.
+                .requestMatchers(HttpMethod.GET, "/ordenes/*/presupuesto/pdf").hasAuthority(p(Permiso.IMPORTES_VER))
+                .requestMatchers(HttpMethod.GET, "/ordenes/**").hasAuthority(p(Permiso.ORDENES_VER))
+                .requestMatchers("/ordenes/**").hasAuthority(p(Permiso.ORDENES_ESTADO))
 
                 .anyRequest().authenticated())
 
             .oauth2ResourceServer(oauth -> oauth
                 .jwt(jwt -> jwt.jwtAuthenticationConverter(conversorDeToken())))
+
+            // Justo despues de leer el token y antes de decidir los permisos de
+            // la ruta: asi una baja o un cambio de rol surten efecto en la
+            // siguiente peticion y no cuando caduque el token.
+            .addFilterAfter(new FiltroSesionViva(usuarioRepository),
+                            BearerTokenAuthenticationFilter.class)
 
             // Respuestas en JSON, con el mismo formato que el resto de errores,
             // en vez de la pagina de login de Spring.

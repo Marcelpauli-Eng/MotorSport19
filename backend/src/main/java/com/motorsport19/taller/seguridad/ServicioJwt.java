@@ -52,7 +52,13 @@ public class ServicioJwt {
                 .subject(usuario.username())
                 .claim("uid", usuario.id())
                 .claim("nombre", usuario.nombreCompleto())
-                .claim("rol", usuario.rol().name())
+                .claim("rolId", usuario.rolId())
+                .claim("rol", usuario.rolNombre())
+                // Los permisos viajan dentro del token firmado, asi que
+                // autorizar no cuesta ni una consulta. La contrapartida es que
+                // retocar un rol no afecta a quien ya esta dentro hasta que
+                // vuelve a entrar; la pantalla de roles lo avisa.
+                .claim("permisos", usuario.permisos().stream().map(Enum::name).toList())
                 .build();
 
         String token = codificador

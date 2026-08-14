@@ -8,13 +8,20 @@ import com.motorsport19.taller.cliente.web.dto.ClienteResumenResponse;
 import com.motorsport19.taller.cliente.web.dto.CrearClienteRequest;
 import com.motorsport19.taller.cliente.web.dto.DatosFiscalesRequest;
 import com.motorsport19.taller.common.web.PaginaResponse;
+import com.motorsport19.taller.documento.GeneradorPdfHistorial;
+import com.motorsport19.taller.documento.HistorialImprimible;
+import com.motorsport19.taller.moto.service.HistorialServicioService;
 import com.motorsport19.taller.moto.service.MotoService;
 import com.motorsport19.taller.moto.web.dto.MotoResumenResponse;
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,10 +41,16 @@ public class ClienteController {
 
     private final ClienteService clienteService;
     private final MotoService motoService;
+    private final HistorialServicioService historialServicio;
+    private final GeneradorPdfHistorial generadorHistorial;
 
-    public ClienteController(ClienteService clienteService, MotoService motoService) {
+    public ClienteController(ClienteService clienteService, MotoService motoService,
+                             HistorialServicioService historialServicio,
+                             GeneradorPdfHistorial generadorHistorial) {
         this.clienteService = clienteService;
         this.motoService = motoService;
+        this.historialServicio = historialServicio;
+        this.generadorHistorial = generadorHistorial;
     }
 
     /**
@@ -69,6 +82,27 @@ public class ClienteController {
         return motoService.buscarPorCliente(id, soloActivas).stream()
                 .map(MotoResumenResponse::de)
                 .toList();
+    }
+
+    /**
+     * Hoja de vida del cliente: todas sus motos, cada una con su historial.
+     *
+     * <p>Es el mismo papel que el de una moto suelta pero del cliente entero.
+     * Se genera al vuelo desde las ordenes, asi que siempre esta al dia.
+     *
+     * @param importes a {@code false} sale sin lo que costo cada intervencion
+     */
+    @GetMapping(value = "/{id}/historial/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<Resource> historialPdf(@PathVariable Long id,
+                                                 @RequestParam(defaultValue = "true") boolean importes) {
+        HistorialImprimible historial = historialServicio.prepararDeCliente(id, importes);
+        byte[] pdf = generadorHistorial.generar(historial);
+
+        String nombre = "historial-cliente-%d.pdf".formatted(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"%s\"".formatted(nombre))
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(new ByteArrayResource(pdf));
     }
 
     @PostMapping

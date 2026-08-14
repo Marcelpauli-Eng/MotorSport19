@@ -9,6 +9,7 @@ import {
   FacturaResumen,
   InformeVerificacion,
   SerieFactura,
+  TipoFactura,
   TipoRectificativa,
 } from '../modelos/facturacion';
 import { PdfService } from './pdf.service';
@@ -50,8 +51,41 @@ export class FacturasService {
     return this.http.get<Factura>(`${this.base}/${id}`);
   }
 
-  series(): Observable<SerieFactura[]> {
-    return this.http.get<SerieFactura[]>(`${this.base}/series`);
+  /**
+   * Series de facturación.
+   *
+   * Por defecto solo las abiertas, que es lo que necesita la pantalla de emitir.
+   * Con `soloActivas = false` salen también las cerradas, que es lo que se
+   * mantiene desde Ajustes.
+   */
+  series(soloActivas = true): Observable<SerieFactura[]> {
+    return this.http.get<SerieFactura[]>(`${this.base}/series`, {
+      params: new HttpParams().set('soloActivas', soloActivas),
+    });
+  }
+
+  /**
+   * Abre una serie de facturación.
+   *
+   * Sin ninguna serie no se puede emitir una sola factura: hasta ahora solo
+   * existían en el juego de datos de demostración, así que una instalación de
+   * verdad se quedaba sin poder facturar.
+   */
+  crearSerie(datos: {
+    codigo: string;
+    ejercicio: number;
+    descripcion?: string | null;
+    tipo: TipoFactura;
+  }): Observable<SerieFactura> {
+    return this.http.post<SerieFactura>(`${this.base}/series`, datos);
+  }
+
+  /** Cambia la descripción de una serie y la abre o la cierra. */
+  actualizarSerie(
+    id: number,
+    datos: { descripcion: string; activa: boolean },
+  ): Observable<SerieFactura> {
+    return this.http.put<SerieFactura>(`${this.base}/series/${id}`, datos);
   }
 
   rectificativasDe(id: number): Observable<FacturaResumen[]> {

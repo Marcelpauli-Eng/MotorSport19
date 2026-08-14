@@ -111,6 +111,18 @@ public class OrdenTrabajo extends EntidadAuditable {
     @Column(name = "tarifa_hora", nullable = false, precision = 12, scale = 2)
     private BigDecimal tarifaHora;
 
+    /**
+     * Tipo de IVA impuesto a toda la orden, o nulo si cada linea lleva el suyo.
+     *
+     * <p>Se usa para las ordenes que van sin IVA —una exportacion, un trabajo
+     * exento— y para las que van enteras a un tipo distinto del corriente. Al
+     * estar aqui y no solo en las lineas, una linea añadida despues nace ya con
+     * el tipo que toca en vez de colar un 21 % en mitad de un presupuesto
+     * exento.
+     */
+    @Column(name = "tipo_iva", length = 20)
+    private String tipoIva;
+
     @Column(name = "fecha_presupuesto")
     private Instant fechaPresupuesto;
 
@@ -389,11 +401,57 @@ public class OrdenTrabajo extends EntidadAuditable {
      * cosas distintas.
      *
      * <p>Como contrapartida, pisa los descuentos que se hubieran pactado linea a
-     * linea. Quien lo pulsa lo hace justamente para que mande sobre todo lo demas.
+     * linea. Quien lo pulsa lo hace justamente para que mande sobre todo lo demas
+     * <b>hacia arriba</b>: subir del 5 % al 10 % es lo que se esperaba.
+     *
+     * <p>Hacia abajo se para y se pregunta. Si una linea llevaba un 25 % pactado
+     * con el cliente y se aplica un 5 % general de cortesia, escribir el 5 %
+     * encima le quita veinte puntos de descuento que ya tenia prometidos: el
+     * total <i>sube</i> despues de hacerle mas descuento, y nadie lo ve. No es
+     * que sea imposible querer eso —tambien se corrige un 10 % puesto por error
+     * bajandolo a 5—, es que no puede pasar sin querer. Por eso a la baja hace
+     * falta {@code forzar}, y el mensaje dice exactamente que lineas se pierden.
      */
     public void aplicarDescuentoGeneral(BigDecimal descuentoPct) {
+        aplicarDescuentoGeneral(descuentoPct, false);
+    }
+
+    public void aplicarDescuentoGeneral(BigDecimal descuentoPct, boolean forzar) {
         exigirLineasEditables();
+
+        String pactadas = lineas.stream()
+                .filter(linea -> linea.getDescuentoPct() != null
+                        && linea.getDescuentoPct().compareTo(descuentoPct) > 0)
+                .map(linea -> "%s (%s %%)".formatted(
+                        linea.getDescripcion(), linea.getDescuentoPct().stripTrailingZeros().toPlainString()))
+                .collect(java.util.stream.Collectors.joining("; "));
+
+        if (!forzar && !pactadas.isEmpty()) {
+            throw new ReglaNegocioException(
+                    ("Un descuento general del %s %% dejaria con MENOS descuento a lineas que ya tenian uno "
+                     + "pactado: %s. El cliente acabaria pagando mas despues de hacerle un descuento. "
+                     + "Si aun asi quiere bajarlas, confirme la operacion.")
+                            .formatted(descuentoPct.stripTrailingZeros().toPlainString(), pactadas));
+        }
+
         lineas.forEach(linea -> linea.cambiarDescuento(descuentoPct));
+    }
+
+    /**
+     * Pone el mismo IVA en toda la orden y deja fijado el regimen.
+     *
+     * <p>Es el «esta va sin IVA» del mostrador. Hace dos cosas a la vez y las
+     * dos hacen falta: cambia las lineas que ya estan y deja anotado el tipo,
+     * de modo que lo que se añada despues nazca igual. Con solo lo primero,
+     * añadir una pieza mas devolvia una linea al 21 % sin que nadie lo viera.
+     *
+     * <p>Pisa el tipo que traia cada linea de su origen, incluido el de las
+     * piezas del catalogo. Quien lo elige lo hace justamente para eso.
+     */
+    public void aplicarTipoIvaGeneral(String codigo, BigDecimal porcentaje) {
+        exigirLineasEditables();
+        this.tipoIva = codigo;
+        lineas.forEach(linea -> linea.cambiarTipoIva(codigo, porcentaje));
     }
 
     /** Descuento de una linea suelta, para el regateo concepto a concepto. */

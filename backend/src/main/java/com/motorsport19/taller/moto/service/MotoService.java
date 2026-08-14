@@ -19,8 +19,11 @@ public class MotoService {
 
     private final MotoRepository motoRepository;
     private final ClienteService clienteService;
+    private final com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
 
-    public MotoService(MotoRepository motoRepository, ClienteService clienteService) {
+    public MotoService(MotoRepository motoRepository, ClienteService clienteService,
+                       com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository) {
+        this.ordenRepository = ordenRepository;
         this.motoRepository = motoRepository;
         this.clienteService = clienteService;
     }
@@ -44,7 +47,13 @@ public class MotoService {
     @Transactional(readOnly = true)
     public Page<Moto> buscar(String texto, boolean soloActivas, Pageable pageable) {
         String filtro = (texto == null || texto.isBlank()) ? null : texto.trim();
-        return motoRepository.buscar(filtro, soloActivas, pageable);
+        // La misma busqueda, tambien en forma de matricula canonica: asi
+        // «1234ABC» y «1234-abc» encuentran la moto fichada como «1234 ABC».
+        String comoMatricula = Matriculas.normalizar(filtro);
+        if (comoMatricula != null && comoMatricula.equalsIgnoreCase(filtro)) {
+            comoMatricula = null;   // no aporta nada: ya lo cubre :texto
+        }
+        return motoRepository.buscar(filtro, comoMatricula, soloActivas, pageable);
     }
 
     @Transactional(readOnly = true)
@@ -115,6 +124,18 @@ public class MotoService {
     @Transactional
     public Moto darDeBaja(Long id) {
         Moto moto = obtener(id);
+
+        // Con la moto en el taller, darla de baja la saca de los listados y de
+        // los desplegables en mitad de la reparacion: quien la busca deja de
+        // encontrarla y nadie le ha avisado de nada. Casi siempre es un despiste
+        // ordenando el fichero, asi que se corta y se dice que falta por hacer.
+        long abiertas = ordenRepository.contarAbiertasDeMoto(id);
+        if (abiertas > 0) {
+            throw new ConflictoException(
+                    ("La moto %s tiene %d orden(es) de trabajo sin cerrar. Cierrelas o recha%celas "
+                     + "antes de darla de baja.").formatted(moto.getMatricula(), abiertas, 'z'));
+        }
+
         moto.darDeBaja();
         return moto;
     }

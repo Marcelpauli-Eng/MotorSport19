@@ -2,6 +2,8 @@ package com.motorsport19.taller.usuario.service;
 
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.support.RolesDePrueba;
+import com.motorsport19.taller.usuario.domain.Permiso;
 import com.motorsport19.taller.usuario.domain.Rol;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
@@ -34,6 +36,9 @@ class UsuarioServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private com.motorsport19.taller.usuario.repository.RolRepository rolRepository;
+
     /** Se usa el codificador de verdad: probar BCrypt contra un mock no prueba nada. */
     private final PasswordEncoder codificador = new BCryptPasswordEncoder(4);
 
@@ -41,8 +46,11 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void preparar() {
-        usuarioService = new UsuarioService(usuarioRepository, codificador);
+        usuarioService = new UsuarioService(usuarioRepository, rolRepository, codificador);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(rolRepository.findById(any())).thenAnswer(i ->
+                Optional.of(RolesDePrueba.con(i.getArgument(0), "Rol de prueba",
+                        java.util.EnumSet.of(com.motorsport19.taller.usuario.domain.Permiso.ORDENES_VER))));
     }
 
     private Usuario usuarioCon(Long id, String username, Rol rol, String password) {
@@ -62,7 +70,7 @@ class UsuarioServiceTest {
             when(usuarioRepository.findByUsername("nuevo")).thenReturn(Optional.empty());
 
             Usuario usuario = usuarioService.crear("nuevo", "contrasena123", "Nuevo Usuario",
-                    null, null, Rol.TECNICO);
+                    null, null, 3L);
 
             assertThat(usuario.getPasswordHash())
                     .doesNotContain("contrasena123")
@@ -76,7 +84,7 @@ class UsuarioServiceTest {
             when(usuarioRepository.findByUsername("jortega")).thenReturn(Optional.empty());
 
             Usuario usuario = usuarioService.crear("  JOrtega ", "contrasena123", "Javier Ortega",
-                    null, null, Rol.TECNICO);
+                    null, null, 3L);
 
             // Sin esto existirian "jortega" y "JOrtega" como usuarios distintos.
             assertThat(usuario.getUsername()).isEqualTo("jortega");
@@ -86,10 +94,10 @@ class UsuarioServiceTest {
         @DisplayName("rechaza un nombre de usuario ya existente")
         void usernameDuplicado() {
             when(usuarioRepository.findByUsername("admin"))
-                    .thenReturn(Optional.of(usuarioCon(1L, "admin", Rol.ADMIN, "loquesea1")));
+                    .thenReturn(Optional.of(usuarioCon(1L, "admin", RolesDePrueba.administracion(), "loquesea1")));
 
             assertThatThrownBy(() -> usuarioService.crear("admin", "contrasena123", "Otro",
-                    null, null, Rol.MOSTRADOR))
+                    null, null, 2L))
                     .isInstanceOf(ConflictoException.class)
                     .hasMessageContaining("admin");
         }
@@ -100,7 +108,7 @@ class UsuarioServiceTest {
             when(usuarioRepository.findByUsername(any())).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> usuarioService.crear("nuevo", "1234", "Nuevo",
-                    null, null, Rol.TECNICO))
+                    null, null, 3L))
                     .isInstanceOf(ReglaNegocioException.class)
                     .hasMessageContaining("8 caracteres");
         }
@@ -113,7 +121,7 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("exige la contrasena actual")
         void exigeLaActual() {
-            Usuario usuario = usuarioCon(1L, "jortega", Rol.TECNICO, "actual12345");
+            Usuario usuario = usuarioCon(1L, "jortega", RolesDePrueba.taller(), "actual12345");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
 
             // Si no se pidiera, una sesion olvidada en el mostrador permitiria
@@ -126,7 +134,7 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("cambia la contrasena cuando la actual es correcta")
         void cambiaCorrectamente() {
-            Usuario usuario = usuarioCon(1L, "jortega", Rol.TECNICO, "actual12345");
+            Usuario usuario = usuarioCon(1L, "jortega", RolesDePrueba.taller(), "actual12345");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
 
             usuarioService.cambiarPassword(1L, "actual12345", "nueva123456");
@@ -138,7 +146,7 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("no acepta repetir la misma contrasena")
         void mismaContrasena() {
-            Usuario usuario = usuarioCon(1L, "jortega", Rol.TECNICO, "actual12345");
+            Usuario usuario = usuarioCon(1L, "jortega", RolesDePrueba.taller(), "actual12345");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
 
             assertThatThrownBy(() -> usuarioService.cambiarPassword(1L, "actual12345", "actual12345"))
@@ -154,7 +162,7 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("nadie puede darse de baja a si mismo")
         void bajaPropia() {
-            Usuario admin = usuarioCon(1L, "admin", Rol.ADMIN, "admin12345");
+            Usuario admin = usuarioCon(1L, "admin", RolesDePrueba.administracion(), "admin12345");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin));
 
             assertThatThrownBy(() -> usuarioService.darDeBaja(1L, 1L))
@@ -165,10 +173,12 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("no se puede dar de baja al ultimo administrador")
         void ultimoAdministrador() {
-            Usuario admin = usuarioCon(1L, "admin", Rol.ADMIN, "admin12345");
-            Usuario tecnico = usuarioCon(2L, "jortega", Rol.TECNICO, "tecnico1234");
+            Usuario admin = usuarioCon(1L, "admin", RolesDePrueba.administracion(), "admin12345");
+            Usuario tecnico = usuarioCon(2L, "jortega", RolesDePrueba.taller(), "tecnico1234");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin));
-            when(usuarioRepository.findAll()).thenReturn(List.of(admin, tecnico));
+            // Contar administradores ya no es recorrer findAll: se pregunta a la
+            // base quien tiene concedido el permiso de repartir permisos.
+            when(usuarioRepository.contarConPermiso(Permiso.ROLES_GESTIONAR)).thenReturn(1L);
 
             // Dejar el sistema sin ningun administrador significa que nadie
             // puede volver a crear usuarios ni tocar la configuracion fiscal.
@@ -180,10 +190,10 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("sí se puede dar de baja a un administrador si queda otro")
         void administradorConRelevo() {
-            Usuario admin1 = usuarioCon(1L, "admin", Rol.ADMIN, "admin12345");
-            Usuario admin2 = usuarioCon(2L, "jefe", Rol.ADMIN, "jefe123456");
+            Usuario admin1 = usuarioCon(1L, "admin", RolesDePrueba.administracion(), "admin12345");
+            Usuario admin2 = usuarioCon(2L, "jefe", RolesDePrueba.administracion(), "jefe123456");
             when(usuarioRepository.findById(1L)).thenReturn(Optional.of(admin1));
-            when(usuarioRepository.findAll()).thenReturn(List.of(admin1, admin2));
+            when(usuarioRepository.contarConPermiso(Permiso.ROLES_GESTIONAR)).thenReturn(2L);
 
             usuarioService.darDeBaja(1L, 99L);
 
@@ -193,7 +203,7 @@ class UsuarioServiceTest {
         @Test
         @DisplayName("un usuario dado de baja no puede entrar")
         void bajaImpideAcceso() {
-            Usuario usuario = usuarioCon(1L, "jortega", Rol.TECNICO, "tecnico1234");
+            Usuario usuario = usuarioCon(1L, "jortega", RolesDePrueba.taller(), "tecnico1234");
             usuario.darDeBaja();
 
             // El usuario sigue existiendo porque firma ordenes del pasado, pero

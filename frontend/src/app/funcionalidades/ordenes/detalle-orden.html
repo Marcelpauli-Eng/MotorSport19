@@ -135,7 +135,28 @@
           </button>
         }
 
-        @if (o.facturable && puedeFacturar) {
+        <!--
+          Servir material no es un cambio de estado, así que no sale de la lista
+          de transiciones: es sacar del almacén lo que aún no se ha sacado.
+
+          Hace falta porque una pieza añadida con la moto ya abierta se sirve
+          sola, pero las órdenes de antes de ese arreglo se quedaron con líneas
+          sin servir y sin ninguna forma de desatascarlas. Pulsarlo sin nada
+          pendiente no hace nada.
+        -->
+        @if (o.estado === 'EN_REPARACION' && puedeTrabajarla()) {
+          <button
+            type="button"
+            class="boton"
+            [disabled]="trabajando()"
+            (click)="servirMaterial()"
+            title="Saca del almacén el material de las líneas que aún no se hayan servido"
+          >
+            Servir material
+          </button>
+        }
+
+        @if (o.facturable && puedeFacturar && !faltaSerie() && o.clienteFacturable) {
           <button
             type="button"
             class="boton boton--principal"
@@ -148,6 +169,40 @@
         }
       </div>
     </div>
+
+    <!-- Un botón deshabilitado sin explicación es lo peor que puede pasar aquí:
+         el mostrador lo pulsa, no ocurre nada y no hay forma de saber por qué. -->
+    @if (o.facturable && faltaSerie()) {
+      <div class="faltantes">
+        <p class="negrita">No se puede facturar todavía: falta la serie de facturación.</p>
+        <p class="pequeno">
+          El número de cada factura sale de una serie, y no hay ninguna ordinaria abierta. Se abre
+          una vez y sirve para todo el ejercicio.
+        </p>
+        <a routerLink="/ajustes" class="boton boton--pequeno">
+          <app-icono nombre="ajustes" [tamano]="14" />
+          Abrir una serie en Ajustes
+        </a>
+      </div>
+    }
+
+    <!-- Lo mismo con los datos fiscales del cliente: enterarse al pulsar es
+         enterarse con el cliente delante esperando el papel. -->
+    @if (o.facturable && puedeFacturar && !faltaSerie() && !o.clienteFacturable) {
+      <div class="faltantes">
+        <p class="negrita">
+          No se puede facturar a {{ o.clienteNombre }}: le faltan datos fiscales.
+        </p>
+        <p class="pequeno">
+          Una factura necesita su documento (DNI, NIE o CIF) y su domicilio completo. El trabajo
+          está hecho y la orden no se toca; solo hay que completar su ficha.
+        </p>
+        <a [routerLink]="['/clientes', o.clienteId]" class="boton boton--pequeno">
+          <app-icono nombre="clientes" [tamano]="14" />
+          Completar la ficha de {{ o.clienteNombre }}
+        </a>
+      </div>
+    }
 
     <!-- Faltan piezas al entrar en reparación -->
     @if (resultadoConsumo(); as r) {

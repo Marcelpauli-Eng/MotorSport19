@@ -53,6 +53,21 @@ export class ColumnaIvaComponente {
       : 'Facturas emitidas al 0 %: no llevan cuota de IVA.',
   );
 
+  /**
+   * Qué caería en esta columna si hubiera algo.
+   *
+   * <p>Es la pregunta real de quien se queda mirando una columna a cero: no
+   * «cuántas hay» —el cero ya lo dice— sino «qué tendría que pasar para que
+   * aquí apareciera una». Sobre todo en la del 0 %, que en un taller normal
+   * está vacía casi siempre y parece que algo va mal.
+   */
+  protected readonly explicacionVacia = computed(() =>
+    this.conIva()
+      ? 'En este periodo no se ha emitido ninguna factura con IVA.'
+      : 'Aquí van las facturas exentas o al 0 %: entregas intracomunitarias, ' +
+        'exportaciones y poco más. Lo normal en un taller es que esté vacía.',
+  );
+
   /** Meses del periodo, del más reciente al más antiguo. */
   protected readonly meses = computed(() => [...(this.resumen()?.meses ?? [])].reverse());
 

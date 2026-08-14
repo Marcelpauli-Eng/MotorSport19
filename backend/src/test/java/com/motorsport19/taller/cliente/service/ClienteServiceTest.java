@@ -30,6 +30,10 @@ class ClienteServiceTest {
     @Mock
     private ClienteRepository clienteRepository;
 
+    /** Con trabajo abierto no se da de baja: el servicio lo consulta antes. */
+    @Mock
+    private com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
+
     @InjectMocks
     private ClienteService clienteService;
 

@@ -4,13 +4,22 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "frontend", "start"],
+      "runtimeArgs": [
+        "--prefix",
+        "frontend",
+        "start"
+      ],
       "port": 4200
     },
     {
       "name": "frontend-ui",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["ng", "serve", "--port", "4310"],
+      "runtimeArgs": [
+        "ng",
+        "serve",
+        "--port",
+        "4310"
+      ],
       "port": 4310,
       "cwd": "frontend"
     }

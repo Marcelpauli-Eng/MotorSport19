@@ -58,6 +58,36 @@
             }
           }
         </span>
+
+        <!--
+          El IVA de toda la orden. Va aquí, junto al precio de la hora, porque
+          es la otra decisión que afecta a todas las líneas a la vez.
+
+          No se ofrece línea a línea a propósito: una orden se factura con IVA
+          o sin él, y dejar mezclar tipos concepto a concepto es la forma de
+          acabar con una factura que no cuadra con nada.
+        -->
+        <span class="tarifa">
+          <span class="tarifa__etiqueta">IVA</span>
+          @if (puedeCambiarTarifa()) {
+            <select
+              class="tarifa__iva"
+              aria-label="Tipo de IVA de toda la orden"
+              [ngModel]="o.tipoIva ?? ''"
+              (ngModelChange)="cambiarTipoIva($event)"
+              [disabled]="trabajando()"
+            >
+              @if (!o.tipoIva) {
+                <option value="">Cada línea el suyo</option>
+              }
+              @for (t of tiposIva(); track t.codigo) {
+                <option [value]="t.codigo">{{ t.descripcion }}</option>
+              }
+            </select>
+          } @else {
+            <span class="tarifa__valor">{{ nombreTipoIva(o.tipoIva) }}</span>
+          }
+        </span>
       }
       <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
     </div>
@@ -110,7 +140,7 @@
 
       @if (puedeEditarLineas()) {
         <!--
-          Volcar un servicio tipo. Va aquí, junto a «añadir», porque es la misma
+          Volcar una plantilla. Va aquí, junto a «añadir», porque es la misma
           decisión —meter trabajo en el presupuesto— solo que de golpe. Se
           esconde entero si el taller no ha definido ninguna plantilla: un
           desplegable vacío solo hace preguntarse qué falta.
@@ -121,9 +151,9 @@
               [ngModel]="servicioElegido()"
               (ngModelChange)="servicioElegido.set($event)"
               [disabled]="trabajando()"
-              aria-label="Servicio tipo a volcar en el presupuesto"
+              aria-label="Plantilla a volcar en el presupuesto"
             >
-              <option [ngValue]="null">Volcar un servicio…</option>
+              <option [ngValue]="null">Volcar una plantilla…</option>
               @for (s of servicios(); track s.id) {
                 <option [ngValue]="s.id">{{ s.nombre }}</option>
               }

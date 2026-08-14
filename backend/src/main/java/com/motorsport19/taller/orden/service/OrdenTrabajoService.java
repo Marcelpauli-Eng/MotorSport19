@@ -128,7 +128,7 @@ public class OrdenTrabajoService {
     @Transactional(readOnly = true)
     public Page<OrdenTrabajo> buscar(EstadoOT estado, Long tecnicoId, Long clienteId, Long motoId,
                                      boolean soloAbiertas, Pageable pageable) {
-        Long filtroTecnico = usuarioActual.esTecnico() ? usuarioActual.id() : tecnicoId;
+        Long filtroTecnico = usuarioActual.soloVeSusOrdenes() ? usuarioActual.id() : tecnicoId;
         return ordenRepository.buscar(estado, filtroTecnico, clienteId, motoId, soloAbiertas, pageable);
     }
 
@@ -139,7 +139,7 @@ public class OrdenTrabajoService {
      * con todas, porque son quienes reasignan y cierran.
      */
     private void exigirPermisoDeTrabajo(OrdenTrabajo orden) {
-        if (!usuarioActual.esTecnico()) {
+        if (!usuarioActual.soloVeSusOrdenes()) {
             return;
         }
         Long tecnicoAsignado = idDelTecnico(orden);
@@ -164,7 +164,7 @@ public class OrdenTrabajoService {
      * se hace cargo de una orden que aun no era de nadie.
      */
     private void exigirQueNoSeaDeOtroTecnico(OrdenTrabajo orden) {
-        if (!usuarioActual.esTecnico()) {
+        if (!usuarioActual.soloVeSusOrdenes()) {
             return;
         }
         Long tecnicoAsignado = idDelTecnico(orden);
@@ -248,12 +248,24 @@ public class OrdenTrabajoService {
      * <p>Aqui no vale {@link #exigirPermisoDeTrabajo}: coger una orden todavia sin
      * asignar es justo lo que hace un tecnico al empezar el dia. Lo que se impide
      * es quitarsela a un companero.
+     *
+     * <p>Si no se dice a quien y quien lo pulsa es alguien que solo trabaja lo
+     * suyo, la orden pasa a ser SUYA. Sin esto, un tecnico pulsaba «Iniciar
+     * diagnostico», la orden se movia de estado pero seguia sin asignar, y acto
+     * seguido no podia ni escribir el diagnostico: se quedaba bloqueado en mitad
+     * de un trabajo que acababa de empezar.
      */
     @Transactional
     public OrdenTrabajo iniciarDiagnostico(Long id, Long tecnicoId, Long usuarioId) {
         OrdenTrabajo orden = obtener(id);
         exigirQueNoSeaDeOtroTecnico(orden);
-        orden.iniciarDiagnostico(cargarUsuario(tecnicoId), cargarUsuario(usuarioId));
+
+        Long aQuien = tecnicoId;
+        if (aQuien == null && idDelTecnico(orden) == null && usuarioActual.soloVeSusOrdenes()) {
+            aQuien = usuarioActual.id();
+        }
+
+        orden.iniciarDiagnostico(cargarUsuario(aQuien), cargarUsuario(usuarioId));
         return orden;
     }
 
@@ -366,7 +378,11 @@ public class OrdenTrabajoService {
     public ResultadoConsumo reanudarReparacion(Long id, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
         exigirPermisoDeTrabajo(orden);
-        exigirEstado(orden, EstadoOT.ESPERANDO_PIEZAS);
+        // Tambien desde EN_REPARACION: es el caso de la pieza que se añade con la
+        // moto abierta y que en su momento no se pudo servir. Sin esto, la unica
+        // salida que ofrecia el mensaje de error —«reanude la reparacion»— no
+        // existia para una orden que nunca llego a quedarse esperando piezas.
+        exigirEstado(orden, EstadoOT.ESPERANDO_PIEZAS, EstadoOT.EN_REPARACION);
         return consumirMaterialYResolverEstado(orden, usuarioId);
     }
 
@@ -381,11 +397,59 @@ public class OrdenTrabajoService {
 
     @Transactional
     public OrdenTrabajo marcarLista(Long id, Long usuarioId) {
-        OrdenTrabajo orden = obtener(id);
+        OrdenTrabajo orden = cargarConLineas(id);
         exigirPermisoDeTrabajo(orden);
+        exigirMaterialServido(orden);
         orden.marcarLista(cargarUsuario(usuarioId));
         log.info("Orden {} lista para entregar", orden.codigoVisible());
         return orden;
+    }
+
+    /**
+     * Impide dar por terminada una orden con material sin montar.
+     *
+     * <p>La maquina de estados deja pasar de ESPERANDO_PIEZAS a LISTA, y tiene
+     * sentido: a veces el cliente se lleva la moto con lo que se le haya podido
+     * hacer. Lo que no puede pasar es que las lineas sigan diciendo cinco filtros
+     * cuando solo se montaron dos, porque la factura se compone de las lineas y
+     * el cliente acaba pagando piezas que no lleva puestas.
+     *
+     * <p>Asi que se corta aqui y se explica la salida: o llega el material, o se
+     * baja la linea a lo que de verdad se monto. Cualquiera de las dos deja la
+     * factura diciendo la verdad.
+     */
+    private void exigirMaterialServido(OrdenTrabajo orden) {
+        List<String> pendientes = new ArrayList<>();
+        boolean todoEnAlmacen = true;
+
+        for (LineaOT linea : orden.lineasDePiezas()) {
+            BigDecimal falta = linea.getCantidad().subtract(consumoDe(linea));
+            if (falta.signum() > 0) {
+                pendientes.add("%s (faltan %s de %s)".formatted(
+                        linea.skuPieza(), falta.stripTrailingZeros().toPlainString(),
+                        linea.getCantidad().stripTrailingZeros().toPlainString()));
+
+                todoEnAlmacen &= linea.getPieza().hayExistenciasPara(falta);
+            }
+        }
+
+        if (pendientes.isEmpty()) {
+            return;
+        }
+
+        // La salida no es la misma en los dos casos, y decir la que no toca hace
+        // perder el tiempo buscando en el almacen algo que ya esta: si el
+        // material esta, solo falta sacarlo; si no esta, hay que comprarlo o
+        // bajar la linea a lo que de verdad se monto.
+        String salida = todoEnAlmacen
+                ? "Hay existencias de todo: pulse «Servir material» para sacarlo del almacen"
+                : ("Registre la entrada del material y sirvalo, o baje la cantidad de esas lineas a "
+                   + "lo que de verdad se ha montado");
+
+        throw new ConflictoException(
+                ("La orden %s todavia tiene material sin montar: %s. %s; si no, la factura cobraria "
+                 + "piezas que la moto no lleva.")
+                        .formatted(orden.codigoVisible(), String.join(", ", pendientes), salida));
     }
 
     /**
@@ -412,7 +476,7 @@ public class OrdenTrabajoService {
                                     BigDecimal descuentoPct, String codigoTipoIva) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
-        TipoIva tipoIva = cargarTipoIva(codigoTipoIva);
+        TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, codigoTipoIva));
         return orden.anadirManoDeObra(descripcion, horas, descuentoPct, tipoIva.getCodigo(),
                 tipoIva.getPorcentaje());
     }
@@ -424,12 +488,39 @@ public class OrdenTrabajoService {
      * reparacion. Lo que si hace es congelar el precio de catalogo en la linea.
      */
     @Transactional
-    public LineaOT anadirPieza(Long ordenId, Long piezaId, BigDecimal cantidad, BigDecimal descuentoPct) {
+    public LineaOT anadirPieza(Long ordenId, Long piezaId, BigDecimal cantidad,
+                               BigDecimal descuentoPct, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
         Pieza pieza = piezaService.obtener(piezaId);
-        TipoIva tipoIva = cargarTipoIva(pieza.getTipoIva());
-        return orden.anadirPieza(pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
+        TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, pieza.getTipoIva()));
+
+        LineaOT linea = orden.anadirPieza(pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
+        servirSiYaSeEstaReparando(orden, linea, usuarioId);
+        return linea;
+    }
+
+    /**
+     * Saca del almacen una linea añadida con la moto ya en el elevador.
+     *
+     * <p>El material se consume al entrar en reparacion, asi que una pieza
+     * añadida despues se quedaba sin servir para siempre: no habia ningun sitio
+     * desde donde consumirla y la orden no se podia dar por lista, aunque
+     * hubiera existencias de sobra. Esto es lo que ocurre de verdad en el
+     * taller —se abre la moto y aparece otra cosa que cambiar—, asi que la
+     * pieza sale del almacen en el momento.
+     *
+     * <p>Si no hay existencias no se toca el estado: la linea se queda
+     * pendiente y se sirve con {@link #reanudarReparacion} cuando llegue el
+     * material, que es el mismo camino que ya tenian las demas.
+     */
+    private void servirSiYaSeEstaReparando(OrdenTrabajo orden, LineaOT linea, Long usuarioId) {
+        if (orden.getEstado() != EstadoOT.EN_REPARACION
+                && orden.getEstado() != EstadoOT.ESPERANDO_PIEZAS) {
+            return;
+        }
+        inventarioService.intentarConsumoEnOrden(
+                linea.getPieza().getId(), linea.getCantidad(), orden, linea, usuarioId);
     }
 
     /**
@@ -450,7 +541,7 @@ public class OrdenTrabajoService {
      * de catalogo del momento, exactamente igual que si se hubieran tecleado.
      */
     @Transactional
-    public List<LineaOT> aplicarServicioTipo(Long ordenId, Long servicioTipoId) {
+    public List<LineaOT> aplicarServicioTipo(Long ordenId, Long servicioTipoId, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
 
@@ -464,14 +555,16 @@ public class OrdenTrabajoService {
         List<LineaOT> anadidas = new ArrayList<>();
         for (LineaServicioTipo plantilla : servicio.getLineas()) {
             if (plantilla.esManoDeObra()) {
-                TipoIva tipoIva = cargarTipoIva(null);
+                TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, null));
                 anadidas.add(orden.anadirManoDeObra(plantilla.getDescripcion(),
                         plantilla.getCantidad(), null, tipoIva.getCodigo(), tipoIva.getPorcentaje()));
             } else {
                 Pieza pieza = plantilla.getPieza();
-                TipoIva tipoIva = cargarTipoIva(pieza.getTipoIva());
-                anadidas.add(orden.anadirPieza(pieza, plantilla.getCantidad(), null,
-                        tipoIva.getPorcentaje()));
+                TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, pieza.getTipoIva()));
+                LineaOT linea = orden.anadirPieza(pieza, plantilla.getCantidad(), null,
+                        tipoIva.getPorcentaje());
+                servirSiYaSeEstaReparando(orden, linea, usuarioId);
+                anadidas.add(linea);
             }
         }
 
@@ -486,17 +579,41 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         linea.cambiarCantidad(cantidad, consumoDe(linea));
-        return linea;
+        return conPiezaCargada(linea);
     }
 
     /** Mismo descuento en todas las lineas: el «hazme un 10 % en todo». */
     @Transactional
     public OrdenTrabajo aplicarDescuentoGeneral(Long ordenId, BigDecimal descuentoPct) {
+        return aplicarDescuentoGeneral(ordenId, descuentoPct, false);
+    }
+
+    @Transactional
+    public OrdenTrabajo aplicarDescuentoGeneral(Long ordenId, BigDecimal descuentoPct, boolean forzar) {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
-        orden.aplicarDescuentoGeneral(descuentoPct);
+        orden.aplicarDescuentoGeneral(descuentoPct, forzar);
         log.info("Descuento general del {} % aplicado a la orden {}", descuentoPct,
                 orden.codigoVisible());
+        return orden;
+    }
+
+    /**
+     * Pone toda la orden a un tipo de IVA: el «esta va sin IVA» del mostrador.
+     *
+     * <p>Cambia las lineas que ya estan y deja el regimen fijado en la orden,
+     * para que lo que se añada despues nazca igual.
+     */
+    @Transactional
+    public OrdenTrabajo aplicarTipoIvaGeneral(Long ordenId, String codigoTipoIva) {
+        OrdenTrabajo orden = cargarConLineas(ordenId);
+        exigirPermisoDeTrabajo(orden);
+
+        TipoIva tipoIva = cargarTipoIva(codigoTipoIva);
+        orden.aplicarTipoIvaGeneral(tipoIva.getCodigo(), tipoIva.getPorcentaje());
+
+        log.info("Orden {} puesta al tipo de IVA {} ({} %)", orden.codigoVisible(),
+                tipoIva.getCodigo(), tipoIva.getPorcentaje());
         return orden;
     }
 
@@ -506,7 +623,7 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         orden.cambiarDescuentoDeLinea(linea, descuentoPct);
-        return linea;
+        return conPiezaCargada(linea);
     }
 
     /** Fecha estimada de salida y notas internas de la orden. */
@@ -525,7 +642,7 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         orden.cambiarPrecioDeManoDeObra(linea, precioUnitario);
-        return linea;
+        return conPiezaCargada(linea);
     }
 
     /**
@@ -594,7 +711,16 @@ public class OrdenTrabajoService {
         List<PiezaFaltante> faltantes = new ArrayList<>();
         int servidas = 0;
 
-        for (LineaOT linea : orden.lineasDePiezas()) {
+        // Siempre en el mismo orden de pieza. Servir el material bloquea su fila
+        // del almacen, y dos reparaciones que compartan piezas y las recorran en
+        // ordenes distintas se abrazan: cada una espera la que tiene la otra y
+        // PostgreSQL corta una con un error de bloqueo. Recorriendolas siempre
+        // por el mismo criterio, la segunda espera en vez de chocar.
+        List<LineaOT> porPieza = orden.lineasDePiezas().stream()
+                .sorted(java.util.Comparator.comparing(l -> l.getPieza().getId()))
+                .toList();
+
+        for (LineaOT linea : porPieza) {
             BigDecimal pendiente = linea.getCantidad().subtract(consumoDe(linea));
             if (pendiente.signum() <= 0) {
                 continue;   // ya se sirvio en un intento anterior
@@ -658,6 +784,23 @@ public class OrdenTrabajoService {
                         + "Empresa y facturacion antes de abrir ordenes."));
     }
 
+    /**
+     * Deja la pieza de la linea cargada antes de cerrar la transaccion.
+     *
+     * <p>La linea sale del grafo de la orden y su pieza viene en proxy perezoso.
+     * Quien compone la respuesta es el controlador, que ya corre fuera de la
+     * transaccion: al pedir el SKU para pintarlo, el proxy no tenia sesion con
+     * la que cargarse y reventaba. El sintoma era feo y muy corriente —corregir
+     * la cantidad de un material o ponerle un descuento devolvia un 500— asi que
+     * la pieza se carga aqui, donde todavia hay sesion.
+     */
+    private LineaOT conPiezaCargada(LineaOT linea) {
+        if (linea.esDePieza()) {
+            org.hibernate.Hibernate.initialize(linea.getPieza());
+        }
+        return linea;
+    }
+
     /** Unidades que la linea tiene ahora mismo sacadas del almacen. */
     private BigDecimal consumoDe(LineaOT linea) {
         if (linea.getId() == null) {
@@ -690,6 +833,20 @@ public class OrdenTrabajoService {
                 "La orden %s esta en estado %s y esta operacion requiere que este en %s."
                         .formatted(orden.codigoVisible(), orden.getEstado().name(),
                                 String.join(" o ", java.util.Arrays.stream(admitidos).map(Enum::name).toList())));
+    }
+
+    /**
+     * Que IVA le toca a una linea que se acaba de añadir.
+     *
+     * <p>Manda el de la orden si se le ha impuesto uno. Una orden marcada como
+     * exenta tiene que seguir exenta cuando se le añade la septima pieza, y eso
+     * no puede depender de que quien la añade se acuerde.
+     *
+     * @param propuesto el que traeria la linea por su cuenta: el del catalogo si
+     *                  es una pieza, o ninguno si es mano de obra
+     */
+    private String tipoDeLaLinea(OrdenTrabajo orden, String propuesto) {
+        return orden.getTipoIva() != null ? orden.getTipoIva() : propuesto;
     }
 
     private TipoIva cargarTipoIva(String codigo) {

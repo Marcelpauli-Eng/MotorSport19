@@ -55,8 +55,22 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
             """)
     List<Factura> buscarOrdinariasDeOrden(@Param("ordenId") Long ordenId);
 
-    /** Rectificativas emitidas sobre una factura. */
-    @Query("SELECT f FROM Factura f WHERE f.facturaRectificada.id = :facturaId ORDER BY f.numeroRegistro")
+    /**
+     * Rectificativas emitidas sobre una factura.
+     *
+     * <p>La serie y la factura corregida se traen en el mismo viaje. Sin eso la
+     * respuesta se arma con la sesion ya cerrada —open-in-view esta desactivado—
+     * y la pantalla que se abre justo cuando un cliente discute una factura
+     * respondia «error inesperado» en vez de enseñar la correccion que si
+     * existia.
+     */
+    @Query("""
+            SELECT f FROM Factura f
+              JOIN FETCH f.serie
+              LEFT JOIN FETCH f.facturaRectificada
+             WHERE f.facturaRectificada.id = :facturaId
+             ORDER BY f.numeroRegistro
+            """)
     List<Factura> buscarRectificativasDe(@Param("facturaId") Long facturaId);
 
     /**

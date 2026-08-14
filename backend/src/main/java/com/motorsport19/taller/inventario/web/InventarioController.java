@@ -49,7 +49,7 @@ public class InventarioController {
     /** Piezas que han caido al minimo o por debajo. */
     @GetMapping("/alertas")
     public List<AlertaStockResponse> alertas() {
-        boolean sinPrecio = usuarioActual.esTecnico();
+        boolean sinPrecio = usuarioActual.sinImportes();
         return inventarioService.alertasDeStock().stream()
                 .map(AlertaStockResponse::de)
                 .map(a -> sinPrecio ? a.sinPrecio() : a)
@@ -83,7 +83,7 @@ public class InventarioController {
     /** Asiento del libro, sin el coste si quien pregunta es un tecnico. */
     private MovimientoStockResponse asiento(MovimientoStock movimiento) {
         MovimientoStockResponse respuesta = MovimientoStockResponse.de(movimiento);
-        return usuarioActual.esTecnico() ? respuesta.sinPrecio() : respuesta;
+        return usuarioActual.sinImportes() ? respuesta.sinPrecio() : respuesta;
     }
 
     @PostMapping("/piezas/{piezaId}/entradas")

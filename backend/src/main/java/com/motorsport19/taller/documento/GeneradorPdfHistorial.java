@@ -26,14 +26,19 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Imprime la hoja de vida de una moto.
+ * Imprime hojas de vida: la de una moto o la de un cliente con todas las suyas.
+ *
+ * <p>Los dos casos son el mismo recorrido, porque el documento es una lista de
+ * bloques de moto y el de una moto suelta tiene un bloque. Lo unico que cambia
+ * es que el del cliente lleva su ficha arriba y un acumulado de todas.
  *
  * <p>Va aparte de {@link GeneradorPdfDocumento} porque son dos documentos con
  * dos problemas distintos. Aquel dibuja un impreso de una hoja con las bandas
  * en coordenadas fijas, copiando el papel de siempre del taller; este es un
- * listado que crece: una moto con quince años de mantenimiento ocupa varias
- * paginas, y las intervenciones tienen que poder partirse por donde toque sin
- * que se corte ninguna por la mitad.
+ * listado que crece: un cliente con cuatro motos y quince años de
+ * mantenimiento ocupa varias paginas, y hay que poder partirlas por donde toque
+ * sin cortar ninguna intervencion por la mitad ni dejar la ficha de una moto
+ * sola al pie de la hoja.
  *
  * <p>Se conserva a proposito el aire del otro documento —misma cabecera, misma
  * letra, mismos grosores— para que quien lo recibe vea que sale del mismo
@@ -56,6 +61,32 @@ public class GeneradorPdfHistorial {
 
     private static final float GROSOR = 0.75f;
     private static final float INTERLINEA = 10.5f;
+
+    /*
+      Recuadro de una ficha —la del cliente o la de una moto—: dos filas de
+      rotulo pequeño con su valor debajo.
+
+      Las distancias van medidas desde el borde de arriba hasta la LINEA BASE
+      del valor; el rotulo lo coloca 9 pt mas arriba `etiqueta()`.
+
+      Estan puestas para que sobre y falte lo mismo por arriba que por abajo,
+      unos 6 pt a cada lado:
+
+        6,5  aire
+        13   linea base del rotulo de arriba (mayusculas de 6,5)
+        22   linea base de su valor
+        34   linea base del rotulo de abajo
+        43   linea base de su valor (los rabos de las letras bajan ~2)
+        51   borde de abajo
+
+      Con la primera fila a 14, como estaba, el rotulo se comia la raya de
+      arriba mientras abajo sobraba medio renglon.
+    */
+    private static final float FICHA_ALTO = 51f;
+    private static final float FICHA_FILA1 = 22f;
+    private static final float FICHA_FILA2 = 43f;
+    /** Sangria del texto dentro del recuadro, para que no se pegue al filo. */
+    private static final float FICHA_SANGRIA = 8f;
 
     private static final Locale ESPANA = Locale.of("es", "ES");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -107,18 +138,63 @@ public class GeneradorPdfHistorial {
             this.totalPaginas = contarPaginas(h);
 
             abrirPagina(h);
-            dibujarFichaMoto(h);
-            dibujarResumen(h);
+
+            // El resumen general solo va arriba cuando el sujeto del documento es
+            // el cliente. En el de una moto, lo primero tiene que ser de que moto
+            // habla el papel; su resumen va pegado a su ficha, dentro del bloque.
+            if (h.cliente() != null) {
+                dibujarFichaCliente(h);
+                dibujarResumen(h, h.resumen(), h.motos().size() > 1);
+            }
+
+            for (HistorialImprimible.BloqueMoto moto : h.motos()) {
+                dibujarBloque(h, moto);
+            }
+
+            if (h.motos().isEmpty()) {
+                texto(normal, 8, IZQ, y, "Este cliente no tiene ninguna moto dada de alta.");
+            }
+
+            cerrarPagina(h);
+        }
+
+        /**
+         * Una moto entera: su ficha y todas sus intervenciones.
+         *
+         * <p>La ficha nunca se queda sola al final de una hoja. Si no cabe con
+         * al menos una intervencion debajo, la moto empieza en la pagina
+         * siguiente: un recuadro huerfano al pie obliga a pasar la hoja para
+         * saber de que moto hablaba.
+         */
+        private void dibujarBloque(HistorialImprimible h, HistorialImprimible.BloqueMoto moto)
+                throws IOException {
+            float primera = moto.intervenciones().isEmpty()
+                    ? 0f
+                    : altoDe(moto.intervenciones().get(0), h.conImportes());
+
+            if (y - (altoFicha() + primera) < Y_MINIMA) {
+                cerrarPagina(h);
+                abrirPagina(h);
+            }
+
+            dibujarFichaMoto(moto);
+
+            // Cada moto lleva su acumulado pegado a su ficha: en el historial de
+            // una es el resumen del documento, y en el de un cliente es lo que
+            // deja comparar una moto con otra.
+            dibujarResumen(h, moto.resumen(), false);
 
             texto(negrita, 9, IZQ, y, "INTERVENCIONES");
             y -= INTERLINEA * 1.4f;
 
-            if (h.intervenciones().isEmpty()) {
+            if (moto.intervenciones().isEmpty()) {
                 texto(normal, 8, IZQ, y,
                         "Esta moto todavía no tiene ninguna intervención registrada en el taller.");
-                y -= INTERLINEA;
+                y -= INTERLINEA * 2f;
+                return;
             }
-            for (HistorialImprimible.Intervencion i : h.intervenciones()) {
+
+            for (HistorialImprimible.Intervencion i : moto.intervenciones()) {
                 float alto = altoDe(i, h.conImportes());
                 if (y - alto < Y_MINIMA) {
                     cerrarPagina(h);
@@ -126,8 +202,7 @@ public class GeneradorPdfHistorial {
                 }
                 dibujarIntervencion(i, h.conImportes());
             }
-
-            cerrarPagina(h);
+            y -= INTERLINEA;
         }
 
         // ==================================================================
@@ -137,21 +212,43 @@ public class GeneradorPdfHistorial {
         /**
          * Simula el recorrido para saber cuantas hojas van a salir.
          *
-         * <p>Recorre exactamente las mismas alturas que {@link #dibujar}, asi que
-         * cualquier cambio en el alto de una intervencion hay que hacerlo en
-         * {@link #altoDe} y las dos pasadas siguen de acuerdo.
+         * <p>Recorre exactamente los mismos saltos que {@link #dibujar}, asi que
+         * cualquier cambio en las alturas hay que hacerlo en {@link #altoDe} y en
+         * las constantes que usan las dos pasadas, y siguen de acuerdo.
          */
         private int contarPaginas(HistorialImprimible h) {
             int paginas = 1;
-            float cursor = Y_INICIAL_PRIMERA - altoFicha(h) - altoResumen() - INTERLINEA * 2.4f;
+            float cursor = Y_INICIAL_PRIMERA;
 
-            for (HistorialImprimible.Intervencion i : h.intervenciones()) {
-                float alto = altoDe(i, h.conImportes());
-                if (cursor - alto < Y_MINIMA) {
+            // altoFicha() ya incluye la separacion que deja debajo.
+            if (h.cliente() != null) {
+                cursor -= altoFicha() + altoResumen(h.motos().size() > 1);
+            }
+
+            for (HistorialImprimible.BloqueMoto moto : h.motos()) {
+                float primera = moto.intervenciones().isEmpty()
+                        ? 0f
+                        : altoDe(moto.intervenciones().get(0), h.conImportes());
+
+                if (cursor - (altoFicha() + primera) < Y_MINIMA) {
                     paginas++;
                     cursor = Y_INICIAL_SIGUIENTE;
                 }
-                cursor -= alto;
+                cursor -= altoFicha() + altoResumen(false) + INTERLINEA * 1.4f;
+
+                if (moto.intervenciones().isEmpty()) {
+                    cursor -= INTERLINEA * 2f;
+                    continue;
+                }
+                for (HistorialImprimible.Intervencion i : moto.intervenciones()) {
+                    float alto = altoDe(i, h.conImportes());
+                    if (cursor - alto < Y_MINIMA) {
+                        paginas++;
+                        cursor = Y_INICIAL_SIGUIENTE;
+                    }
+                    cursor -= alto;
+                }
+                cursor -= INTERLINEA;
             }
             return paginas;
         }
@@ -169,9 +266,8 @@ public class GeneradorPdfHistorial {
             } else {
                 // En las hojas siguientes basta un renglon de continuidad: quien la
                 // tiene en la mano ya sabe de que moto y de que taller le hablan.
-                texto(negrita, 9, IZQ, 800f, "HISTORIAL DE SERVICIO");
-                derecha(normal, 8, DER, 800f,
-                        "%s · %s".formatted(h.vehiculo().matricula(), h.emisor().razonSocial()));
+                texto(negrita, 9, IZQ, 800f, h.titulo());
+                derecha(normal, 8, DER, 800f, continuidad(h));
                 linea(IZQ, 793f, DER, 793f);
                 y = Y_INICIAL_SIGUIENTE;
             }
@@ -215,22 +311,22 @@ public class GeneradorPdfHistorial {
                 }
             }
 
-            texto(negrita, 14, IZQ, 714.27f, "HISTORIAL DE SERVICIO");
+            texto(negrita, 14, IZQ, 714.27f, h.titulo());
         }
 
         /** Matricula, moto y bastidor: con lo que se comprueba que el papel es de esa moto. */
-        private void dibujarFichaMoto(HistorialImprimible h) throws IOException {
-            var v = h.vehiculo();
+        private void dibujarFichaMoto(HistorialImprimible.BloqueMoto moto) throws IOException {
+            var v = moto.vehiculo();
             float arriba = y;
-            float abajo = y - 44f;
+            float abajo = y - FICHA_ALTO;
 
             recuadro(arriba, abajo);
 
-            float col1 = IZQ + 8f;
+            float col1 = IZQ + FICHA_SANGRIA;
             float col2 = 200f;
             float col3 = 400f;
-            float fila1 = arriba - 14f;
-            float fila2 = arriba - 32f;
+            float fila1 = arriba - FICHA_FILA1;
+            float fila2 = arriba - FICHA_FILA2;
 
             etiqueta(col1, fila1, "MATRÍCULA", v.matricula(), 11);
             etiqueta(col2, fila1, "MOTO", "%s %s".formatted(valorOVacio(v.marca()), valorOVacio(v.modelo())).trim(), 9);
@@ -238,16 +334,27 @@ public class GeneradorPdfHistorial {
 
             etiqueta(col1, fila2, "BASTIDOR", valorOGuion(v.bastidor()), 8);
             etiqueta(col2, fila2, "KILÓMETROS", v.kmActual() == null ? "—" : entero(v.kmActual()) + " km", 9);
-            etiqueta(col3, fila2, "TITULAR", recortar(valorOGuion(h.propietario()), 150f, 8), 8);
+            etiqueta(col3, fila2, "TITULAR", recortar(valorOGuion(moto.propietario()), 150f, 8), 8);
 
             y = abajo - INTERLINEA * 1.6f;
         }
 
-        private void dibujarResumen(HistorialImprimible h) throws IOException {
-            var r = h.resumen();
-
+        /**
+         * Las cifras de un tramo del documento.
+         *
+         * @param conMotos añade cuantas motos entran en el acumulado. Solo tiene
+         *                 sentido en el resumen general de un cliente con varias
+         */
+        private void dibujarResumen(HistorialImprimible h, HistorialImprimible.Resumen r,
+                                    boolean conMotos) throws IOException {
             texto(negrita, 9, IZQ, y, "RESUMEN");
             y -= INTERLINEA * 1.2f;
+
+            if (conMotos) {
+                texto(normal, 8.5f, IZQ, y,
+                        "%d motos de este cliente con historial en el taller".formatted(r.motos()));
+                y -= INTERLINEA;
+            }
 
             String visitas = r.intervenciones() == 1 ? "1 intervención" : r.intervenciones() + " intervenciones";
             if (r.primeraVisita() != null) {
@@ -269,6 +376,40 @@ public class GeneradorPdfHistorial {
                 y -= INTERLINEA;
             }
             y -= INTERLINEA * 0.6f;
+        }
+
+        /**
+         * Ficha del titular, en el historial de un cliente.
+         *
+         * <p>Aqui el sujeto del documento es la persona, asi que va arriba y sus
+         * motos cuelgan debajo. En el historial de una moto suelta no se dibuja:
+         * el titular ya sale en la ficha de la moto.
+         */
+        private void dibujarFichaCliente(HistorialImprimible h) throws IOException {
+            var c = h.cliente();
+            float arriba = y;
+            float abajo = y - FICHA_ALTO;
+
+            recuadro(arriba, abajo);
+
+            float fila1 = arriba - FICHA_FILA1;
+            float fila2 = arriba - FICHA_FILA2;
+
+            etiqueta(IZQ + FICHA_SANGRIA, fila1, "CLIENTE", recortar(c.nombre(), 300f, 11), 11);
+            etiqueta(400f, fila1, "NIF", valorOGuion(c.documento()), 9);
+            etiqueta(IZQ + FICHA_SANGRIA, fila2, "TELÉFONO", valorOGuion(c.telefono()), 9);
+            etiqueta(400f, fila2, "POBLACIÓN", recortar(valorOGuion(c.poblacion()), 150f, 9), 9);
+
+            y = abajo - INTERLINEA * 1.6f;
+        }
+
+        /** Lo que va arriba a la derecha en las hojas siguientes a la primera. */
+        private String continuidad(HistorialImprimible h) {
+            String sujeto = h.cliente() != null
+                    ? h.cliente().nombre()
+                    : h.motos().isEmpty() ? "" : h.motos().get(0).vehiculo().matricula();
+
+            return "%s · %s".formatted(sujeto, h.emisor().razonSocial());
         }
 
         /**
@@ -364,12 +505,21 @@ public class GeneradorPdfHistorial {
             return alto + INTERLINEA * 1.3f;
         }
 
-        private float altoFicha(HistorialImprimible h) {
-            return 44f + INTERLINEA * 1.6f;
+        /** Alto del recuadro de una ficha, la del cliente o la de una moto. */
+        private float altoFicha() {
+            return FICHA_ALTO + INTERLINEA * 1.6f;
         }
 
-        private float altoResumen() {
-            return INTERLINEA * 4.8f;
+        /**
+         * Alto del bloque de resumen.
+         *
+         * <p>Se calcula por lo alto —contando siempre el renglon de kilometros y
+         * el de importes, aunque no salgan— porque esta medida solo decide donde
+         * cortar la pagina. Pasarse deja algo de aire al pie; quedarse corto
+         * empuja una intervencion fuera de la hoja.
+         */
+        private float altoResumen(boolean conMotos) {
+            return INTERLINEA * (conMotos ? 5.8f : 4.8f);
         }
 
         private int renglonesDe(String texto) {

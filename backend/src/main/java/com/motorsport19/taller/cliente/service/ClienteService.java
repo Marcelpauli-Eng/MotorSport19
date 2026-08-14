@@ -15,8 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClienteService {
 
     private final ClienteRepository clienteRepository;
+    private final com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
 
-    public ClienteService(ClienteRepository clienteRepository) {
+    public ClienteService(ClienteRepository clienteRepository,
+                          com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository) {
+        this.ordenRepository = ordenRepository;
         this.clienteRepository = clienteRepository;
     }
 
@@ -76,6 +79,16 @@ public class ClienteService {
     @Transactional
     public Cliente darDeBaja(Long id) {
         Cliente cliente = obtener(id);
+
+        // Mismo motivo que con las motos: con trabajo suyo en el taller, darlo
+        // de baja lo hace desaparecer de las busquedas a mitad de faena.
+        long abiertas = ordenRepository.contarAbiertasDeCliente(id);
+        if (abiertas > 0) {
+            throw new ConflictoException(
+                    ("%s tiene %d orden(es) de trabajo sin cerrar. Cierrelas antes de darlo de baja.")
+                            .formatted(cliente.nombreCompleto(), abiertas));
+        }
+
         cliente.darDeBaja();
         return cliente;
     }

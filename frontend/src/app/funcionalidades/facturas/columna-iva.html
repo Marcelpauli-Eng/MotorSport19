@@ -10,34 +10,36 @@
 
     <p class="pequeno silenciado explicacion">{{ explicacion() }}</p>
 
-    <!-- Acumulado del periodo -->
+    <!--
+      Acumulado del periodo.
+
+      Seis cifras del mismo tamaño no son un resumen, son una tabla sin
+      cabecera: hay que leerlas todas para saber cuál importa. Ahora manda una
+      —lo que se ha facturado— y las demás la explican en dos grupos: de qué se
+      compone ese total, y qué queda después del material.
+    -->
+    <div class="total-periodo">
+      <span class="total-periodo__valor">{{ r.totalFacturado | number: '1.2-2' : 'es' }} €</span>
+      <span class="total-periodo__etiqueta">
+        Facturado
+        <span class="silenciado">
+          · {{ r.numeroFacturas }} {{ r.numeroFacturas === 1 ? 'factura' : 'facturas' }}
+        </span>
+      </span>
+    </div>
+
     <div class="cifras">
-      <div class="cifra cifra--destacada">
-        <span class="cifra__valor">{{ r.totalFacturado | number: '1.2-2' : 'es' }} €</span>
-        <span class="cifra__etiqueta">Facturado (con IVA)</span>
-      </div>
+      <!-- El desglose del total. También en la columna del 0 %, donde el IVA
+           sale cero: las dos rejillas llevan las mismas casillas en el mismo
+           sitio para poder leerse en paralelo, y ese cero es justo lo que se
+           quiere ver ahí. -->
       <div class="cifra">
         <span class="cifra__valor">{{ r.baseFacturada | number: '1.2-2' : 'es' }} €</span>
         <span class="cifra__etiqueta">Base imponible</span>
       </div>
-      <!-- También en la columna del 0 %, donde sale cero: las dos rejillas tienen
-           que llevar las mismas casillas en el mismo sitio para poder leerse en
-           paralelo, y ese cero es justo lo que se quiere ver ahí. -->
       <div class="cifra">
         <span class="cifra__valor">{{ r.ivaRepercutido | number: '1.2-2' : 'es' }} €</span>
         <span class="cifra__etiqueta">IVA repercutido</span>
-      </div>
-      <div class="cifra">
-        <span class="cifra__valor negativo">{{ r.gastoMaterial | number: '1.2-2' : 'es' }} €</span>
-        <span class="cifra__etiqueta">Gasto de material</span>
-      </div>
-      <div class="cifra">
-        <span class="cifra__valor" [class.negativo]="r.margenBruto < 0">
-          {{ r.margenBruto | number: '1.2-2' : 'es' }} €
-        </span>
-        <span class="cifra__etiqueta">
-          Margen · {{ r.margenPorcentaje | number: '1.0-1' : 'es' }} %
-        </span>
       </div>
       <div class="cifra">
         <span class="cifra__valor">{{ r.ticketMedio | number: '1.2-2' : 'es' }} €</span>
@@ -45,11 +47,40 @@
       </div>
     </div>
 
+    <div class="cifras cifras--margen">
+      <div class="cifra">
+        <!-- El signo solo si hay gasto: «−0,00 €» se lee como un error. -->
+        <span class="cifra__valor" [class.negativo]="r.gastoMaterial > 0">
+          @if (r.gastoMaterial > 0) { − }{{ r.gastoMaterial | number: '1.2-2' : 'es' }} €
+        </span>
+        <span class="cifra__etiqueta">Gasto de material</span>
+      </div>
+      <div class="cifra cifra--ancha">
+        <span class="cifra__valor" [class.negativo]="r.margenBruto < 0">
+          {{ r.margenBruto | number: '1.2-2' : 'es' }} €
+        </span>
+        <span class="cifra__etiqueta">
+          Margen · {{ r.margenPorcentaje | number: '1.0-1' : 'es' }} % sobre la base
+        </span>
+      </div>
+    </div>
+
+    <!--
+      Sin facturas, esta columna decía tres veces lo mismo: seis ceros, «ninguna
+      factura de este tipo» y «ninguna factura que enseñar aquí». Ahora lo dice
+      una vez y explica qué caería aquí, que es la pregunta real de quien mira
+      una columna vacía.
+    -->
+    @if (!hayMovimiento()) {
+      <div class="vacio columna__vacia">
+        <app-icono class="vacio__icono" nombre="facturas" [tamano]="26" />
+        <span class="vacio__titulo">Sin facturas de este tipo</span>
+        <span class="pequeno">{{ explicacionVacia() }}</span>
+      </div>
+    } @else {
+
     <!-- Mes a mes -->
     <h3 class="subtitulo">Mes a mes</h3>
-    @if (!hayMovimiento()) {
-      <p class="vacio pequeno">Ninguna factura de este tipo en el periodo.</p>
-    } @else {
       <div class="tabla-envoltorio tabla-meses">
         <table>
           <thead>
@@ -87,7 +118,6 @@
           </tfoot>
         </table>
       </div>
-    }
 
     <!-- Facturas de esta columna -->
     <h3 class="subtitulo">
@@ -192,6 +222,8 @@
           </div>
         </div>
       }
+    }
+
     }
   </section>
 }

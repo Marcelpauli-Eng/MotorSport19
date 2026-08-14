@@ -50,7 +50,7 @@ export class Servicios {
       },
       error: () => {
         this.cargando.set(false);
-        this.avisos.error('No se han podido cargar los servicios.');
+        this.avisos.error('No se han podido cargar las plantillas.');
       },
     });
   }
@@ -93,7 +93,7 @@ export class Servicios {
         );
         this.cargar();
       },
-      error: () => this.avisos.error('No se ha podido cambiar el estado del servicio.'),
+      error: () => this.avisos.error('No se ha podido cambiar el estado de la plantilla.'),
     });
   }
 }

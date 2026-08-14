@@ -75,7 +75,7 @@ public class PiezaController {
      */
     private PiezaResponse ficha(Pieza pieza) {
         PiezaResponse respuesta = PiezaResponse.de(pieza);
-        return usuarioActual.esTecnico() ? respuesta.sinPrecios() : respuesta;
+        return usuarioActual.sinImportes() ? respuesta.sinPrecios() : respuesta;
     }
 
     @PostMapping

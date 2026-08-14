@@ -1,6 +1,7 @@
 package com.motorsport19.taller.seguridad;
 
 import com.motorsport19.taller.usuario.domain.Rol;
+import com.motorsport19.taller.usuario.repository.RolRepository;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import com.motorsport19.taller.usuario.service.UsuarioService;
 import org.slf4j.Logger;
@@ -39,15 +40,18 @@ public class AdministradorInicial implements ApplicationRunner {
     private static final int BYTES_PASSWORD = 18;
 
     private final UsuarioRepository usuarioRepository;
+    private final RolRepository rolRepository;
     private final UsuarioService usuarioService;
     private final String usernameConfigurado;
     private final String passwordConfigurada;
 
     public AdministradorInicial(UsuarioRepository usuarioRepository,
+                                RolRepository rolRepository,
                                 UsuarioService usuarioService,
                                 @Value("${motorsport19.admin-inicial.username:}") String usernameConfigurado,
                                 @Value("${motorsport19.admin-inicial.password:}") String passwordConfigurada) {
         this.usuarioRepository = usuarioRepository;
+        this.rolRepository = rolRepository;
         this.usuarioService = usuarioService;
         this.usernameConfigurado = usernameConfigurado;
         this.passwordConfigurada = passwordConfigurada;
@@ -63,7 +67,14 @@ public class AdministradorInicial implements ApplicationRunner {
         boolean generada = passwordConfigurada.isBlank();
         String password = generada ? generarPassword() : passwordConfigurada;
 
-        usuarioService.crear(username, password, "Administrador", null, null, Rol.ADMIN);
+        // El rol de administracion lo crea la migracion V14: aqui solo se
+        // comprueba. Si faltara, el taller se quedaria sin poder entrar, asi que
+        // es mejor fallar el arranque que crear un usuario sin permisos.
+        Rol administracion = rolRepository.findById(Rol.ID_ADMINISTRACION)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Falta el rol de administracion: la base de datos no esta migrada."));
+
+        usuarioService.crear(username, password, "Administrador", null, null, administracion.getId());
 
         if (generada) {
             // A propósito con adornos: esto tiene que verse entre el ruido del

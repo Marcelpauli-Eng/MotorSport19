@@ -13,7 +13,7 @@ import com.motorsport19.taller.moto.domain.Moto;
 import com.motorsport19.taller.moto.service.MotoService;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import com.motorsport19.taller.orden.service.OrdenTrabajoService;
-import com.motorsport19.taller.usuario.domain.Rol;
+import com.motorsport19.taller.usuario.domain.Permiso;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.slf4j.Logger;
@@ -146,7 +146,7 @@ public class CitaService {
         // Toda la plantilla, tenga citas o no: el tecnico con la semana vacia es
         // justo el que se busca al mirar esta pantalla.
         Map<Long, String> tecnicos = new LinkedHashMap<>();
-        for (Usuario t : usuarioRepository.buscarPorRol(Rol.TECNICO)) {
+        for (Usuario t : usuarioRepository.buscarConPermiso(Permiso.ORDENES_ESTADO)) {
             tecnicos.put(t.getId(), t.getNombreCompleto());
         }
         // Y quien tenga citas aunque ya no sea tecnico: su trabajo sigue ahi.
@@ -381,7 +381,12 @@ public class CitaService {
             // El hueco no baja de cero: un dia con mas trabajo del que cabe no
             // tiene «horas libres negativas», tiene un problema, y para eso esta
             // la marca de saturado.
-            BigDecimal hueco = capacidad.subtract(horas).max(BigDecimal.ZERO);
+            //
+            // La fila de lo que esta sin asignar no tiene jornada que llenar, asi
+            // que su hueco es cero y no la capacidad de un tecnico imaginario.
+            BigDecimal hueco = tecnicoId == null
+                    ? BigDecimal.ZERO
+                    : capacidad.subtract(horas).max(BigDecimal.ZERO);
 
             detalle.add(new AgendaSemanal.DiaTecnico(
                     dia,
@@ -392,10 +397,8 @@ public class CitaService {
             libres = libres.add(hueco);
         }
 
-        // Lo que esta sin asignar no tiene jornada que llenar: sus «horas libres»
-        // serian capacidad inventada.
         return new AgendaSemanal.ColumnaTecnico(tecnicoId, nombre, detalle, comprometidas,
-                tecnicoId == null ? BigDecimal.ZERO : libres, suyas.size());
+                libres, suyas.size());
     }
 
     private ConfiguracionTaller configuracion() {

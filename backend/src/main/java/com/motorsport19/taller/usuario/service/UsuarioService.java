@@ -3,8 +3,10 @@ package com.motorsport19.taller.usuario.service;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.usuario.domain.Permiso;
 import com.motorsport19.taller.usuario.domain.Rol;
 import com.motorsport19.taller.usuario.domain.Usuario;
+import com.motorsport19.taller.usuario.repository.RolRepository;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,17 +27,20 @@ public class UsuarioService {
     private static final int LONGITUD_MINIMA_PASSWORD = 8;
 
     private final UsuarioRepository usuarioRepository;
+    private final RolRepository rolRepository;
     private final PasswordEncoder codificador;
 
-    public UsuarioService(UsuarioRepository usuarioRepository, PasswordEncoder codificador) {
+    public UsuarioService(UsuarioRepository usuarioRepository, RolRepository rolRepository,
+                          PasswordEncoder codificador) {
         this.usuarioRepository = usuarioRepository;
+        this.rolRepository = rolRepository;
         this.codificador = codificador;
     }
 
     /** Tecnicos activos, ordenados por nombre. */
     @Transactional(readOnly = true)
     public List<Usuario> tecnicosActivos() {
-        return usuarioRepository.buscarPorRol(Rol.TECNICO);
+        return usuarioRepository.buscarConPermiso(Permiso.ORDENES_ESTADO);
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +56,7 @@ public class UsuarioService {
 
     @Transactional
     public Usuario crear(String username, String password, String nombreCompleto, String email,
-                         String telefono, Rol rol) {
+                         String telefono, Long rolId) {
         String usuarioLimpio = username == null ? "" : username.trim().toLowerCase();
 
         if (usuarioRepository.findByUsername(usuarioLimpio).isPresent()) {
@@ -60,17 +65,17 @@ public class UsuarioService {
         comprobarPassword(password);
 
         Usuario usuario = Usuario.crear(usuarioLimpio, codificador.encode(password), nombreCompleto,
-                email, telefono, rol);
+                email, telefono, cargarRol(rolId));
         return usuarioRepository.save(usuario);
     }
 
     @Transactional
     public Usuario actualizarDatos(Long id, String nombreCompleto, String email, String telefono,
-                                   Rol rol) {
+                                   Long rolId) {
         Usuario usuario = obtener(id);
         usuario.actualizarDatos(nombreCompleto, email, telefono);
-        if (rol != null) {
-            usuario.cambiarRol(rol);
+        if (rolId != null && !rolId.equals(usuario.getRol().getId())) {
+            usuario.cambiarRol(cargarRol(rolId));
         }
         return usuario;
     }
@@ -110,7 +115,7 @@ public class UsuarioService {
             throw new ConflictoException("No puede darse de baja a si mismo.");
         }
         Usuario usuario = obtener(id);
-        if (usuario.getRol() == Rol.ADMIN && contarAdministradoresActivos() <= 1) {
+        if (usuario.tienePermiso(Permiso.ROLES_GESTIONAR) && contarAdministradoresActivos() <= 1) {
             throw new ConflictoException(
                     "Es el ultimo administrador activo: nadie podria volver a configurar el sistema.");
         }
@@ -132,9 +137,26 @@ public class UsuarioService {
     }
 
     private long contarAdministradoresActivos() {
-        return usuarioRepository.findAll().stream()
-                .filter(u -> u.getRol() == Rol.ADMIN && u.isActivo())
-                .count();
+        return usuarioRepository.contarConPermiso(Permiso.ROLES_GESTIONAR);
+    }
+
+    /**
+     * Resuelve el rol, exigiendo que este abierto.
+     *
+     * <p>Un rol cerrado sigue existiendo por la gente que ya lo lleva, pero no
+     * admite nuevas asignaciones: si no, cerrarlo no serviria de nada.
+     */
+    private Rol cargarRol(Long rolId) {
+        if (rolId == null) {
+            throw new ReglaNegocioException("Hay que asignar un rol al usuario.");
+        }
+        Rol rol = rolRepository.findById(rolId)
+                .orElseThrow(() -> RecursoNoEncontradoException.de("el rol", rolId));
+        if (!rol.isActivo()) {
+            throw new ConflictoException(
+                    "El rol '%s' esta cerrado: no admite nuevos usuarios.".formatted(rol.getNombre()));
+        }
+        return rol;
     }
 
     private void comprobarPassword(String password) {

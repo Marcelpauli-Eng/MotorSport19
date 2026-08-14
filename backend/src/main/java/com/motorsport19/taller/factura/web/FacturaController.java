@@ -3,6 +3,7 @@ package com.motorsport19.taller.factura.web;
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.factura.domain.Factura;
 import com.motorsport19.taller.factura.domain.LineaAFacturar;
+import com.motorsport19.taller.factura.domain.SerieFactura;
 import com.motorsport19.taller.factura.domain.TipoEventoFactura;
 import com.motorsport19.taller.factura.domain.TipoFactura;
 import com.motorsport19.taller.factura.service.ExportacionFacturacionService;
@@ -12,6 +13,8 @@ import com.motorsport19.taller.documento.GeneradorPdfDocumento;
 import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
 import com.motorsport19.taller.factura.service.InformeVerificacion;
 import com.motorsport19.taller.factura.service.RegistroEventosService;
+import com.motorsport19.taller.factura.web.dto.ActualizarSerieRequest;
+import com.motorsport19.taller.factura.web.dto.CrearSerieRequest;
 import com.motorsport19.taller.factura.web.dto.EmitirFacturaRequest;
 import com.motorsport19.taller.factura.web.dto.FacturaResponse;
 import com.motorsport19.taller.factura.web.dto.FacturaResumenResponse;
@@ -32,6 +35,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -111,9 +115,48 @@ public class FacturaController {
         return facturacionService.rectificativasDe(id).stream().map(FacturaResumenResponse::de).toList();
     }
 
+    /**
+     * Series de facturacion.
+     *
+     * <p>Por defecto solo las abiertas, que es lo que necesita la pantalla de
+     * emitir. Con {@code soloActivas=false} salen tambien las cerradas, que es
+     * lo que se mantiene desde Ajustes.
+     */
     @GetMapping("/series")
-    public List<SerieFacturaResponse> series() {
-        return facturacionService.seriesActivas().stream().map(SerieFacturaResponse::de).toList();
+    public List<SerieFacturaResponse> series(
+            @RequestParam(defaultValue = "true") boolean soloActivas) {
+
+        List<SerieFactura> series = soloActivas
+                ? facturacionService.seriesActivas()
+                : facturacionService.todasLasSeries();
+        return series.stream().map(SerieFacturaResponse::de).toList();
+    }
+
+    /**
+     * Abre una serie de facturacion.
+     *
+     * <p>Sin ninguna serie no se puede emitir una sola factura. Hasta ahora la
+     * unica forma de tenerlas era el juego de datos de demostracion, asi que una
+     * instalacion de verdad se quedaba sin poder facturar.
+     */
+    @PostMapping("/series")
+    public ResponseEntity<SerieFacturaResponse> crearSerie(
+            @Valid @RequestBody CrearSerieRequest peticion, UriComponentsBuilder uriBuilder) {
+
+        SerieFactura serie = facturacionService.crearSerie(
+                peticion.codigo(), peticion.ejercicio(), peticion.descripcion(), peticion.tipo());
+
+        return ResponseEntity
+                .created(uriBuilder.path("/facturas/series/{id}").build(serie.getId()))
+                .body(SerieFacturaResponse.de(serie));
+    }
+
+    /** Cambia la descripcion de una serie y la abre o la cierra. */
+    @PutMapping("/series/{id}")
+    public SerieFacturaResponse actualizarSerie(@PathVariable Long id,
+                                                @Valid @RequestBody ActualizarSerieRequest peticion) {
+        return SerieFacturaResponse.de(
+                facturacionService.actualizarSerie(id, peticion.descripcion(), peticion.activa()));
     }
 
     // ------------------------------------------------------------------

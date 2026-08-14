@@ -123,13 +123,27 @@ export const routes: Routes = [
           import('./funcionalidades/inventario/inventario').then((m) => m.Inventario),
       },
 
+      // Adelantar una OT: trabajo ya cerrado con el cliente que se compone
+      // entero y se le pasa a un técnico. Es una pantalla aparte y no una
+      // casilla del alta normal porque quien entra aquí ya sabe lo que hace;
+      // el resto del taller no tiene por qué decidir sobre esto cada vez.
+      {
+        path: 'adelantar-ot',
+        title: 'Adelantar OT · MotorSport19',
+        canActivate: [rolGuard('ADMIN')],
+        loadComponent: () =>
+          import('./funcionalidades/ordenes/adelantar-orden').then((m) => m.AdelantarOrden),
+      },
+
       // Las plantillas de trabajo: «revisión 10.000 km» con sus horas y su kit
-      // de piezas. Definir cuántas horas se cobran por un servicio es una
+      // de piezas. Definir cuántas horas se cobran por un trabajo es una
       // decisión de precio, así que solo dirección entra aquí; volcarlas en una
       // orden lo hace cualquiera desde la propia OT.
+      //
+      // Por dentro el código las llama «servicio tipo», que es como nacieron.
       {
-        path: 'servicios',
-        title: 'Servicios · MotorSport19',
+        path: 'plantillas',
+        title: 'Plantillas · MotorSport19',
         canActivate: [rolGuard('ADMIN')],
         loadComponent: () =>
           import('./funcionalidades/servicios/servicios').then((m) => m.Servicios),

@@ -37,6 +37,15 @@ public record OrdenTrabajoResponse(
         String clienteNombre,
         /** Para mandarle el presupuesto por WhatsApp sin abrir su ficha. */
         String clienteTelefono,
+        /**
+         * Si el cliente reune los datos fiscales que exige una factura.
+         *
+         * <p>Viaja con la orden para poder avisar ANTES de pulsar «Emitir
+         * factura». Sin esto el mostrador se entera de que falta el DNI o el
+         * domicilio en el momento de facturar, que es el peor momento: el
+         * cliente ya esta delante esperando el papel.
+         */
+        boolean clienteFacturable,
 
         Instant fechaEntrada,
         LocalDate fechaEstimadaSalida,
@@ -49,6 +58,8 @@ public record OrdenTrabajoResponse(
         String tecnicoNombre,
 
         BigDecimal tarifaHora,
+        /** Tipo de IVA impuesto a toda la orden, o nulo si cada linea lleva el suyo. */
+        String tipoIva,
         Instant fechaPresupuesto,
         Instant fechaAprobacion,
         String aprobadoPor,
@@ -95,6 +106,7 @@ public record OrdenTrabajoResponse(
                 orden.getCliente().getId(),
                 orden.getCliente().nombreCompleto(),
                 orden.getCliente().getTelefono(),
+                orden.getCliente().tieneDatosFiscalesCompletos(),
 
                 orden.getFechaEntrada(),
                 orden.getFechaEstimadaSalida(),
@@ -107,6 +119,7 @@ public record OrdenTrabajoResponse(
                 orden.getTecnico() == null ? null : orden.getTecnico().getNombreCompleto(),
 
                 orden.getTarifaHora(),
+                orden.getTipoIva(),
                 orden.getFechaPresupuesto(),
                 orden.getFechaAprobacion(),
                 orden.getAprobadoPor(),
@@ -137,9 +150,14 @@ public record OrdenTrabajoResponse(
                 id, codigo, ejercicio, numero, estado, estadoDescripcion, estadosPosibles,
                 facturable, permiteEditarLineas,
                 motoId, matricula, descripcionMoto, clienteId, clienteNombre, clienteTelefono,
+                clienteFacturable,
                 fechaEntrada, fechaEstimadaSalida, fechaRealSalida, kmEntrada,
                 problemaReportado, diagnostico, tecnicoId, tecnicoNombre,
-                null, fechaPresupuesto, fechaAprobacion, aprobadoPor, motivoRechazo, observaciones,
+                // La tarifa/hora se va porque es un precio; el tipo de IVA se
+                // queda porque no lo es: dice como se factura la orden, no a
+                // cuanto se cobra.
+                null, tipoIva, fechaPresupuesto, fechaAprobacion, aprobadoPor, motivoRechazo,
+                observaciones,
                 null, null, null, null, null, horasManoDeObra,
                 lineas.stream().map(LineaOTResponse::sinImportes).toList(),
                 historial);

@@ -1,7 +1,6 @@
 package com.motorsport19.taller.usuario.web;
 
 import com.motorsport19.taller.seguridad.UsuarioActual;
-import com.motorsport19.taller.usuario.domain.Rol;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -68,7 +67,7 @@ public class UsuarioController {
     public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody CrearUsuarioRequest peticion,
                                                  UriComponentsBuilder uriBuilder) {
         Usuario usuario = usuarioService.crear(peticion.username(), peticion.password(),
-                peticion.nombreCompleto(), peticion.email(), peticion.telefono(), peticion.rol());
+                peticion.nombreCompleto(), peticion.email(), peticion.telefono(), peticion.rolId());
 
         return ResponseEntity
                 .created(uriBuilder.path("/usuarios/{id}").build(usuario.getId()))
@@ -79,7 +78,7 @@ public class UsuarioController {
     public UsuarioResponse actualizar(@PathVariable Long id,
                                       @Valid @RequestBody ActualizarUsuarioRequest peticion) {
         return UsuarioResponse.de(usuarioService.actualizarDatos(id, peticion.nombreCompleto(),
-                peticion.email(), peticion.telefono(), peticion.rol()));
+                peticion.email(), peticion.telefono(), peticion.rolId()));
     }
 
     /** Restablecimiento por el administrador, sin conocer la contrasena anterior. */
@@ -122,14 +121,14 @@ public class UsuarioController {
             String telefono,
 
             @NotNull(message = "Hay que asignar un rol")
-            Rol rol) {
+            Long rolId) {
     }
 
     public record ActualizarUsuarioRequest(
             @NotBlank(message = "El nombre completo es obligatorio") String nombreCompleto,
             @Email(message = "El email no tiene un formato valido") String email,
             String telefono,
-            Rol rol) {
+            Long rolId) {
     }
 
     public record PasswordRequest(
@@ -140,11 +139,11 @@ public class UsuarioController {
 
     /** Nunca incluye el hash de la contrasena. */
     public record UsuarioResponse(Long id, String username, String nombreCompleto, String email,
-                                  String telefono, Rol rol, String rolDescripcion, boolean activo,
+                                  String telefono, Long rolId, String rol, String rolDescripcion, boolean activo,
                                   Instant ultimoAcceso) {
         static UsuarioResponse de(Usuario u) {
             return new UsuarioResponse(u.getId(), u.getUsername(), u.getNombreCompleto(), u.getEmail(),
-                    u.getTelefono(), u.getRol(), u.getRol().getDescripcion(), u.isActivo(),
+                    u.getTelefono(), u.getRol().getId(), u.getRol().getNombre(), u.getRol().getDescripcion(), u.isActivo(),
                     u.getUltimoAcceso());
         }
     }

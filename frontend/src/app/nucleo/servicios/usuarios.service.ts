@@ -26,14 +26,14 @@ export class UsuariosService {
     nombreCompleto: string;
     email?: string | null;
     telefono?: string | null;
-    rol: Rol;
+    rolId: number;
   }): Observable<Usuario> {
     return this.http.post<Usuario>(this.base, datos);
   }
 
   actualizar(
     id: number,
-    datos: { nombreCompleto: string; email?: string | null; telefono?: string | null; rol: Rol },
+    datos: { nombreCompleto: string; email?: string | null; telefono?: string | null; rolId: number },
   ): Observable<Usuario> {
     return this.http.put<Usuario>(`${this.base}/${id}`, datos);
   }

@@ -23,7 +23,7 @@ import com.motorsport19.taller.orden.repository.OrdenTrabajoRepository;
 import com.motorsport19.taller.seguridad.UsuarioActual;
 import com.motorsport19.taller.support.OrdenesDePrueba;
 import com.motorsport19.taller.support.PiezasDePrueba;
-import com.motorsport19.taller.usuario.domain.Rol;
+import com.motorsport19.taller.support.RolesDePrueba;
 import com.motorsport19.taller.usuario.domain.Usuario;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -415,14 +415,20 @@ class OrdenTrabajoServiceTest {
 
         /** Pone al usuario actual como TECNICO con el id indicado. */
         private void comoTecnico(long id) {
-            when(usuarioActual.esTecnico()).thenReturn(true);
+            when(usuarioActual.soloVeSusOrdenes()).thenReturn(true);
             when(usuarioActual.id()).thenReturn(id);
+            // Al ponerse a diagnosticar la orden pasa a ser suya, asi que el
+            // servicio lo carga de la base: sin esto no existiria.
+            Usuario yo = Usuario.crear("tecnico" + id, "hash", "Tecnico " + id, null, null,
+                    RolesDePrueba.taller());
+            ReflectionTestUtils.setField(yo, "id", id);
+            when(usuarioRepository.findById(id)).thenReturn(Optional.of(yo));
         }
 
         /** Deja la orden asignada a un tecnico concreto. */
         private void asignada(OrdenTrabajo orden, long tecnicoId) {
             Usuario tecnico = Usuario.crear("nsanz", "hash", "Nuria Sanz Belmonte",
-                    null, null, Rol.TECNICO);
+                    null, null, RolesDePrueba.taller());
             ReflectionTestUtils.setField(tecnico, "id", tecnicoId);
             orden.asignarTecnico(tecnico);
         }
@@ -451,7 +457,7 @@ class OrdenTrabajoServiceTest {
             comoTecnico(3L);
 
             assertThatThrownBy(() -> ordenService.anadirPieza(1L, aceite.getId(),
-                    BigDecimal.ONE, BigDecimal.ZERO))
+                    BigDecimal.ONE, BigDecimal.ZERO, 3L))
                     .isInstanceOf(AccessDeniedException.class);
             verify(piezaService, never()).obtener(anyLong());
         }
@@ -500,11 +506,114 @@ class OrdenTrabajoServiceTest {
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
             asignada(orden, 4L);
             dadaLaOrden(orden);
-            when(usuarioActual.esTecnico()).thenReturn(false);
+            when(usuarioActual.soloVeSusOrdenes()).thenReturn(false);
             when(tipoIvaRepository.findById("GENERAL")).thenReturn(Optional.of(ivaGeneral()));
 
             assertThat(ordenService.anadirManoDeObra(1L, "Ajuste de presupuesto",
                     BigDecimal.ONE, BigDecimal.ZERO, "GENERAL")).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("No se cierra una orden con material sin montar")
+    class MaterialSinMontar {
+
+        /**
+         * Un taller puede entregar una moto con lo que se le haya podido hacer,
+         * y la maquina de estados lo permite. Lo que no puede pasar es que las
+         * lineas sigan diciendo cinco filtros cuando solo se montaron dos: la
+         * factura se compone de las lineas y el cliente acabaria pagando piezas
+         * que la moto no lleva puestas.
+         */
+        @Test
+        @DisplayName("con piezas pendientes de servir no deja marcarla lista")
+        void noSeCierraConPiezasPendientes() {
+            Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(aceite);
+            orden.entrarEnReparacion(null, null);
+            orden.bloquearPorFaltaDePiezas("Sin existencias", null);
+            dadaLaOrden(orden);
+
+            LineaOT linea = orden.lineasDePiezas().get(0);
+            // Nada servido: la linea pide una unidad y el almacen no dio ninguna.
+            when(movimientoRepository.consumoNetoDeLinea(linea.getId())).thenReturn(BigDecimal.ZERO);
+
+            assertThatThrownBy(() -> ordenService.marcarLista(1L, null))
+                    .isInstanceOf(ConflictoException.class)
+                    // Dice que falta y cuanto: sin eso hay que ir linea a linea.
+                    .hasMessageContaining("ACE-10W40-1L")
+                    .hasMessageContaining("faltan 1 de 1")
+                    // Y por que importa, que es lo que justifica el corte.
+                    .hasMessageContaining("cobraria piezas que la moto no lleva");
+        }
+
+        @Test
+        @DisplayName("con todo el material servido si se cierra")
+        void seCierraConTodoServido() {
+            Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(aceite);
+            orden.entrarEnReparacion(null, null);
+            dadaLaOrden(orden);
+
+            LineaOT linea = orden.lineasDePiezas().get(0);
+            when(movimientoRepository.consumoNetoDeLinea(linea.getId()))
+                    .thenReturn(linea.getCantidad());
+
+            ordenService.marcarLista(1L, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
+        }
+
+        @Test
+        @DisplayName("una orden solo de mano de obra se cierra sin mas")
+        void soloManoDeObra() {
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
+            orden.entrarEnReparacion(null, null);
+            dadaLaOrden(orden);
+
+            ordenService.marcarLista(1L, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
+        }
+    }
+
+    @Nested
+    @DisplayName("El tecnico que se pone a diagnosticar")
+    class TecnicoQueDiagnostica {
+
+        /**
+         * Antes la orden se movia de estado pero seguia sin asignar, y acto
+         * seguido su propio dueno no podia ni escribir el diagnostico: se
+         * quedaba bloqueado en mitad de un trabajo recien empezado.
+         */
+        @Test
+        @DisplayName("la orden queda a su nombre")
+        void seQuedaConLaOrden() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            dadaLaOrden(orden);
+            when(usuarioActual.soloVeSusOrdenes()).thenReturn(true);
+            when(usuarioActual.id()).thenReturn(7L);
+            Usuario tecnico = Usuario.crear("jortega", "hash", "Javier Ortega", null, null,
+                    RolesDePrueba.taller());
+            ReflectionTestUtils.setField(tecnico, "id", 7L);
+            when(usuarioRepository.findById(7L)).thenReturn(Optional.of(tecnico));
+
+            ordenService.iniciarDiagnostico(1L, null, null);
+
+            assertThat(orden.getTecnico()).isNotNull();
+            assertThat(orden.getTecnico().getId()).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("a quien reparte trabajo no se le asigna sola")
+        void mostradorNoSeLaQueda() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            dadaLaOrden(orden);
+            when(usuarioActual.soloVeSusOrdenes()).thenReturn(false);
+
+            ordenService.iniciarDiagnostico(1L, null, null);
+
+            assertThat(orden.getTecnico()).isNull();
         }
     }
 }

@@ -4,7 +4,7 @@ import { Observable, switchMap } from 'rxjs';
 import { Dialogo } from '../../compartido/dialogo';
 import { Usuario } from '../../nucleo/modelos/configuracion';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
-import { Rol } from '../../nucleo/servicios/sesion.service';
+import { Rol, RolesService } from '../../nucleo/servicios/roles.service';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 
 const MINIMO_PASSWORD = 8;
@@ -27,6 +27,7 @@ const MINIMO_PASSWORD = 8;
 })
 export class FormularioUsuario {
   private readonly servicio = inject(UsuariosService);
+  private readonly rolesServicio = inject(RolesService);
   private readonly notificaciones = inject(NotificacionesService);
 
   /** Usuario que se edita. Sin él, el formulario da de alta uno nuevo. */
@@ -42,7 +43,14 @@ export class FormularioUsuario {
   protected readonly password = signal('');
   protected readonly email = signal('');
   protected readonly telefono = signal('');
-  protected readonly rol = signal<Rol>('TECNICO');
+  /**
+   * Los roles entre los que elegir.
+   *
+   * Solo los abiertos: uno cerrado sigue existiendo por la gente que ya lo
+   * lleva, pero no admite usuarios nuevos y el servidor lo rechazaria.
+   */
+  protected readonly roles = signal<Rol[]>([]);
+  protected readonly rolId = signal<number | null>(null);
 
   protected readonly esAlta = computed(() => this.usuario() === null);
 
@@ -57,6 +65,7 @@ export class FormularioUsuario {
   protected readonly puedeGuardar = computed(() => {
     if (this.enviando() || this.problema()) return false;
     if (!this.nombreCompleto().trim()) return false;
+    if (this.rolId() === null) return false;
     if (this.esAlta()) {
       return !!this.username().trim() && this.password().length >= MINIMO_PASSWORD;
     }
@@ -64,6 +73,13 @@ export class FormularioUsuario {
   });
 
   constructor() {
+    this.rolesServicio.listar(true).subscribe((lista) => {
+      this.roles.set(lista);
+      // En un alta se propone el primero para que el desplegable nunca quede
+      // vacío: un usuario sin rol no puede entrar.
+      if (this.rolId() === null && lista.length) this.rolId.set(lista[0].id);
+    });
+
     // El valor de `input()` no está puesto todavía cuando corre el constructor.
     queueMicrotask(() => {
       const u = this.usuario();
@@ -72,7 +88,7 @@ export class FormularioUsuario {
       this.username.set(u.username);
       this.email.set(u.email ?? '');
       this.telefono.set(u.telefono ?? '');
-      this.rol.set(u.rol);
+      this.rolId.set(u.rolId);
     });
   }
 
@@ -84,7 +100,7 @@ export class FormularioUsuario {
       nombreCompleto: this.nombreCompleto().trim(),
       email: this.email().trim() || null,
       telefono: this.telefono().trim() || null,
-      rol: this.rol(),
+      rolId: this.rolId()!,
     };
 
     const existente = this.usuario();

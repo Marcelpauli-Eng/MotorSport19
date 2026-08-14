@@ -82,6 +82,16 @@ export class OrdenesService {
    * Las horas ya apuntadas se revaloran, así que la respuesta trae los totales
    * recalculados.
    */
+  /**
+   * Pone toda la orden a un tipo de IVA, incluido el 0 %.
+   *
+   * Se manda el código del catálogo —GENERAL, EXENTO…— y no el porcentaje: el
+   * porcentaje lo pone el servidor, que es quien tiene el catálogo.
+   */
+  aplicarTipoIva(id: number, tipoIva: string): Observable<OrdenTrabajo> {
+    return this.http.put<OrdenTrabajo>(`${this.base}/${id}/tipo-iva`, { tipoIva });
+  }
+
   cambiarTarifaHora(id: number, tarifaHora: number): Observable<OrdenTrabajo> {
     return this.http.put<OrdenTrabajo>(`${this.base}/${id}/tarifa-hora`, { tarifaHora });
   }

@@ -3,13 +3,26 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+/**
+ * Los tres roles de siempre.
+ *
+ * Ya no son los únicos: el administrador compone los que quiera. Se conserva el
+ * tipo porque muchas pantallas todavía preguntan por él a través de `puede()`,
+ * que ahora traduce cada uno al permiso que de verdad lo definía.
+ */
 export type Rol = 'ADMIN' | 'MOSTRADOR' | 'TECNICO';
+
+/** Un permiso del catálogo. La lista buena vive en el enum del backend. */
+export type Permiso = string;
 
 export interface UsuarioSesion {
   id: number;
   username: string;
   nombreCompleto: string;
-  rol: Rol;
+  rolId: number;
+  /** Nombre del rol, solo para enseñarlo. Para decidir se usan los permisos. */
+  rol: string;
+  permisos: Permiso[];
 }
 
 /** Lo que devuelve POST /auth/login. */
@@ -48,11 +61,47 @@ export class SesionService {
   readonly usuario = this._usuario.asReadonly();
   readonly autenticado = computed(() => this._token() !== null && this._usuario() !== null);
   readonly rol = computed(() => this._usuario()?.rol ?? null);
+  readonly permisos = computed(() => this._usuario()?.permisos ?? []);
 
-  /** ¿El usuario tiene alguno de estos roles? Se usa para ocultar acciones. */
+  /**
+   * ¿Tiene concedido este permiso?
+   *
+   * Es la pregunta buena desde que los roles los compone el administrador. Sirve
+   * para no enseñar botones que la API va a rechazar; la autorización de verdad
+   * sigue estando en el backend, que comprueba el mismo permiso en cada ruta.
+   */
+  tienePermiso(...permisos: Permiso[]): boolean {
+    const concedidos = this.permisos();
+    return permisos.some((p) => concedidos.includes(p));
+  }
+
+  /**
+   * ¿Encaja el usuario en alguno de los tres perfiles de siempre?
+   *
+   * Se conserva porque muchas pantallas todavía preguntan así, pero ya no
+   * compara nombres de rol —que ahora los pone el taller y pueden ser
+   * cualquiera— sino el permiso que definía a cada perfil:
+   *
+   * - ADMIN, quien reparte permisos.
+   * - MOSTRADOR, quien ve el dinero.
+   * - TECNICO, quien solo ve las órdenes que tiene asignadas.
+   *
+   * Las pantallas nuevas deberían usar `tienePermiso()` directamente, que dice
+   * lo que de verdad se está comprobando.
+   */
   puede(...roles: Rol[]): boolean {
-    const rol = this.rol();
-    return rol !== null && roles.includes(rol);
+    return roles.some((rol) => {
+      switch (rol) {
+        case 'ADMIN':
+          return this.tienePermiso('ROLES_GESTIONAR');
+        case 'MOSTRADOR':
+          return this.tienePermiso('IMPORTES_VER');
+        case 'TECNICO':
+          return this.autenticado() && !this.tienePermiso('ORDENES_VER_TODAS');
+        default:
+          return false;
+      }
+    });
   }
 
   entrar(username: string, password: string): Observable<RespuestaLogin> {

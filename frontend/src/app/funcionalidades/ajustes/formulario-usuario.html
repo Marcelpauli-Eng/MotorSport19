@@ -29,11 +29,11 @@
     }
 
     <div class="campo">
-      <label for="rolUsuario">Perfil</label>
-      <select id="rolUsuario" [ngModel]="rol()" (ngModelChange)="rol.set($event)">
-        <option value="TECNICO">Taller — trabaja sus órdenes</option>
-        <option value="MOSTRADOR">Mostrador — clientes, presupuestos y facturas</option>
-        <option value="ADMIN">Dirección — todo, incluidos precios y usuarios</option>
+      <label for="rolUsuario">Rol</label>
+      <select id="rolUsuario" [ngModel]="rolId()" (ngModelChange)="rolId.set(+$event)">
+        @for (r of roles(); track r.id) {
+          <option [ngValue]="r.id">{{ r.nombre }}</option>
+        }
       </select>
     </div>
   </div>

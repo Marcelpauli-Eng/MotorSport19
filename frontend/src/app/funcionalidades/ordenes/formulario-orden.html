@@ -99,39 +99,13 @@
   @if (motoId()) {
     <hr style="border: none; border-top: 1px solid var(--gris-200); margin: 16px 0" />
 
-    <!-- Los dos caminos de una orden. Va antes que nada porque cambia lo que
-         hay que rellenar debajo y cómo sigue el trabajo. -->
-    @if (reparteTrabajo) {
-      <div class="campo">
-        <label>¿Cómo entra este trabajo?</label>
-        <div class="caminos">
-          <button
-            type="button"
-            class="camino"
-            [class.camino--elegido]="camino() === 'revisar'"
-            (click)="elegirCamino('revisar')"
-          >
-            <span class="camino__titulo">Hay que mirarla</span>
-            <span class="camino__detalle">
-              Entra con una avería por determinar. Se diagnostica, se presupuesta y el cliente
-              decide.
-            </span>
-          </button>
-          <button
-            type="button"
-            class="camino"
-            [class.camino--elegido]="camino() === 'preparar'"
-            (click)="elegirCamino('preparar')"
-          >
-            <span class="camino__titulo">Trabajo ya cerrado</span>
-            <span class="camino__detalle">
-              Ya está hablado con el cliente. Tú montas el presupuesto y se lo pasas a un técnico,
-              que lo ejecuta <strong>sin ver los precios</strong>.
-            </span>
-          </button>
-        </div>
-      </div>
-    }
+    <!--
+      Aquí no se elige camino. Dar de alta una orden es siempre lo mismo: la
+      moto entra y hay que mirarla. Adelantar el trabajo —componerlo entero y
+      pasárselo a un técnico— es otra decisión y otra pantalla, la de
+      «Adelantar OT» del menú, a la que solo entra dirección. Quien abre
+      aquella ya sabe lo que hace; quien abre esta no tiene por qué elegir.
+    -->
 
     <div class="rejilla">
       <div class="campo">

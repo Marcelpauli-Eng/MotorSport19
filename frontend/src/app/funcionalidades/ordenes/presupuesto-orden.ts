@@ -6,7 +6,9 @@ import { Observable, concat } from 'rxjs';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
+import { TipoIva } from '../../nucleo/modelos/configuracion';
 import { ServicioTipo } from '../../nucleo/modelos/servicios';
+import { ConfiguracionService } from '../../nucleo/servicios/configuracion.service';
 import { LineaOT, OrdenTrabajo, Pieza } from '../../nucleo/modelos/taller';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
@@ -42,6 +44,7 @@ export class PresupuestoOrden {
   private readonly inventario = inject(InventarioService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly sesion = inject(SesionService);
+  private readonly configuracion = inject(ConfiguracionService);
   private readonly serviciosTipo = inject(ServiciosTipoService);
 
   readonly id = input.required<string>();
@@ -64,6 +67,16 @@ export class PresupuestoOrden {
   }
 
   private cargar(): void {
+    // El catálogo de tipos de IVA, para el desplegable de la cabecera. Solo lo
+    // necesita quien puede tocar precios; a un técnico ese control no se le
+    // enseña, así que tampoco se le pide el dato.
+    if (this.vePrecios) {
+      this.configuracion.obtener().subscribe({
+        next: (c) => this.tiposIva.set(c.tiposIva ?? []),
+        error: () => this.tiposIva.set([]),
+      });
+    }
+
     // Las plantillas activas, para el desplegable de «volcar servicio». Si
     // falla no se avisa: es un atajo, y sin el la pantalla sigue sirviendo
     // para montar el presupuesto a mano.
@@ -211,6 +224,41 @@ export class PresupuestoOrden {
   protected readonly puedeCambiarTarifa = computed(
     () => this.vePrecios && !!this.orden()?.permiteEditarLineas,
   );
+
+  // ----- IVA de toda la orden -----
+
+  /** El catálogo de tipos, para el desplegable. Sale de la configuración. */
+  protected readonly tiposIva = signal<TipoIva[]>([]);
+
+  /**
+   * Cambia el IVA de la orden entera.
+   *
+   * <p>Se avisa siempre, y con el porcentaje delante: quitarle el IVA a un
+   * presupuesto cambia lo que paga el cliente, y eso no puede pasar en silencio
+   * por haber tocado un desplegable.
+   */
+  protected cambiarTipoIva(codigo: string): void {
+    const o = this.orden();
+    if (!o || !codigo || codigo === o.tipoIva) return;
+
+    this.trabajando.set(true);
+    this.servicio.aplicarTipoIva(o.id, codigo).subscribe({
+      next: (actualizada) => {
+        this.orden.set(actualizada);
+        this.trabajando.set(false);
+        this.notificaciones.exito(
+          `Toda la orden pasa a ${this.nombreTipoIva(codigo)}. Las líneas ya puestas se han recalculado.`,
+        );
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
+
+  /** «IVA general (21%)». Con la orden sin régimen fijado, lo dice. */
+  protected nombreTipoIva(codigo: string | null): string {
+    if (!codigo) return 'Cada línea el suyo';
+    return this.tiposIva().find((t) => t.codigo === codigo)?.descripcion ?? codigo;
+  }
 
   protected empezarTarifa(): void {
     this.borradorTarifa.set(this.orden()?.tarifaHora ?? null);
@@ -424,7 +472,7 @@ export class PresupuestoOrden {
       next: (lineas) => {
         this.servicioElegido.set(null);
         this.trasCambiarLineas(
-          `«${servicio.nombre}» añadido: ${lineas.length} ${lineas.length === 1 ? 'línea' : 'líneas'}.`,
+          `Plantilla «${servicio.nombre}» volcada: ${lineas.length} ${lineas.length === 1 ? 'línea' : 'líneas'}.`,
         );
       },
       error: () => this.trabajando.set(false),

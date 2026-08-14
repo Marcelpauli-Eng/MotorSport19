@@ -39,8 +39,10 @@ export interface Usuario {
   nombreCompleto: string;
   email: string | null;
   telefono: string | null;
-  rol: Rol;
-  rolDescripcion: string;
+  rolId: number;
+  /** Nombre del rol tal y como lo llamó quien lo creó. */
+  rol: string;
+  rolDescripcion: string | null;
   activo: boolean;
   ultimoAcceso: string | null;
 }

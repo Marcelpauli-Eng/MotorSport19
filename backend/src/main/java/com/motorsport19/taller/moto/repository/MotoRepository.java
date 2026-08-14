@@ -35,6 +35,14 @@ public interface MotoRepository extends JpaRepository<Moto, Long> {
     @Query("SELECT m FROM Moto m JOIN FETCH m.cliente WHERE m.cliente.id = :clienteId AND (:soloActivas = FALSE OR m.activo = TRUE) ORDER BY m.matricula")
     List<Moto> buscarPorCliente(@Param("clienteId") Long clienteId, @Param("soloActivas") boolean soloActivas);
 
+    // Ademas de :texto viaja :matricula, que es lo mismo pasado por
+    // Matriculas.normalizar. Hace falta porque la matricula se guarda en su
+    // forma canonica —«1234 ABC», con el espacio— y en mostrador nadie la teclea
+    // asi: se copia del permiso de circulacion o del llavero de un tiron
+    // («1234ABC») o con guion («1234-ABC»). Buscando solo por :texto, la moto
+    // que si esta fichada no aparecia, y quien atiende acababa dandola de alta
+    // otra vez —topandose entonces con un «ya existe» que no explica nada—.
+    //
     // Los :texto van con CAST explicito. Sin el, cuando la busqueda llega vacia
     // PostgreSQL recibe un parametro sin tipo y falla con
     // «function upper(bytea) does not exist»: el listado sin filtro, que es la
@@ -51,7 +59,9 @@ public interface MotoRepository extends JpaRepository<Moto, Long> {
                     OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(m.marca)          LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(m.modelo)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
-                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
+                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR (CAST(:matricula AS String) IS NOT NULL
+                        AND UPPER(m.matricula) LIKE UPPER(CONCAT('%', CAST(:matricula AS String), '%'))))
             """,
             countQuery = """
             SELECT COUNT(m) FROM Moto m
@@ -60,9 +70,12 @@ public interface MotoRepository extends JpaRepository<Moto, Long> {
                     OR UPPER(m.matricula)      LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(m.marca)          LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
                     OR UPPER(m.modelo)         LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
-                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%')))
+                    OR UPPER(m.numeroBastidor) LIKE UPPER(CONCAT('%', CAST(:texto AS String), '%'))
+                    OR (CAST(:matricula AS String) IS NOT NULL
+                        AND UPPER(m.matricula) LIKE UPPER(CONCAT('%', CAST(:matricula AS String), '%'))))
             """)
     Page<Moto> buscar(@Param("texto") String texto,
+                      @Param("matricula") String matricula,
                       @Param("soloActivas") boolean soloActivas,
                       Pageable pageable);
 }

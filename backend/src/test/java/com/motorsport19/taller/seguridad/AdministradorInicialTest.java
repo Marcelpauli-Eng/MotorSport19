@@ -1,5 +1,6 @@
 package com.motorsport19.taller.seguridad;
 
+import com.motorsport19.taller.support.RolesDePrueba;
 import com.motorsport19.taller.usuario.domain.Rol;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import com.motorsport19.taller.usuario.service.UsuarioService;
@@ -29,22 +30,25 @@ import static org.mockito.Mockito.when;
 class AdministradorInicialTest {
 
     @Mock private UsuarioRepository usuarioRepository;
+    @Mock private com.motorsport19.taller.usuario.repository.RolRepository rolRepository;
     @Mock private UsuarioService usuarioService;
 
     private AdministradorInicial conConfiguracion(String username, String password) {
-        return new AdministradorInicial(usuarioRepository, usuarioService, username, password);
+        return new AdministradorInicial(usuarioRepository, rolRepository, usuarioService, username, password);
     }
 
     @Test
     @DisplayName("con la base vacia crea un administrador con contrasena aleatoria")
     void baseVacia() {
         when(usuarioRepository.count()).thenReturn(0L);
+        when(rolRepository.findById(Rol.ID_ADMINISTRACION))
+                .thenReturn(java.util.Optional.of(RolesDePrueba.administracion()));
 
         conConfiguracion("", "").run(null);
 
         ArgumentCaptor<String> password = ArgumentCaptor.forClass(String.class);
         verify(usuarioService).crear(eq("admin"), password.capture(), any(), any(), any(),
-                eq(Rol.ADMIN));
+                eq(Rol.ID_ADMINISTRACION));
         assertThat(password.getValue()).hasSizeGreaterThanOrEqualTo(20);
     }
 
@@ -52,6 +56,8 @@ class AdministradorInicialTest {
     @DisplayName("dos arranques seguidos generan contrasenas distintas")
     void passwordNoPredecible() {
         when(usuarioRepository.count()).thenReturn(0L);
+        when(rolRepository.findById(Rol.ID_ADMINISTRACION))
+                .thenReturn(java.util.Optional.of(RolesDePrueba.administracion()));
 
         conConfiguracion("", "").run(null);
         conConfiguracion("", "").run(null);
@@ -66,11 +72,13 @@ class AdministradorInicialTest {
     @DisplayName("respeta la contrasena configurada si se ha indicado")
     void passwordConfigurada() {
         when(usuarioRepository.count()).thenReturn(0L);
+        when(rolRepository.findById(Rol.ID_ADMINISTRACION))
+                .thenReturn(java.util.Optional.of(RolesDePrueba.administracion()));
 
         conConfiguracion("direccion", "unaClaveElegida2026").run(null);
 
         verify(usuarioService).crear(eq("direccion"), eq("unaClaveElegida2026"), any(), any(), any(),
-                eq(Rol.ADMIN));
+                eq(Rol.ID_ADMINISTRACION));
     }
 
     @Test

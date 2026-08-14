@@ -89,6 +89,15 @@ export class FormularioOrden {
 
   protected readonly reparteTrabajo = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
 
+  /**
+   * Fija el camino y esconde el selector.
+   *
+   * <p>Lo usa la pantalla de «Adelantar OT», donde la decision ya esta tomada
+   * por el hecho de haber entrado ahi: enseñar el selector seria ofrecer un
+   * camino que esa pantalla no hace.
+   */
+  readonly caminoFijo = input<'revisar' | 'preparar' | null>(null);
+
   readonly cerrar = output<void>();
   readonly abierta = output<OrdenTrabajo>();
 
@@ -128,6 +137,13 @@ export class FormularioOrden {
    *   sin ver un solo precio.
    */
   protected readonly camino = signal<'revisar' | 'preparar'>('revisar');
+
+  ngOnInit(): void {
+    const fijo = this.caminoFijo();
+    if (fijo) {
+      this.camino.set(fijo);
+    }
+  }
 
   protected elegirCamino(destino: 'revisar' | 'preparar'): void {
     this.camino.set(destino);

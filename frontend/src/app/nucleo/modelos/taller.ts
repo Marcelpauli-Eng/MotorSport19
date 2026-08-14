@@ -221,6 +221,8 @@ export interface OrdenTrabajo {
   clienteId: number;
   clienteNombre: string;
   clienteTelefono: string | null;
+  /** Si reúne los datos fiscales que exige una factura (documento y domicilio). */
+  clienteFacturable: boolean;
 
   fechaEntrada: string;
   fechaEstimadaSalida: string | null;
@@ -234,6 +236,8 @@ export interface OrdenTrabajo {
 
   /** Nulo para un técnico: el precio de la hora no es asunto del taller. */
   tarifaHora: number | null;
+  /** Tipo de IVA impuesto a toda la orden, o null si cada línea lleva el suyo. */
+  tipoIva: string | null;
   fechaPresupuesto: string | null;
   fechaAprobacion: string | null;
   aprobadoPor: string | null;

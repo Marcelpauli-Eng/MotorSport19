@@ -16,6 +16,17 @@ public record DescuentoRequest(
         @NotNull(message = "Hay que indicar el descuento")
         @DecimalMin(value = "0.00", message = "El descuento no puede ser negativo")
         @DecimalMax(value = "100.00", message = "El descuento no puede pasar del 100 %")
-        BigDecimal descuentoPct
+        BigDecimal descuentoPct,
+
+        /**
+         * Confirma bajar tambien las lineas que llevaban mas descuento.
+         *
+         * <p>Se manda solo cuando el usuario ya ha visto el aviso de que lineas
+         * pierden descuento y ha dicho que si. Sin el, esa operacion se para.
+         */
+        Boolean forzar
 ) {
+    public boolean forzado() {
+        return Boolean.TRUE.equals(forzar);
+    }
 }

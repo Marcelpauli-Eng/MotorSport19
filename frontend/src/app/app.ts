@@ -17,12 +17,6 @@ interface Grupo {
   enlaces: Enlace[];
 }
 
-const ROLES_LEGIBLES: Record<Rol, string> = {
-  ADMIN: 'Dirección',
-  MOSTRADOR: 'Mostrador',
-  TECNICO: 'Taller',
-};
-
 /**
  * Armazón de la aplicación: barra lateral fija en escritorio y desplegable en
  * tablet, más la pila de avisos.
@@ -67,7 +61,8 @@ export class App {
     {
       titulo: 'Administración',
       enlaces: [
-        { ruta: '/servicios', texto: 'Servicios', icono: 'ordenes', roles: ['ADMIN'] },
+        { ruta: '/adelantar-ot', texto: 'Adelantar OT', icono: 'ordenes', roles: ['ADMIN'] },
+        { ruta: '/plantillas', texto: 'Plantillas', icono: 'ordenes', roles: ['ADMIN'] },
         { ruta: '/facturas', texto: 'Facturas', icono: 'facturas', roles: ['ADMIN', 'MOSTRADOR'] },
         { ruta: '/informes', texto: 'Informes', icono: 'informes', roles: ['ADMIN', 'MOSTRADOR'] },
         { ruta: '/ajustes', texto: 'Ajustes', icono: 'ajustes', roles: ['ADMIN', 'MOSTRADOR'] },
@@ -85,10 +80,13 @@ export class App {
       .filter((g) => g.enlaces.length > 0),
   );
 
-  protected readonly rolLegible = computed(() => {
-    const rol = this.sesion.rol();
-    return rol ? ROLES_LEGIBLES[rol] : '';
-  });
+  /**
+   * El rol tal y como se llama.
+   *
+   * Ya no hay una tabla de tres nombres que traducir: el rol lo crea el
+   * administrador y su nombre es el que él le puso, así que se enseña tal cual.
+   */
+  protected readonly rolLegible = computed(() => this.sesion.rol() ?? '');
 
   /** Iniciales para el avatar: «Javier Ortega Marín» → «JO». */
   protected readonly iniciales = computed(() => {

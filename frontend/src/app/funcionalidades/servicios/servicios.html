@@ -8,14 +8,14 @@
 
 <div class="pagina-cabecera">
   <div class="pagina-cabecera__texto">
-    <h1>Servicios</h1>
+    <h1>Plantillas</h1>
     <p class="pagina-cabecera__sub">
-      Plantillas que se vuelcan de golpe en una orden de trabajo.
+      Trabajos que se repiten, listos para volcarlos de golpe en una orden.
     </p>
   </div>
   <button type="button" class="boton boton--principal" (click)="nuevo()">
     <app-icono nombre="mas" [tamano]="16" />
-    Nuevo servicio
+    Nueva plantilla
   </button>
 </div>
 
@@ -36,13 +36,13 @@
   </div>
 
   @if (cargando()) {
-    <app-cargando mensaje="Cargando servicios…" />
+    <app-cargando mensaje="Cargando plantillas…" />
   } @else if (!filas().length) {
     <div class="vacio">
       <app-icono class="vacio__icono" nombre="ordenes" [tamano]="30" />
-      <span class="vacio__titulo">Todavía no hay servicios</span>
+      <span class="vacio__titulo">Todavía no hay plantillas</span>
       <span class="pequeno">
-        Crea uno con las horas y las piezas de un trabajo que repitas: una revisión,
+        Crea una con las horas y las piezas de un trabajo que repitas: una revisión,
         un cambio de aceite, un kit de transmisión.
       </span>
     </div>
@@ -51,7 +51,7 @@
       <table>
         <thead>
           <tr>
-            <th>Servicio</th>
+            <th>Plantilla</th>
             <th class="num">Horas</th>
             <th class="num">Piezas</th>
             <th class="servicios__incluye">Incluye</th>

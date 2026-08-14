@@ -84,8 +84,9 @@ public class MotoController {
         HistorialImprimible historial = historialServicio.preparar(id, importes);
         byte[] pdf = generadorHistorial.generar(historial);
 
+        // El historial de una moto trae un solo bloque: el suyo.
         String nombre = "historial-%s.pdf".formatted(
-                historial.vehiculo().matricula().replaceAll("[^A-Za-z0-9-]", ""));
+                historial.motos().get(0).vehiculo().matricula().replaceAll("[^A-Za-z0-9-]", ""));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"%s\"".formatted(nombre))

@@ -55,6 +55,22 @@
 
 .tarifa__editor input { width: 92px; }
 
+/* El desplegable del IVA vive dentro de la misma pastilla que el precio de la
+   hora, así que se le quita el marco: dos recuadros anidados hacen ruido. */
+.tarifa__iva {
+  height: auto;
+  padding: 2px 22px 2px 6px;
+  border-color: transparent;
+  background-color: transparent;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--gris-900);
+  cursor: pointer;
+}
+
+.tarifa__iva:hover { border-color: var(--gris-300); }
+.tarifa__iva:focus { border-color: var(--azul); }
+
 .tarifa__lapiz {
   display: inline-flex;
   padding: 2px;
@@ -356,4 +372,24 @@
 @media (max-width: 640px) {
   .volcar-servicio { flex-wrap: wrap; width: 100%; }
   .volcar-servicio select { flex: 1 1 100%; min-width: 0; }
+}
+
+/* «Dejar preparada»: desplegable de técnico y botón, juntos porque no tienen
+   sentido por separado —preparar una orden sin asignarla no reparte nada. */
+.preparar {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.preparar select {
+  min-width: 170px;
+  height: var(--alto-control);
+  min-height: var(--alto-control);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .preparar { width: 100%; }
+  .preparar select { flex: 1 1 auto; min-width: 0; }
 }

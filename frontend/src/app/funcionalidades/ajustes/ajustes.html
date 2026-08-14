@@ -22,6 +22,22 @@
       <button
         type="button"
         class="pestana"
+        [class.pestana--activa]="pestana() === 'series'"
+        (click)="cambiarPestana('series')"
+      >
+        Series de facturación
+      </button>
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="pestana() === 'roles'"
+        (click)="cambiarPestana('roles')"
+      >
+        Roles y permisos
+      </button>
+      <button
+        type="button"
+        class="pestana"
         [class.pestana--activa]="pestana() === 'usuarios'"
         (click)="cambiarPestana('usuarios')"
       >
@@ -216,6 +232,356 @@
         <p class="pequeno silenciado" style="margin-top: var(--e3)">
           Emite {{ b.softwareNombre }} {{ b.softwareVersion }}. Esos datos identifican al programa,
           no al taller, y no se tocan desde aquí.
+        </p>
+      </section>
+    }
+  }
+
+  <!-- ============ Series de facturación ============
+       Sin una serie abierta no se puede emitir ni una factura. Antes solo
+       existían en el juego de datos de demostración, así que una instalación
+       de verdad se quedaba sin poder facturar y sin saber por qué. -->
+  @if (pestana() === 'series' && esAdmin) {
+    @if (cargandoSeries()) {
+      <app-cargando mensaje="Cargando las series…" />
+    } @else {
+      @if (sinSerieOrdinaria()) {
+        <div class="aviso aviso--ambar">
+          <app-icono class="aviso__icono" nombre="alerta" [tamano]="16" />
+          <div>
+            <strong>No se puede facturar todavía.</strong>
+            Hace falta una serie ordinaria abierta: es de donde sale el número de cada factura.
+            Sin ella, el botón de «Emitir factura» de las órdenes no hace nada.
+            <div style="margin-top: 8px">
+              <button
+                type="button"
+                class="boton boton--pequeno boton--principal"
+                (click)="abrirAltaSerie('ORDINARIA')"
+              >
+                <app-icono nombre="mas" [tamano]="14" />
+                Abrir la serie de {{ nuevaSerieEjercicio() }}
+              </button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <section class="tarjeta tarjeta--ajustada">
+        <div class="tarjeta__titulo">
+          <h2>Series de facturación</h2>
+          <div class="fila">
+            <button type="button" class="boton boton--pequeno" (click)="abrirAltaSerie('ORDINARIA')">
+              <app-icono nombre="mas" [tamano]="14" />
+              Serie ordinaria
+            </button>
+            <button
+              type="button"
+              class="boton boton--pequeno"
+              (click)="abrirAltaSerie('RECTIFICATIVA')"
+            >
+              <app-icono nombre="mas" [tamano]="14" />
+              Serie rectificativa
+            </button>
+          </div>
+        </div>
+
+        @if (creandoSerie()) {
+          <div class="alta-serie">
+            <div class="campo" style="width: 100px">
+              <label for="serieCodigo">Código</label>
+              <input
+                id="serieCodigo"
+                maxlength="10"
+                [ngModel]="nuevaSerieCodigo()"
+                (ngModelChange)="nuevaSerieCodigo.set($event)"
+              />
+            </div>
+            <div class="campo" style="width: 110px">
+              <label for="serieEjercicio">Ejercicio</label>
+              <input
+                id="serieEjercicio"
+                type="number"
+                min="2000"
+                max="2200"
+                [ngModel]="nuevaSerieEjercicio()"
+                (ngModelChange)="nuevaSerieEjercicio.set(+$event || 0)"
+              />
+            </div>
+            <div class="campo" style="width: 170px">
+              <label for="serieTipo">Tipo</label>
+              <select
+                id="serieTipo"
+                [ngModel]="nuevaSerieTipo()"
+                (ngModelChange)="nuevaSerieTipo.set($event)"
+              >
+                <option value="ORDINARIA">Ordinaria</option>
+                <option value="RECTIFICATIVA">Rectificativa</option>
+              </select>
+            </div>
+            <div class="campo crece">
+              <label for="serieDescripcion">Descripción</label>
+              <input
+                id="serieDescripcion"
+                [ngModel]="nuevaSerieDescripcion()"
+                (ngModelChange)="nuevaSerieDescripcion.set($event)"
+                placeholder="Serie general de facturación {{ nuevaSerieEjercicio() }}"
+              />
+            </div>
+            <button type="button" class="boton" (click)="creandoSerie.set(false)">Cancelar</button>
+            <button
+              type="button"
+              class="boton boton--principal"
+              [disabled]="!puedeCrearSerie()"
+              (click)="crearSerie()"
+            >
+              Abrir serie
+            </button>
+          </div>
+          <p class="pequeno silenciado" style="margin: -4px 0 12px">
+            El código y el ejercicio van impresos en el número de cada factura
+            (<span class="mono">{{ nuevaSerieCodigo() || 'A' }}/{{ nuevaSerieEjercicio() }}/000001</span>)
+            y no se pueden cambiar después.
+          </p>
+        }
+
+        @if (!series().length) {
+          <div class="vacio">
+            <app-icono class="vacio__icono" nombre="facturas" [tamano]="30" />
+            <span class="vacio__titulo">Todavía no hay ninguna serie</span>
+            <span class="pequeno">Abre una ordinaria para poder empezar a facturar.</span>
+          </div>
+        } @else {
+          <div class="tabla-envoltorio">
+            <table>
+              <thead>
+                <tr>
+                  <th>Serie</th>
+                  <th>Descripción</th>
+                  <th>Tipo</th>
+                  <th class="num">Emitidas</th>
+                  <th class="num">Siguiente</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (s of series(); track s.id) {
+                  <tr>
+                    <td class="codigo">{{ s.codigo }}/{{ s.ejercicio }}</td>
+                    <td><span class="truncado">{{ s.descripcion }}</span></td>
+                    <td class="pequeno silenciado">
+                      {{ s.tipo === 'ORDINARIA' ? 'Ordinaria' : 'Rectificativa' }}
+                    </td>
+                    <td class="num">{{ s.ultimoNumero }}</td>
+                    <td class="num mono">{{ s.proximoNumero }}</td>
+                    <td>
+                      @if (s.activa) {
+                        <span class="etiqueta etiqueta--verde">Abierta</span>
+                      } @else {
+                        <span class="etiqueta etiqueta--gris">Cerrada</span>
+                      }
+                    </td>
+                    <td class="num">
+                      <button
+                        type="button"
+                        class="boton boton--pequeno"
+                        [disabled]="guardando()"
+                        (click)="alternarSerie(s)"
+                        [title]="
+                          s.activa
+                            ? 'Cerrarla para nuevas facturas. Las emitidas no se tocan.'
+                            : 'Volver a usarla para facturas nuevas'
+                        "
+                      >
+                        {{ s.activa ? 'Cerrar' : 'Reabrir' }}
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+    }
+  }
+
+  <!-- ============ Roles y permisos ============
+       El administrador compone los roles marcando lo que puede hacer cada uno.
+       El catálogo lo sirve el backend: cada casilla se comprueba de verdad en
+       la API, así que ninguna es decorativa. -->
+  @if (pestana() === 'roles' && esAdmin) {
+    @if (cargandoRoles()) {
+      <app-cargando mensaje="Cargando los roles…" />
+    } @else if (editandoRol()) {
+      <section class="tarjeta">
+        <div class="tarjeta__titulo">
+          <h2>{{ esRolNuevo() ? 'Nuevo rol' : 'Editar el rol ' + rolNombre() }}</h2>
+          <span class="pequeno silenciado">
+            {{ rolPermisos().size }} {{ rolPermisos().size === 1 ? 'permiso' : 'permisos' }}
+          </span>
+        </div>
+
+        <div class="rejilla">
+          <div class="campo">
+            <label for="rolNombre">Nombre <span class="silenciado">(obligatorio)</span></label>
+            <input
+              id="rolNombre"
+              maxlength="50"
+              [ngModel]="rolNombre()"
+              (ngModelChange)="rolNombre.set($event)"
+              placeholder="Recepción"
+            />
+          </div>
+          <div class="campo">
+            <label for="rolDescripcion">Para qué es</label>
+            <input
+              id="rolDescripcion"
+              maxlength="200"
+              [ngModel]="rolDescripcion()"
+              (ngModelChange)="rolDescripcion.set($event)"
+              placeholder="Da de alta clientes y motos y abre órdenes"
+            />
+          </div>
+        </div>
+
+        <div class="permisos">
+          @for (g of catalogo(); track g.clave) {
+            <section class="permisos__grupo">
+              <div class="permisos__cabecera">
+                <h3>{{ g.titulo }}</h3>
+                <button type="button" class="boton boton--pequeno boton--plano" (click)="alternarGrupo(g)">
+                  {{ grupoCompleto(g) ? 'Quitar todo' : 'Marcar todo' }}
+                </button>
+              </div>
+
+              @for (p of g.permisos; track p.clave) {
+                <label class="permiso" [class.permiso--puesto]="tienePermisoMarcado(p.clave)">
+                  <input
+                    type="checkbox"
+                    [checked]="tienePermisoMarcado(p.clave)"
+                    (change)="alternarPermiso(p.clave)"
+                  />
+                  <span class="permiso__texto">
+                    <span class="permiso__nombre">{{ p.descripcion }}</span>
+                    @if (p.detalle) {
+                      <span class="permiso__detalle">{{ p.detalle }}</span>
+                    }
+                  </span>
+                </label>
+              }
+            </section>
+          }
+        </div>
+
+        <div class="fila fila--fin" style="margin-top: 16px">
+          <button type="button" class="boton" (click)="cerrarEditorRol()">Cancelar</button>
+          <button
+            type="button"
+            class="boton boton--principal"
+            [disabled]="!puedeGuardarRol()"
+            (click)="guardarRol()"
+          >
+            {{ esRolNuevo() ? 'Crear rol' : 'Guardar cambios' }}
+          </button>
+        </div>
+        @if (!esRolNuevo()) {
+          <p class="pequeno silenciado" style="margin: 8px 0 0">
+            Quien lleve este rol verá los cambios la próxima vez que entre: los permisos viajan
+            dentro de su sesión.
+          </p>
+        }
+      </section>
+    } @else {
+      <section class="tarjeta tarjeta--ajustada">
+        <div class="tarjeta__titulo">
+          <h2>Roles</h2>
+          <button type="button" class="boton boton--pequeno" (click)="nuevoRol()">
+            <app-icono nombre="mas" [tamano]="14" />
+            Nuevo rol
+          </button>
+        </div>
+
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>Rol</th>
+                <th>Para qué es</th>
+                <th class="num">Permisos</th>
+                <th class="num">Usuarios</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of roles(); track r.id) {
+                <tr>
+                  <td>
+                    <div class="celda-doble">
+                      <span class="celda-doble__principal">{{ r.nombre }}</span>
+                      @if (r.sistema) {
+                        <span class="celda-doble__secundario">De serie</span>
+                      }
+                    </div>
+                  </td>
+                  <td class="pequeno silenciado">
+                    <span class="truncado" style="max-width: 320px">{{ r.descripcion || '—' }}</span>
+                  </td>
+                  <td class="num">{{ r.permisos.length }}</td>
+                  <td class="num">{{ r.usuarios }}</td>
+                  <td>
+                    @if (r.activo) {
+                      <span class="etiqueta etiqueta--verde">Abierto</span>
+                    } @else {
+                      <span class="etiqueta etiqueta--gris">Cerrado</span>
+                    }
+                  </td>
+                  <td class="num">
+                    <div class="fila" style="gap: 4px; flex-wrap: nowrap; justify-content: flex-end">
+                      @if (r.editable) {
+                        <button type="button" class="boton boton--pequeno" (click)="editarRol(r)">
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          class="boton boton--pequeno"
+                          [disabled]="guardando()"
+                          (click)="alternarRol(r)"
+                          [title]="
+                            r.activo
+                              ? 'Cerrarlo para nuevos usuarios'
+                              : 'Volver a ofrecerlo al asignar usuarios'
+                          "
+                        >
+                          {{ r.activo ? 'Cerrar' : 'Reabrir' }}
+                        </button>
+                      } @else {
+                        <span class="pequeno silenciado" title="Es el rol que reparte los permisos">
+                          No se toca
+                        </span>
+                      }
+                      @if (r.borrable) {
+                        <button
+                          type="button"
+                          class="boton boton--pequeno boton--peligro"
+                          [disabled]="guardando()"
+                          (click)="borrarRol(r)"
+                        >
+                          Borrar
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <p class="pequeno silenciado" style="margin-top: 12px">
+          El rol de administración no se edita a propósito: es el que reparte los permisos, y
+          quitárselo dejaría al taller sin nadie que pudiera devolvérselos.
         </p>
       </section>
     }

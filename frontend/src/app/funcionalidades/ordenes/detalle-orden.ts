@@ -105,11 +105,20 @@ export class DetalleOrden {
    * una orden es repartir trabajo, y el trabajo lo reparte quien lo ha vendido.
    */
   private static readonly SOLO_MOSTRADOR: EstadoOT[] = [
-    'PREPARADA',
     'APROBADA',
     'RECHAZADA',
     'ENTREGADA',
   ];
+
+  /**
+   * Adelantar una orden es solo de dirección, no de mostrador.
+   *
+   * <p>Se salta el paso en el que el cliente aprueba, así que lo firma quien
+   * responde de haberlo cerrado antes por su cuenta. El backend lo exige igual
+   * ({@code /ordenes/*&#47;preparacion} pide ADMIN); esto es solo para no
+   * enseñar un botón que va a devolver 403.
+   */
+  private static readonly SOLO_DIRECCION: EstadoOT[] = ['PREPARADA'];
 
   /**
    * La orden admite cambios, pero ninguno lo puede hacer este usuario.
@@ -130,8 +139,10 @@ export class DetalleOrden {
     if (!o || !this.puedeTrabajarla()) return [];
 
     const esTecnico = this.sesion.puede('TECNICO');
+    const esDireccion = this.sesion.puede('ADMIN');
     return o.estadosPosibles
       .filter((destino) => !esTecnico || !DetalleOrden.SOLO_MOSTRADOR.includes(destino))
+      .filter((destino) => esDireccion || !DetalleOrden.SOLO_DIRECCION.includes(destino))
       .map((destino) => ({
         destino,
         // Desde una orden preparada no se «entra en reparación»: se empieza el
@@ -145,13 +156,37 @@ export class DetalleOrden {
       }));
   });
 
+  /**
+   * Si ya se sabe qué series hay.
+   *
+   * Sin esto no se puede distinguir «todavía no han llegado» de «no hay
+   * ninguna», y el aviso de que falta una serie aparecería medio segundo en
+   * cada orden facturable aunque todo estuviera bien.
+   */
+  protected readonly seriesCargadas = signal(false);
+
+  /**
+   * No hay serie con la que emitir.
+   *
+   * Es la causa real de que «Emitir factura» no haga nada, y desde la orden no
+   * hay forma de adivinarla: las series se abren en Ajustes y hasta ahora solo
+   * existían en el juego de datos de demostración.
+   */
+  protected readonly faltaSerie = computed(
+    () => this.puedeFacturar && this.seriesCargadas() && this.serieOrdinaria() === null,
+  );
+
   constructor() {
     queueMicrotask(() => this.cargar());
     // Un técnico no puede consultar las series ni el listado de técnicos:
     // pedirlas le provocaría un aviso de permisos nada más abrir cualquier orden.
     if (this.puedeFacturar) {
-      this.facturas.series().subscribe((series) => {
-        this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
+      this.facturas.series().subscribe({
+        next: (series) => {
+          this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
+          this.seriesCargadas.set(true);
+        },
+        error: () => this.seriesCargadas.set(true),
       });
       this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
     }
@@ -234,6 +269,34 @@ export class DetalleOrden {
       hecho: paso.estados.some((e) => visitados.has(e)) && !paso.estados.includes(o.estado),
     }));
   });
+
+  /**
+   * Saca del almacén el material que quede sin servir.
+   *
+   * <p>El consumo ocurre al entrar en reparación. Una línea añadida después se
+   * sirve sola, pero las órdenes anteriores a ese arreglo se quedaron con
+   * material sin servir y sin forma de sacarlo, y no se podían dar por listas.
+   * Esto las desatasca.
+   */
+  protected servirMaterial(): void {
+    const o = this.orden();
+    if (!o || this.trabajando()) return;
+
+    this.trabajando.set(true);
+    this.servicio.reanudarReparacion(o.id).subscribe({
+      next: (resultado) => {
+        this.resultadoConsumo.set(resultado);
+        if (resultado.completo) {
+          this.notificaciones.exito(resultado.mensaje);
+        } else {
+          this.notificaciones.info(resultado.mensaje);
+        }
+        this.trabajando.set(false);
+        this.cargar();
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
 
   /** El paso en el que está ahora mismo, para titular la tarjeta de acciones. */
   protected readonly pasoActual = computed(() => this.pasos().find((p) => p.actual) ?? null);

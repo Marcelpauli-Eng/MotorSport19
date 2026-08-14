@@ -1,0 +1,55 @@
+@if (formularioAbierto()) {
+  <app-formulario-orden
+    caminoFijo="preparar"
+    (cerrar)="cancelar()"
+    (abierta)="trasAbrir($event)"
+  />
+}
+
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Adelantar OT</h1>
+    <p class="pagina-cabecera__sub">
+      Para trabajos ya cerrados con el cliente: se compone la orden y se le pasa a un técnico.
+    </p>
+  </div>
+</div>
+
+<section class="tarjeta adelantar">
+  <h2>Cómo funciona</h2>
+  <ol class="adelantar__pasos">
+    <li>
+      <span class="adelantar__num">1</span>
+      <div>
+        <p class="negrita">Se abre la orden y se asigna a un técnico</p>
+        <p class="pequeno silenciado">
+          No pasa por diagnóstico ni por aprobación: el precio ya se cerró fuera del programa.
+        </p>
+      </div>
+    </li>
+    <li>
+      <span class="adelantar__num">2</span>
+      <div>
+        <p class="negrita">Se compone el trabajo</p>
+        <p class="pequeno silenciado">
+          Horas y piezas, a mano o volcando una plantilla de golpe.
+        </p>
+      </div>
+    </li>
+    <li>
+      <span class="adelantar__num">3</span>
+      <div>
+        <p class="negrita">El técnico la ve entre las suyas y la hace</p>
+        <p class="pequeno silenciado">
+          Sin ver un solo importe: el servidor le sirve la ficha con los precios vaciados.
+          Lo único que apunta son las horas que ha echado.
+        </p>
+      </div>
+    </li>
+  </ol>
+
+  <button type="button" class="boton boton--principal boton--grande" (click)="reabrir()">
+    <app-icono nombre="mas" [tamano]="16" />
+    Adelantar una orden
+  </button>
+</section>

@@ -87,4 +87,14 @@ public interface OrdenTrabajoRepository extends JpaRepository<OrdenTrabajo, Long
                     com.motorsport19.taller.orden.domain.EstadoOT.RECHAZADA)
             """)
     long contarAbiertasDeMoto(@Param("motoId") Long motoId);
+
+    /** Ordenes sin cerrar de un cliente. Con trabajo abierto no se le da de baja. */
+    @Query("""
+            SELECT COUNT(o) FROM OrdenTrabajo o
+             WHERE o.cliente.id = :clienteId
+               AND o.estado NOT IN
+                   (com.motorsport19.taller.orden.domain.EstadoOT.ENTREGADA,
+                    com.motorsport19.taller.orden.domain.EstadoOT.RECHAZADA)
+            """)
+    long contarAbiertasDeCliente(@Param("clienteId") Long clienteId);
 }

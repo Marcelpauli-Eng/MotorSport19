@@ -4,6 +4,7 @@ import com.motorsport19.taller.common.error.RespuestaError;
 import com.motorsport19.taller.seguridad.ControlIntentosLogin;
 import com.motorsport19.taller.seguridad.ServicioJwt;
 import com.motorsport19.taller.seguridad.UsuarioActual;
+import com.motorsport19.taller.usuario.domain.Permiso;
 import com.motorsport19.taller.seguridad.UsuarioAutenticado;
 import com.motorsport19.taller.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -76,14 +77,14 @@ public class AutenticacionController {
             usuarioService.registrarAcceso(usuario.id());
 
             ServicioJwt.TokenEmitido token = servicioJwt.emitir(usuario);
-            log.info("Acceso correcto de '{}' ({})", usuario.username(), usuario.rol());
+            log.info("Acceso correcto de '{}' ({})", usuario.username(), usuario.rolNombre());
 
             return ResponseEntity.ok(new RespuestaLogin(
                     token.token(),
                     token.caduca(),
                     token.duracionSegundos(),
                     new UsuarioSesion(usuario.id(), usuario.username(), usuario.nombreCompleto(),
-                            usuario.rol().name())));
+                            usuario.rolId(), usuario.rolNombre(), usuario.permisos())));
 
         } catch (AuthenticationException e) {
             controlIntentos.registrarFallo(username);
@@ -120,7 +121,7 @@ public class AutenticacionController {
         UsuarioAutenticado usuario = usuarioActual.obtener()
                 .orElseThrow(() -> new IllegalStateException("Sin usuario autenticado"));
         return new UsuarioSesion(usuario.id(), usuario.username(), usuario.nombreCompleto(),
-                usuario.rol().name());
+                usuario.rolId(), usuario.rolNombre(), usuario.permisos());
     }
 
     // ------------------------------------------------------------------
@@ -138,7 +139,15 @@ public class AutenticacionController {
                                  UsuarioSesion usuario) {
     }
 
-    public record UsuarioSesion(Long id, String username, String nombreCompleto, String rol) {
+    /**
+     * Quien ha entrado y que puede hacer.
+     *
+     * <p>Los permisos viajan a la pantalla para que no ofrezca botones que la
+     * API va a rechazar. Quien manda sigue siendo el servidor: esto solo evita
+     * enseñar puertas cerradas.
+     */
+    public record UsuarioSesion(Long id, String username, String nombreCompleto, Long rolId,
+                                String rol, java.util.Set<Permiso> permisos) {
     }
 
     public record CambioPassword(

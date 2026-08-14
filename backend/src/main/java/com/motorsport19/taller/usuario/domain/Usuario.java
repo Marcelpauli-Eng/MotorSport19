@@ -5,11 +5,12 @@ import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -54,8 +55,15 @@ public class Usuario extends EntidadAuditable {
     @Column(name = "telefono", length = 30)
     private String telefono;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "rol", nullable = false, length = 20)
+    /**
+     * Rol del usuario, del que salen sus permisos.
+     *
+     * <p>Se carga con el usuario ({@code EAGER}) porque no hay ni un solo caso en
+     * que interese el usuario sin saber que puede hacer: al entrar, para firmar
+     * el token; en cada peticion, para autorizarla.
+     */
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "rol_id", nullable = false)
     private Rol rol;
 
     @Column(name = "activo", nullable = false)
@@ -105,6 +113,11 @@ public class Usuario extends EntidadAuditable {
             throw new ReglaNegocioException("Hay que asignar un rol al usuario.");
         }
         this.rol = nuevoRol;
+    }
+
+    /** Lo que puede hacer, que es lo que diga su rol. */
+    public boolean tienePermiso(Permiso permiso) {
+        return rol != null && rol.tiene(permiso);
     }
 
     /** @param passwordHash hash BCrypt ya calculado */

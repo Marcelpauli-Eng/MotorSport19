@@ -22,6 +22,7 @@ import com.motorsport19.taller.orden.web.dto.PiezaLineaRequest;
 import com.motorsport19.taller.orden.web.dto.PrecioLineaRequest;
 import com.motorsport19.taller.orden.web.dto.ResultadoConsumoResponse;
 import com.motorsport19.taller.orden.web.dto.TarifaHoraRequest;
+import com.motorsport19.taller.orden.web.dto.TipoIvaRequest;
 import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
 import com.motorsport19.taller.documento.ArmadorDocumento;
 import com.motorsport19.taller.documento.GeneradorPdfDocumento;
@@ -183,7 +184,20 @@ public class OrdenTrabajoController {
     @PutMapping("/{id}/descuento-general")
     public OrdenTrabajoResponse aplicarDescuentoGeneral(@PathVariable Long id,
                                                         @Valid @RequestBody DescuentoRequest peticion) {
-        return detalle(ordenService.aplicarDescuentoGeneral(id, peticion.descuentoPct()));
+        return detalle(ordenService.aplicarDescuentoGeneral(id, peticion.descuentoPct(), peticion.forzado()));
+    }
+
+    /**
+     * Pone toda la orden a un tipo de IVA, incluido el 0 %.
+     *
+     * <p>Va en la cabecera y no linea a linea porque es una decision de la
+     * operacion entera: o se factura con IVA o no. Ademas queda fijada, de modo
+     * que lo que se añada despues al presupuesto nace con el mismo tipo.
+     */
+    @PutMapping("/{id}/tipo-iva")
+    public OrdenTrabajoResponse aplicarTipoIva(@PathVariable Long id,
+                                               @Valid @RequestBody TipoIvaRequest peticion) {
+        return detalle(ordenService.aplicarTipoIvaGeneral(id, peticion.tipoIva()));
     }
 
     /** Fecha estimada de salida y notas internas. */
@@ -218,7 +232,8 @@ public class OrdenTrabajoController {
     public LineaOTResponse anadirPieza(@PathVariable Long id,
                                        @Valid @RequestBody PiezaLineaRequest peticion) {
         return linea(ordenService.anadirPieza(
-                id, peticion.piezaId(), peticion.cantidad(), peticion.descuentoPct()));
+                id, peticion.piezaId(), peticion.cantidad(), peticion.descuentoPct(),
+                usuarioActual.id()));
     }
 
     /**
@@ -233,7 +248,8 @@ public class OrdenTrabajoController {
     @ResponseStatus(HttpStatus.CREATED)
     public List<LineaOTResponse> aplicarServicioTipo(@PathVariable Long id,
                                                      @PathVariable Long servicioTipoId) {
-        return ordenService.aplicarServicioTipo(id, servicioTipoId).stream().map(this::linea).toList();
+        return ordenService.aplicarServicioTipo(id, servicioTipoId, usuarioActual.id()).stream()
+                .map(this::linea).toList();
     }
 
     @PutMapping("/{id}/lineas/{lineaId}/cantidad")
@@ -373,12 +389,12 @@ public class OrdenTrabajoController {
         OrdenTrabajoResponse ficha = OrdenTrabajoResponse.de(orden,
                 ordenService.lineasDe(orden.getId()),
                 ordenService.historialDe(orden.getId()));
-        return usuarioActual.esTecnico() ? ficha.sinImportes() : ficha;
+        return usuarioActual.sinImportes() ? ficha.sinImportes() : ficha;
     }
 
     /** Una linea suelta, con el mismo criterio de importes que {@link #detalle}. */
     private LineaOTResponse linea(com.motorsport19.taller.orden.domain.LineaOT linea) {
         LineaOTResponse respuesta = LineaOTResponse.de(linea);
-        return usuarioActual.esTecnico() ? respuesta.sinImportes() : respuesta;
+        return usuarioActual.sinImportes() ? respuesta.sinImportes() : respuesta;
     }
 }

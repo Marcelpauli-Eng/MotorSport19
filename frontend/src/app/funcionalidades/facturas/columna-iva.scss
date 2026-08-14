@@ -28,11 +28,39 @@
   color: var(--gris-500);
 }
 
-/* ---------- Acumulado del periodo ---------- */
+/* ---------- Acumulado del periodo ----------
+
+   Una sola cifra manda. Antes había seis del mismo tamaño en una rejilla de
+   tres por dos, y una rejilla de seis números iguales no es un resumen: hay
+   que leerla entera para averiguar cuál es el importante. */
+
+.total-periodo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--e4) 0 var(--e4);
+  border-bottom: var(--borde);
+  margin-bottom: var(--e4);
+}
+
+.total-periodo__valor {
+  font-size: 2rem;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--gris-900);
+}
+
+.total-periodo__etiqueta {
+  font-size: 0.8125rem;
+  font-weight: 550;
+  color: var(--gris-600);
+}
 
 .cifras {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   background: var(--gris-200);
   border: var(--borde);
@@ -40,28 +68,58 @@
   overflow: hidden;
 }
 
+/* El bloque del margen va debajo y separado: es la otra pregunta —qué queda
+   después del material— y mezclarlo con el desglose del total confundía las
+   dos cosas. */
+.cifras--margen {
+  grid-template-columns: 1fr 2fr;
+  margin-top: var(--e3);
+}
+
 .cifra {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: var(--e3);
+  gap: 3px;
+  padding: var(--e3) var(--e4);
   background: var(--blanco);
+  min-width: 0;
 }
-
-.cifra--destacada { background: var(--gris-50); }
 
 .cifra__valor {
   font-size: 1.0625rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
-.cifra--destacada .cifra__valor { font-size: 1.25rem; }
 
 .cifra__etiqueta {
   font-size: 0.75rem;
   color: var(--gris-500);
+}
+
+/* En pantallas estrechas las dos columnas del libro ya van apiladas, pero tres
+   cifras siguen sin caber en 375 px sin partir los importes. */
+@media (max-width: 520px) {
+  .cifras,
+  .cifras--margen { grid-template-columns: 1fr 1fr; }
+  .total-periodo__valor { font-size: 1.625rem; }
+}
+
+/* ---------- Columna sin movimiento ---------- */
+
+.columna__vacia {
+  padding: var(--e8) var(--e4);
+  margin-top: var(--e4);
+  background: var(--gris-50);
+  border: 1px dashed var(--gris-200);
+  border-radius: var(--radio);
+}
+
+.columna__vacia .pequeno {
+  max-width: 42ch;
+  line-height: 1.55;
 }
 
 /* ---------- Mes a mes ---------- */

@@ -1,0 +1,36 @@
+/* La pantalla es casi solo el formulario, que se abre al entrar. Lo de debajo
+   queda para cuando se cierra sin guardar: explica qué hace esto y deja volver
+   a abrirlo, en vez de dejar una página en blanco. */
+
+.adelantar { max-width: 640px; }
+
+.adelantar__pasos {
+  list-style: none;
+  margin: var(--e4) 0 var(--e5);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--e4);
+}
+
+.adelantar__pasos li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--e3);
+}
+
+.adelantar__pasos p { margin: 0; }
+
+.adelantar__num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  color: var(--blanco);
+  background: var(--gris-900);
+  border-radius: 50%;
+}

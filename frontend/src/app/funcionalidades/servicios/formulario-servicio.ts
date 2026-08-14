@@ -60,7 +60,7 @@ export class FormularioServicio {
   );
 
   protected readonly titulo = computed(() =>
-    this.servicio() ? 'Editar servicio' : 'Nuevo servicio',
+    this.servicio() ? 'Editar plantilla' : 'Nueva plantilla',
   );
 
   constructor() {
@@ -141,7 +141,7 @@ export class FormularioServicio {
       },
       error: (fallo) => {
         this.guardando.set(false);
-        this.error.set(fallo?.error?.mensaje ?? 'No se ha podido guardar el servicio.');
+        this.error.set(fallo?.error?.mensaje ?? 'No se ha podido guardar la plantilla.');
       },
     });
   }
@@ -152,10 +152,10 @@ export class FormularioServicio {
    */
   private validar(): string {
     if (!this.nombre().trim()) {
-      return 'Ponle un nombre al servicio.';
+      return 'Ponle un nombre a la plantilla.';
     }
     if (!this.lineas().length) {
-      return 'Un servicio sin líneas no ahorra nada: añade al menos una.';
+      return 'Una plantilla sin líneas no ahorra nada: añade al menos una.';
     }
     for (const [i, linea] of this.lineas().entries()) {
       const n = i + 1;

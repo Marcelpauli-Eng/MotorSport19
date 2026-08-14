@@ -159,6 +159,26 @@ public class LineaOT extends EntidadAuditable {
         this.descuentoPct = validarDescuento(descuentoPct);
     }
 
+    /**
+     * Cambia el IVA de la linea.
+     *
+     * <p>Se guardan el codigo y el porcentaje juntos, nunca uno sin el otro: la
+     * linea conserva una COPIA del porcentaje aplicado para que un cambio
+     * normativo en el catalogo no reescriba documentos ya hechos, asi que
+     * cambiar solo el codigo dejaria la linea diciendo «EXENTO» con un 21 %
+     * dentro.
+     */
+    public void cambiarTipoIva(String tipoIva, BigDecimal porcentajeIva) {
+        if (textoONulo(tipoIva) == null) {
+            throw new ReglaNegocioException("Hay que indicar el tipo de IVA de la linea.");
+        }
+        if (porcentajeIva == null || porcentajeIva.signum() < 0) {
+            throw new ReglaNegocioException("El porcentaje de IVA no puede ser negativo.");
+        }
+        this.tipoIva = textoONulo(tipoIva);
+        this.porcentajeIva = porcentajeIva;
+    }
+
     public void cambiarDescripcion(String descripcion) {
         if (textoONulo(descripcion) == null) {
             throw new ReglaNegocioException("La descripcion de la linea no puede quedar vacia.");

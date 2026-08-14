@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Cliente, MotoResumen } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
+import { PdfService } from '../../nucleo/servicios/pdf.service';
+import { environment } from '../../../environments/environment';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { FormularioCliente } from './formulario-cliente';
 
@@ -34,9 +36,18 @@ import { FormularioCliente } from './formulario-cliente';
               }
             </h1>
           </div>
-          @if (puedeEditar) {
-            <button type="button" class="boton" (click)="editando.set(c)">Editar</button>
-          }
+          <div class="fila" style="gap: var(--e2); flex-wrap: nowrap">
+            <!--
+              El historial se entrega en mano al cliente: lleva todas sus motos,
+              cada una con lo que se le ha hecho.
+            -->
+            <button type="button" class="boton" (click)="abrirHistorial(c)">
+              Historial en PDF
+            </button>
+            @if (puedeEditar) {
+              <button type="button" class="boton" (click)="editando.set(c)">Editar</button>
+            }
+          </div>
         </div>
 
         @if (!c.facturable) {
@@ -135,6 +146,7 @@ import { FormularioCliente } from './formulario-cliente';
 })
 export class DetalleCliente {
   private readonly servicio = inject(ClientesService);
+  private readonly pdf = inject(PdfService);
 
   readonly id = input.required<string>();
 
@@ -147,6 +159,14 @@ export class DetalleCliente {
 
   /** Corregir la ficha es cosa de mostrador y dirección, igual que darla de alta. */
   protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+
+  /** Hoja de vida del cliente: todas sus motos con su historial. */
+  protected abrirHistorial(cliente: Cliente): void {
+    this.pdf.abrir(
+      `${environment.urlApi}/clientes/${cliente.id}/historial/pdf`,
+      `historial-${cliente.nombreCompleto}.pdf`,
+    );
+  }
 
   /** El formulario devuelve la ficha ya guardada: no hace falta volver a pedirla. */
   protected trasEditar(actualizado: Cliente): void {
