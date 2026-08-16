@@ -162,3 +162,13 @@
 .negativo { color: var(--rojo); }
 
 .truncado { max-width: 180px; }
+
+/* La nota que dice de dónde sale cada cifra. Va pegada al bloque de importes
+   —no al pie de la columna— porque explica esos dos números concretos. */
+.procedencia {
+  margin: var(--e3) 0 0;
+  line-height: 1.55;
+  max-width: 62ch;
+}
+
+.procedencia strong { color: var(--gris-700); }

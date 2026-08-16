@@ -66,6 +66,24 @@
     </div>
 
     <!--
+      De dónde sale cada cifra.
+
+      Las dos de arriba se leen juntas pero no salen del mismo sitio, y eso
+      confunde: lo facturado son las líneas de la factura, y el gasto son los
+      movimientos de almacén de la orden que hay detrás. La consecuencia
+      —material servido y no facturado baja el margen— es justo lo que interesa
+      ver, pero hay que decirlo o parece un error de cuentas.
+    -->
+    @if (hayMovimiento()) {
+      <p class="pequeno silenciado procedencia">
+        <strong>Facturado</strong> sale de las líneas de las facturas.
+        <strong>Gasto</strong> sale del material que salió del almacén para esas órdenes, valorado
+        al precio de coste que tenía la pieza ese día. Si una pieza se sirvió y no se facturó,
+        cuenta como gasto igual: la pagaste tú y no te la han pagado.
+      </p>
+    }
+
+    <!--
       Sin facturas, esta columna decía tres veces lo mismo: seis ceros, «ninguna
       factura de este tipo» y «ninguna factura que enseñar aquí». Ahora lo dice
       una vez y explica qué caería aquí, que es la pregunta real de quien mira

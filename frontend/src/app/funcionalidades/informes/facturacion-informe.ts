@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { GraficaBarras, PuntoBarra } from '../../compartido/graficas/grafica-barras';
 import { GraficaRanking } from '../../compartido/graficas/grafica-ranking';
@@ -22,7 +23,7 @@ import { EstadisticasService } from '../../nucleo/servicios/estadisticas.service
  */
 @Component({
   selector: 'app-facturacion-informe',
-  imports: [CommonModule, FormsModule, Cargando, Icono, GraficaBarras, GraficaRanking, GraficaReparto],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, GraficaBarras, GraficaRanking, GraficaReparto],
   templateUrl: './facturacion-informe.html',
   styleUrl: './facturacion-informe.scss',
 })

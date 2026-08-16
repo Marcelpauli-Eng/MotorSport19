@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -68,7 +69,8 @@ public class ConfiguracionController {
                 peticion.razonSocial(), peticion.nif(), peticion.direccion(), peticion.codigoPostal(),
                 peticion.ciudad(), peticion.provincia(), peticion.pais(), peticion.telefono(),
                 peticion.email(), peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto(),
-                peticion.capacidadDiariaHoras());
+                peticion.capacidadDiariaHoras(),
+                peticion.limiteFacturaSimplificada());
         return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
     }
 
@@ -80,6 +82,7 @@ public class ConfiguracionController {
             String ciudad, String provincia, String pais, String telefono, String email,
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
             BigDecimal capacidadDiariaHoras,
+            BigDecimal limiteFacturaSimplificada,
             String softwareNombre, String softwareVersion,
             List<TipoIvaResponse> tiposIva
     ) {
@@ -89,6 +92,7 @@ public class ConfiguracionController {
                     c.getRazonSocial(), c.getNif(), c.getDireccion(), c.getCodigoPostal(),
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
                     c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
+                    c.getLimiteFacturaSimplificada(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
@@ -99,6 +103,8 @@ public class ConfiguracionController {
                     false,
                     null, null, null, null, null, null, "ES", null, null,
                     null, "GENERAL", null,
+                    // El tope que trae la instalacion de serie; la gestoria lo confirma.
+                    ConfiguracionTaller.LIMITE_SIMPLIFICADA_POR_DEFECTO,
                     ConfiguracionTaller.SOFTWARE_NOMBRE, ConfiguracionTaller.SOFTWARE_VERSION,
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
@@ -140,7 +146,14 @@ public class ConfiguracionController {
 
             @NotNull(message = "La capacidad diaria es obligatoria")
             @Positive(message = "La capacidad diaria tiene que ser mayor que cero")
-            BigDecimal capacidadDiariaHoras
+            BigDecimal capacidadDiariaHoras,
+
+            /**
+             * Tope de la factura simplificada. Opcional: si no viene, se queda
+             * el que hubiera, para que un cliente antiguo no lo borre sin querer.
+             */
+            @PositiveOrZero(message = "El limite de la factura simplificada no puede ser negativo")
+            BigDecimal limiteFacturaSimplificada
     ) {
     }
 }

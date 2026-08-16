@@ -22,6 +22,20 @@
       ],
       "port": 4310,
       "cwd": "frontend"
+    },
+    {
+      "name": "frontend-cp",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "ng",
+        "serve",
+        "--port",
+        "4320",
+        "--proxy-config",
+        "proxy.8081.json"
+      ],
+      "port": 4320,
+      "cwd": "frontend"
     }
   ]
 }

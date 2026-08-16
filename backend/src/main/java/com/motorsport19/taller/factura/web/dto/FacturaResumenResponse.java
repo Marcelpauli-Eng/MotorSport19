@@ -26,7 +26,9 @@ public record FacturaResumenResponse(
         String codigoOt,
         String matricula,
         String rectificaA,
-        String huella
+        String huella,
+        /** Sin datos fiscales del cliente: el antiguo tique. */
+        boolean simplificada
 ) {
 
     public static FacturaResumenResponse de(Factura f) {
@@ -44,6 +46,7 @@ public record FacturaResumenResponse(
                 f.getCodigoOt(),
                 f.getMatricula(),
                 f.getFacturaRectificada() == null ? null : f.getFacturaRectificada().getNumeroCompleto(),
-                f.getHuella());
+                f.getHuella(),
+                f.isSimplificada());
     }
 }

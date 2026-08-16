@@ -78,8 +78,15 @@ public class ArmadorDocumento {
 
         var receptor = factura.getDatosReceptor();
 
+        // El rotulo dice lo que es el papel. Una simplificada no identifica al
+        // destinatario, asi que quien la recibe tiene que ver de un vistazo que
+        // no le sirve para deducirse el IVA.
+        String titulo = factura.getTipo().name().equals("RECTIFICATIVA")
+                ? "FACTURA RECTIFICATIVA"
+                : factura.isSimplificada() ? "FACTURA SIMPLIFICADA" : "FACTURA";
+
         return new DocumentoImprimible(
-                factura.getTipo().name().equals("RECTIFICATIVA") ? "FACTURA RECTIFICATIVA" : "FACTURA",
+                titulo,
                 "TOTAL FACTURA",
                 factura.getNumeroCompleto(),
                 factura.getTipo().name(),
@@ -87,7 +94,11 @@ public class ArmadorDocumento {
                 "S/N",
                 emisor(cfg),
                 new DocumentoImprimible.Cliente(
-                        receptor.getNombre(), receptor.getCiudad(), receptor.getNif(),
+                        receptor.getNombre(),
+                        // En una simplificada no hay domicilio ni NIF que imprimir:
+                        // las casillas salen vacias en vez de con un hueco raro.
+                        factura.isSimplificada() ? null : receptor.getCiudad(),
+                        factura.isSimplificada() ? null : receptor.getNif(),
                         factura.getReceptor() == null ? "" : numeroCliente(factura.getReceptor().getId()),
                         null),
                 new DocumentoImprimible.Vehiculo(

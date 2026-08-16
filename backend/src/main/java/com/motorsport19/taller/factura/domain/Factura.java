@@ -141,11 +141,11 @@ public class Factura {
     @Embedded
     @AttributeOverrides({
             @AttributeOverride(name = "nombre",       column = @Column(name = "receptor_nombre",    nullable = false, updatable = false, length = 250)),
-            @AttributeOverride(name = "nif",          column = @Column(name = "receptor_nif",       nullable = false, updatable = false, length = 20)),
-            @AttributeOverride(name = "direccion",    column = @Column(name = "receptor_direccion", nullable = false, updatable = false, length = 200)),
-            @AttributeOverride(name = "codigoPostal", column = @Column(name = "receptor_cp",        nullable = false, updatable = false, length = 10)),
-            @AttributeOverride(name = "ciudad",       column = @Column(name = "receptor_ciudad",    nullable = false, updatable = false, length = 100)),
-            @AttributeOverride(name = "provincia",    column = @Column(name = "receptor_provincia", nullable = false, updatable = false, length = 100)),
+            @AttributeOverride(name = "nif",          column = @Column(name = "receptor_nif",       updatable = false, length = 20)),
+            @AttributeOverride(name = "direccion",    column = @Column(name = "receptor_direccion", updatable = false, length = 200)),
+            @AttributeOverride(name = "codigoPostal", column = @Column(name = "receptor_cp",        updatable = false, length = 10)),
+            @AttributeOverride(name = "ciudad",       column = @Column(name = "receptor_ciudad",    updatable = false, length = 100)),
+            @AttributeOverride(name = "provincia",    column = @Column(name = "receptor_provincia", updatable = false, length = 100)),
             @AttributeOverride(name = "pais",         column = @Column(name = "receptor_pais",      nullable = false, updatable = false, length = 60))
     })
     private DatosFiscales datosReceptor;
@@ -162,6 +162,17 @@ public class Factura {
     private String codigoOt;
 
     // ----- Importes -----
+
+    /**
+     * Factura simplificada: identifica a quien la emite, no a quien la recibe.
+     *
+     * <p>Es el antiguo tique. Se usa por debajo del limite que fije la
+     * configuracion y solo cuando el cliente no tiene ficha fiscal completa; por
+     * encima de ese importe hay que emitir factura completa aunque el cliente no
+     * la quiera, porque la obligacion nace del importe y no de que la pida.
+     */
+    @Column(name = "simplificada", nullable = false, updatable = false)
+    private boolean simplificada;
 
     @Column(name = "base_imponible", nullable = false, updatable = false, precision = 12, scale = 2)
     private BigDecimal baseImponible;
@@ -257,6 +268,7 @@ public class Factura {
         factura.fechaOperacion = datos.fechaOperacion();
         factura.timestampEmision = datos.timestampEmision();
 
+        factura.simplificada = datos.simplificada();
         factura.emisor = datos.emisor();
         factura.receptor = datos.receptor();
         factura.datosReceptor = datos.datosReceptor();

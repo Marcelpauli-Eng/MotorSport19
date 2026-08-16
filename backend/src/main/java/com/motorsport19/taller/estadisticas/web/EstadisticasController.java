@@ -46,7 +46,8 @@ public class EstadisticasController {
                 totales,
                 meses,
                 servicio.mejoresClientes(anio, 5),
-                servicio.piezasMasUsadas(anio, 5));
+                servicio.piezasMasUsadas(anio, 5),
+                servicio.trabajoSinFacturar());
     }
 
     /**

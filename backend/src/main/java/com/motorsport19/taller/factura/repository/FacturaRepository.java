@@ -47,6 +47,21 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     @Query("SELECT f FROM Factura f ORDER BY f.numeroRegistro DESC LIMIT 1")
     Optional<Factura> buscarUltimaDeLaCadena();
 
+    /**
+     * Ultimo numero realmente emitido en una serie, contando las facturas que
+     * hay, no lo que diga el contador.
+     *
+     * <p>Sirve para comparar las dos cosas antes de emitir: si no coinciden, del
+     * registro ha desaparecido alguna factura y hay que pararlo con una
+     * explicacion, en vez de dejar que reviente el trigger con su mensaje.
+     */
+    @Query("SELECT COALESCE(MAX(f.numero), 0) FROM Factura f WHERE f.serie.id = :serieId")
+    int ultimoNumeroEmitidoEn(@Param("serieId") Long serieId);
+
+    /** Ultima posicion ocupada en el registro global, contando las facturas que hay. */
+    @Query("SELECT COALESCE(MAX(f.numeroRegistro), 0) FROM Factura f")
+    long ultimaPosicionOcupada();
+
     /** Facturas ordinarias ya emitidas para una orden de trabajo. */
     @Query("""
             SELECT f FROM Factura f

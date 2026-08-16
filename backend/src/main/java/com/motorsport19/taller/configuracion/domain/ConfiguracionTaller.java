@@ -1,6 +1,7 @@
 package com.motorsport19.taller.configuracion.domain;
 
 import com.motorsport19.taller.common.domain.EntidadAuditable;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -32,6 +33,16 @@ public class ConfiguracionTaller extends EntidadAuditable {
      * Identificacion del programa emisor. No la elige el taller: identifica al
      * software que emite las facturas, y falsearla rompe la trazabilidad.
      */
+    /**
+     * Tope de la factura simplificada con el que arranca una instalacion nueva.
+     *
+     * <p>Es el limite alto que la norma da a los talleres de reparacion de
+     * vehiculos. Se puede cambiar en Ajustes, y quien lo confirma es la gestoria
+     * del taller.
+     */
+    public static final java.math.BigDecimal LIMITE_SIMPLIFICADA_POR_DEFECTO =
+            new java.math.BigDecimal("3000.00");
+
     public static final String SOFTWARE_NOMBRE = "MotorSport19 Taller";
     public static final String SOFTWARE_VERSION = "0.1.0";
 
@@ -83,6 +94,16 @@ public class ConfiguracionTaller extends EntidadAuditable {
     @Column(name = "capacidad_diaria_horas", nullable = false, precision = 5, scale = 2)
     private BigDecimal capacidadDiariaHoras;
 
+    /**
+     * Importe maximo, con IVA, de una factura simplificada.
+     *
+     * <p>Configurable y no clavado en el codigo: depende del tipo de actividad
+     * —los talleres de reparacion de vehiculos tienen un limite mas alto que el
+     * general— y puede cambiar por ley. Quien lo sabe es la gestoria.
+     */
+    @Column(name = "limite_factura_simplificada", nullable = false, precision = 12, scale = 2)
+    private BigDecimal limiteFacturaSimplificada;
+
     @Column(name = "software_nombre", nullable = false, length = 100)
     private String softwareNombre;
 
@@ -126,7 +147,8 @@ public class ConfiguracionTaller extends EntidadAuditable {
     public void actualizar(String razonSocial, String nif, String direccion, String codigoPostal,
                            String ciudad, String provincia, String pais, String telefono,
                            String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
-                           BigDecimal capacidadDiariaHoras) {
+                           BigDecimal capacidadDiariaHoras,
+                           BigDecimal limiteFacturaSimplificada) {
         this.razonSocial = exigir(razonSocial, "La razon social es obligatoria.");
         this.nif = exigir(nif, "El NIF del taller es obligatorio.").toUpperCase();
         this.direccion = exigir(direccion, "La direccion es obligatoria.");
@@ -138,6 +160,16 @@ public class ConfiguracionTaller extends EntidadAuditable {
         this.pais = pais == null || pais.isBlank() ? "ES" : pais.trim();
         this.telefono = telefono;
         this.email = email;
+        // Se acepta lo que diga la gestoria, pero no un numero absurdo: un limite
+        // negativo dejaria el taller sin poder emitir ninguna simplificada sin
+        // que nadie entendiera por que.
+        if (limiteFacturaSimplificada != null) {
+            if (limiteFacturaSimplificada.signum() < 0) {
+                throw new ReglaNegocioException(
+                        "El limite de la factura simplificada no puede ser negativo.");
+            }
+            this.limiteFacturaSimplificada = limiteFacturaSimplificada;
+        }
 
         if (tarifaHoraDefecto == null || tarifaHoraDefecto.signum() <= 0) {
             throw new com.motorsport19.taller.common.error.ReglaNegocioException(

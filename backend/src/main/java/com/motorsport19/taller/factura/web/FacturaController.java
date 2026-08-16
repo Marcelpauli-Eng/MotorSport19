@@ -144,7 +144,8 @@ public class FacturaController {
             @Valid @RequestBody CrearSerieRequest peticion, UriComponentsBuilder uriBuilder) {
 
         SerieFactura serie = facturacionService.crearSerie(
-                peticion.codigo(), peticion.ejercicio(), peticion.descripcion(), peticion.tipo());
+                peticion.codigo(), peticion.ejercicio(), peticion.descripcion(), peticion.tipo(),
+                peticion.simplificada());
 
         return ResponseEntity
                 .created(uriBuilder.path("/facturas/series/{id}").build(serie.getId()))

@@ -84,7 +84,7 @@ public class SerieDelEjercicio implements ApplicationRunner {
         }
 
         String codigo = codigoHeredado(existentes, ejercicio, tipo).orElse(codigoPorDefecto);
-        series.save(SerieFactura.crear(codigo, ejercicio, descripcion, tipo));
+        series.save(SerieFactura.crear(codigo, ejercicio, descripcion, tipo, false));
         log.info("Creada la serie de facturacion {}/{} ({}) para el ejercicio en curso.",
                 codigo, ejercicio, tipo);
         return codigo;

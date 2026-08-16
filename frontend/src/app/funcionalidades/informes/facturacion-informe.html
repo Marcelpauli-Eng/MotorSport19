@@ -65,19 +65,6 @@
       </div>
 
       <div class="kpi">
-        <span class="kpi__etiqueta">IVA a liquidar</span>
-        <span
-          class="kpi__valor"
-          [class.kpi__valor--devolver]="inf.totales.ivaALiquidar < 0"
-        >
-          {{ inf.totales.ivaALiquidar | number: '1.2-2' : 'es' }} €
-        </span>
-        <span class="kpi__pie">
-          {{ inf.totales.ivaALiquidar >= 0 ? 'a ingresar en Hacienda' : 'a compensar o devolver' }}
-        </span>
-      </div>
-
-      <div class="kpi">
         <span class="kpi__etiqueta">Ticket medio</span>
         <span class="kpi__valor">{{ inf.totales.ticketMedio | number: '1.2-2' : 'es' }} €</span>
         <span class="kpi__pie">
@@ -86,6 +73,67 @@
         </span>
       </div>
     </div>
+
+    <!--
+      Trabajo hecho y sin cobrar.
+
+      Va lo primero y con aviso en ámbar porque es lo único de esta pantalla
+      sobre lo que se puede actuar hoy mismo: el resto cuenta lo que ya pasó.
+      Es dinero ganado que no se ha cobrado, y en un taller se pierde justo
+      aquí, entre entregar la moto con prisa y el papeleo del día siguiente.
+    -->
+    @if (inf.trabajoSinFacturar; as pendiente) {
+      @if (pendiente.ordenes) {
+        <section class="tarjeta sin-facturar">
+          <div class="tarjeta__titulo">
+            <h2>
+              Trabajo hecho sin facturar
+              <span class="contador">{{ pendiente.ordenes }}</span>
+            </h2>
+            <span class="sin-facturar__total">
+              {{ pendiente.importe | number: '1.2-2' : 'es' }} €
+            </span>
+          </div>
+
+          <p class="pequeno silenciado sin-facturar__ayuda">
+            Órdenes terminadas o entregadas que no tienen factura. No dependen del año que estés
+            mirando: son las que están así ahora mismo.
+          </p>
+
+          <div class="tabla-envoltorio">
+            <table>
+              <thead>
+                <tr>
+                  <th>Orden</th>
+                  <th>Cliente</th>
+                  <th>Moto</th>
+                  <th>Estado</th>
+                  <th class="num">Importe</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (o of pendiente.detalle; track o.ordenId) {
+                  <tr>
+                    <td><a [routerLink]="['/ordenes', o.ordenId]" class="codigo">{{ o.codigo }}</a></td>
+                    <td><span class="truncado">{{ o.cliente }}</span></td>
+                    <td class="silenciado">{{ o.matricula }}</td>
+                    <td class="silenciado sin-envolver">
+                      {{ o.estado === 'LISTA' ? 'Lista, sin entregar' : 'Entregada' }}
+                      @if (o.salida) {
+                        · {{ o.salida | date: 'd MMM' : undefined : 'es' }}
+                      }
+                    </td>
+                    <td class="num importe importe--fuerte">
+                      {{ o.importe | number: '1.2-2' : 'es' }} €
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    }
 
     <!-- Facturación mensual -->
     <section class="tarjeta">
@@ -101,7 +149,27 @@
       <section class="tarjeta">
         <div class="tarjeta__titulo">
           <h2>IVA repercutido y soportado</h2>
+          <span
+            class="iva-liquidar"
+            [class.iva-liquidar--devolver]="inf.totales.ivaALiquidar < 0"
+          >
+            {{ inf.totales.ivaALiquidar | number: '1.2-2' : 'es' }} €
+            <span class="pequeno">
+              {{ inf.totales.ivaALiquidar >= 0 ? 'a ingresar' : 'a compensar' }}
+            </span>
+          </span>
         </div>
+
+        <!--
+          Sale de restar el IVA de las compras al de las ventas. Con una compra
+          grande de material el resultado es negativo sin que pase nada malo, y
+          como titular de la pantalla asustaba: aquí, al lado de las dos barras
+          que lo explican, se entiende solo.
+        -->
+        <p class="pequeno silenciado">
+          Repercutido en tus facturas menos soportado en tus compras. Lo cuadra la gestoría cada
+          trimestre; si compras mucho material en un mes, sale a compensar.
+        </p>
         <app-grafica-barras
           [datos]="serieIva()"
           serie1="Repercutido (ventas)"

@@ -154,12 +154,33 @@ export class FormularioOrden {
     () => this.camino() === 'preparar' && this.tecnicoId() === null,
   );
 
+  /** Kilómetros que ya tiene registrados la moto elegida, si es una del parque. */
+  protected readonly kmMinimos = computed<number | null>(() => {
+    const moto = this.motosDelCliente().find((m) => m.id === this.motoId());
+    return moto ? moto.kmActual : null;
+  });
+
+  /**
+   * El cuentakilómetros no retrocede.
+   *
+   * <p>Una lectura menor que la registrada o es un error de tecleo o alguien ha
+   * tocado el cuadro; en los dos casos hay que mirarlo, no guardarlo en
+   * silencio. El servidor lo rechaza igual, pero avisar aquí evita perder el
+   * formulario entero por un dígito.
+   */
+  protected readonly kmRetrocede = computed(() => {
+    const minimo = this.kmMinimos();
+    const km = this.kmEntrada();
+    return minimo !== null && km !== null && km < minimo;
+  });
+
   protected readonly puedeGuardar = computed(
     () =>
       !this.enviando() &&
       this.motoId() !== null &&
       this.problema().trim().length > 0 &&
       this.kmEntrada() !== null &&
+      !this.kmRetrocede() &&
       !this.faltaTecnico(),
   );
 

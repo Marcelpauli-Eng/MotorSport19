@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { Subject } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { Dialogo } from '../../compartido/dialogo';
 import { Cliente, TipoDocumento } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
+import { CodigosPostalesService } from '../../nucleo/servicios/codigos-postales.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 
 /**
@@ -24,6 +28,7 @@ import { NotificacionesService } from '../../nucleo/servicios/notificaciones.ser
 export class FormularioCliente {
   private readonly servicio = inject(ClientesService);
   private readonly notificaciones = inject(NotificacionesService);
+  private readonly codigosPostales = inject(CodigosPostalesService);
 
   /** Si viene un cliente, se edita; si no, se da de alta uno nuevo. */
   readonly cliente = input<Cliente | null>(null);
@@ -46,6 +51,20 @@ export class FormularioCliente {
   protected readonly provincia = signal('');
   protected readonly observaciones = signal('');
 
+  /** Poblaciones del código postal cuando hay más de una: se ofrecen, no se eligen. */
+  protected readonly ciudadesSugeridas = signal<string[]>([]);
+
+  /**
+   * Lo último que escribió el código postal por su cuenta.
+   *
+   * <p>Es lo que permite corregir la sugerencia cuando cambia el código sin
+   * borrar jamás lo que haya tecleado una persona: solo se sobrescribe un campo
+   * si sigue conteniendo exactamente lo que se puso ahí automáticamente.
+   */
+  private sugerido = { ciudad: '', provincia: '' };
+
+  private readonly codigoTecleado = new Subject<string>();
+
   protected readonly esEdicion = computed(() => this.cliente() !== null);
   protected readonly puedeGuardar = computed(
     () => !this.enviando() && this.nombre().trim().length > 0,
@@ -60,6 +79,22 @@ export class FormularioCliente {
   ];
 
   constructor() {
+    // Se espera a que pare de teclear. Sin esto, escribir «08820» dispara cinco
+    // consultas y llegan desordenadas: `switchMap` además cancela la anterior,
+    // así que manda siempre la última tecla y no la que conteste primero.
+    this.codigoTecleado
+      .pipe(
+        debounceTime(300),
+        distinctUntilChanged(),
+        switchMap((cp) => this.codigosPostales.consultar(cp)),
+        takeUntilDestroyed(),
+      )
+      .subscribe((datos) => {
+        this.ciudadesSugeridas.set(datos.ciudades.length > 1 ? datos.ciudades : []);
+        this.sugerir('provincia', datos.provincia);
+        this.sugerir('ciudad', datos.ciudad);
+      });
+
     // `input()` ya está resuelto al construirse el componente.
     queueMicrotask(() => {
       const c = this.cliente();
@@ -76,6 +111,41 @@ export class FormularioCliente {
       this.provincia.set(c.provincia ?? '');
       this.observaciones.set(c.observaciones ?? '');
     });
+  }
+
+  /** Cada tecla del código postal. Actualiza el campo y pide la consulta. */
+  protected escribirCodigoPostal(valor: string): void {
+    this.codigoPostal.set(valor);
+    this.codigoTecleado.next(valor);
+  }
+
+  /**
+   * Pone en un campo lo que dice el código postal, sin pisar a nadie.
+   *
+   * <p>Dos reglas, y las dos importan:
+   *
+   * <ul>
+   *   <li><b>No se toca lo que ha escrito una persona</b>, ni lo que traía la
+   *       ficha de un cliente que se está editando. Quien corrige a mano una
+   *       ciudad porque el callejero no la acierta no puede encontrarse con que
+   *       el programa se la cambia otra vez al retocar un dígito.</li>
+   *   <li><b>Lo que puso el autocompletado sí se retira</b> cuando deja de
+   *       valer. Sin esto, cambiar el código postal de Madrid a uno de
+   *       Barcelona dejaba «Madrid» escrito en la ciudad: el propio programa
+   *       metía un dato falso en una dirección fiscal.</li>
+   * </ul>
+   */
+  private sugerir(campo: 'ciudad' | 'provincia', valor: string | null): void {
+    const destino = campo === 'ciudad' ? this.ciudad : this.provincia;
+    const actual = destino().trim();
+
+    // Solo es «nuestro» si está vacío o si sigue siendo exactamente lo último
+    // que escribimos ahí. Cualquier otra cosa la ha puesto alguien.
+    const loPusimosNosotros = actual === '' || actual === this.sugerido[campo];
+    if (!loPusimosNosotros) return;
+
+    destino.set(valor ?? '');
+    this.sugerido[campo] = valor ?? '';
   }
 
   protected guardar(): void {

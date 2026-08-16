@@ -102,6 +102,13 @@ public class ConfiguracionSeguridad {
                 // Las peticiones de sondeo del navegador (CORS) van sin token.
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                // Ayuda para rellenar direcciones: que provincia y que ciudad
+                // corresponden a un codigo postal. Es informacion publica de
+                // Correos y no dice nada del taller, asi que basta con estar
+                // dentro; no hace falta permiso de clientes porque tambien la
+                // usa el alta de proveedores y la ficha del propio taller.
+                .requestMatchers(HttpMethod.GET, "/codigos-postales/**").authenticated()
+
                 // ----- Usuarios y roles -----
                 // El listado de quien puede recibir trabajo lo necesita quien
                 // reparte ordenes, no solo quien administra el programa.

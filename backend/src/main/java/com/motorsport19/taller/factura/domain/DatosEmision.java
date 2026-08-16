@@ -43,6 +43,9 @@ public record DatosEmision(
         String softwareNif,
         String urlVerificacionQr,
 
+        /** Sin los datos fiscales del destinatario: el antiguo tique. */
+        boolean simplificada,
+
         Long creadoPor
 ) {
 }

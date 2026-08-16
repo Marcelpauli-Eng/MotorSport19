@@ -273,3 +273,11 @@
   .paso { min-width: 0; padding-right: 0; }
   .paso__linea { display: none; }
 }
+
+/* El bloque de datos fiscales que falta ya no impide facturar: informa de que
+   saldrá una simplificada. Ámbar y no rojo, porque no hay nada que arreglar. */
+.faltantes--aviso {
+  border-color: var(--ambar-borde);
+  background: var(--ambar-suave);
+  color: var(--gris-800);
+}

@@ -113,12 +113,23 @@
         <input
           id="km"
           type="number"
+          [min]="kmMinimos() ?? 0"
+          [class.campo--error]="kmRetrocede()"
           [ngModel]="kmEntrada()"
           (ngModelChange)="kmEntrada.set($event === '' || $event === null ? null : +$event)"
         />
-        <span class="pequeno silenciado">
-          Se actualiza también en la ficha de la moto.
-        </span>
+        @if (kmRetrocede()) {
+          <!-- El servidor lo rechaza igual; decirlo aquí evita perder el
+               formulario entero por un dígito mal tecleado. -->
+          <span class="pequeno campo__error" role="alert">
+            La moto ya tenía {{ kmMinimos() | number: '1.0-0' : 'es' }} km. El cuentakilómetros no
+            retrocede: revisa la lectura.
+          </span>
+        } @else {
+          <span class="pequeno silenciado">
+            Se actualiza también en la ficha de la moto.
+          </span>
+        }
       </div>
       <div class="campo">
         <label for="salida">Salida estimada</label>

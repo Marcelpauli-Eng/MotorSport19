@@ -427,6 +427,22 @@ select {
   background-position: right var(--e3) center;
 }
 
+/* Campo que no cuadra: borde rojo y el motivo debajo, en el sitio donde ya
+   estaba la ayuda. Se marca el control y no la tarjeta entera, para que en un
+   formulario largo se vea de un vistazo cual es. */
+.campo--error {
+  border-color: var(--rojo) !important;
+}
+
+.campo--error:focus {
+  box-shadow: 0 0 0 3px rgb(180 35 24 / 18%) !important;
+}
+
+.campo__error {
+  color: var(--rojo);
+  font-weight: 500;
+}
+
 /* Casilla con area de pulsacion generosa, pensada para dedos con guante. */
 .casilla {
   display: inline-flex;

@@ -88,3 +88,40 @@
 @media (max-width: 520px) {
   .rejilla--informe { grid-template-columns: 1fr; }
 }
+
+/* ==========================================================================
+   Trabajo hecho sin facturar
+
+   Es lo único de esta pantalla sobre lo que se puede actuar hoy, así que lleva
+   la franja ámbar de los avisos. No es un error —nadie ha hecho nada mal— pero
+   sí algo que hay que mirar, y por eso no usa el rojo.
+   ========================================================================== */
+
+.sin-facturar {
+  border-left: 4px solid var(--ambar);
+  background: linear-gradient(var(--ambar-suave), var(--blanco) 90px);
+}
+
+.sin-facturar__total {
+  font-size: 1.25rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--ambar);
+  white-space: nowrap;
+}
+
+.sin-facturar__ayuda {
+  margin: 0 0 var(--e3);
+  max-width: 70ch;
+}
+
+/* El IVA a liquidar, ya dentro de su bloque en vez de como titular. */
+.iva-liquidar {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--gris-900);
+}
+
+.iva-liquidar--devolver { color: var(--verde); }
+.iva-liquidar .pequeno { font-weight: 500; color: var(--gris-500); }

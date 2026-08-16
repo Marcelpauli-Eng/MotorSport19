@@ -89,8 +89,8 @@ class SerieDelEjercicioTest {
         @DisplayName("no toca nada si el ejercicio ya tiene sus dos series")
         void noPisaLoQueHay() {
             when(series.findAll()).thenReturn(List.of(
-                    SerieFactura.crear("F", esteAno, "La del taller", TipoFactura.ORDINARIA),
-                    SerieFactura.crear("RF", esteAno, "Rectificativas", TipoFactura.RECTIFICATIVA)));
+                    SerieFactura.crear("F", esteAno, "La del taller", TipoFactura.ORDINARIA, false),
+                    SerieFactura.crear("RF", esteAno, "Rectificativas", TipoFactura.RECTIFICATIVA, false)));
 
             arranque.run(null);
 
@@ -103,8 +103,8 @@ class SerieDelEjercicioTest {
             // Un taller que factura con la serie «F» no quiere que el 1 de enero
             // le aparezca una «A»: la gestoria lleva anos viendo F/ano/numero.
             when(series.findAll()).thenReturn(List.of(
-                    SerieFactura.crear("F", esteAno - 1, "La del taller", TipoFactura.ORDINARIA),
-                    SerieFactura.crear("RF", esteAno - 1, "Rectificativas", TipoFactura.RECTIFICATIVA)));
+                    SerieFactura.crear("F", esteAno - 1, "La del taller", TipoFactura.ORDINARIA, false),
+                    SerieFactura.crear("RF", esteAno - 1, "Rectificativas", TipoFactura.RECTIFICATIVA, false)));
 
             arranque.run(null);
 
@@ -117,7 +117,7 @@ class SerieDelEjercicioTest {
         @DisplayName("si solo falta la de rectificativas, crea solo esa")
         void completaLaQueFalta() {
             when(series.findAll()).thenReturn(List.of(
-                    SerieFactura.crear("A", esteAno, "Ordinaria", TipoFactura.ORDINARIA)));
+                    SerieFactura.crear("A", esteAno, "Ordinaria", TipoFactura.ORDINARIA, false)));
 
             arranque.run(null);
 

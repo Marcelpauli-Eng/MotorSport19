@@ -117,13 +117,25 @@ public class Moto extends EntidadAuditable {
      */
     public void registrarKilometraje(int km) {
         comprobarActiva();
+        exigirLecturaNoRetrocede(km);
+        this.kmActual = km;
+    }
+
+    /**
+     * Comprueba una lectura del cuentakilometros sin llegar a guardarla.
+     *
+     * <p>Existe aparte de {@link #registrarKilometraje} porque hay que poder
+     * rechazar una lectura ANTES de haber creado nada. Al abrir una orden, por
+     * ejemplo: si se comprueba al final, para entonces ya se ha consumido un
+     * numero del contador del ejercicio y se ha montado la OT entera.
+     */
+    public void exigirLecturaNoRetrocede(int km) {
         validarKilometraje(km);
         if (km < kmActual) {
             throw new ReglaNegocioException(
                     ("El kilometraje de la moto %s no puede disminuir: ya tenia registrados %d km "
                      + "y se han indicado %d km.").formatted(matricula, kmActual, km));
         }
-        this.kmActual = km;
     }
 
     public void cambiarPropietario(Cliente nuevoPropietario) {

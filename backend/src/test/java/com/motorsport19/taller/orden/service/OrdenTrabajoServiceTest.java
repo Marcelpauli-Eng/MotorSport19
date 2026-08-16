@@ -182,9 +182,30 @@ class OrdenTrabajoServiceTest {
             when(configuracionRepository.findById(ConfiguracionTaller.ID_UNICO))
                     .thenReturn(Optional.empty());
 
-            assertThatThrownBy(() -> ordenService.abrir(1L, "Revision", 100, null, null, null, null))
+            // 26000 y no 100: la moto de prueba tiene 24500 km y el
+            // cuentakilometros se valida antes que la tarifa, asi que con 100 km
+            // este test fallaria por el motivo equivocado.
+            assertThatThrownBy(() -> ordenService.abrir(1L, "Revision", 26000, null, null, null, null))
                     .isInstanceOf(ConflictoException.class)
                     .hasMessageContaining("tarifa por hora");
+        }
+
+        @Test
+        @DisplayName("no deja abrir con menos kilometros de los que ya tiene la moto")
+        void kilometrajeQueRetrocede() {
+            Moto moto = OrdenesDePrueba.moto(OrdenesDePrueba.cliente());   // 24500 km
+            ReflectionTestUtils.setField(moto, "id", 1L);
+            when(motoService.obtener(1L)).thenReturn(moto);
+            when(ordenRepository.contarAbiertasDeMoto(1L)).thenReturn(0L);
+
+            assertThatThrownBy(() -> ordenService.abrir(1L, "Revision", 20000, null, null, null, null))
+                    .isInstanceOf(com.motorsport19.taller.common.error.ReglaNegocioException.class)
+                    .hasMessageContaining("no puede disminuir");
+
+            // Y no ha llegado a consumir un numero del contador ni a guardar
+            // nada: se rechaza antes de tocar el ejercicio.
+            verify(contadorRepository, never()).bloquearEjercicio(any());
+            verify(ordenRepository, never()).save(any());
         }
     }
 

@@ -150,6 +150,24 @@ public class EstadisticasService {
                 mesTope);
     }
 
+    /**
+     * Lo que esta hecho y sin cobrar, ahora mismo.
+     *
+     * <p>Va con el informe pero no depende de su ejercicio: son ordenes
+     * terminadas sin factura, sean de cuando sean.
+     */
+    @Transactional(readOnly = true)
+    public TrabajoSinFacturar trabajoSinFacturar() {
+        List<TrabajoSinFacturar.Fila> filas = repositorio.trabajoSinFacturar();
+
+        BigDecimal importe = filas.stream()
+                .map(TrabajoSinFacturar.Fila::importe)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        return new TrabajoSinFacturar(filas.size(), importe, filas);
+    }
+
     /** Los clientes que mas han facturado en el ejercicio. */
     @Transactional(readOnly = true)
     public List<FilaReparto> mejoresClientes(int ejercicio, int limite) {

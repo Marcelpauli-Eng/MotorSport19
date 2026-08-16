@@ -219,6 +219,11 @@ public class OrdenTrabajoService {
                      + "abrir otra.").formatted(moto.getMatricula(), abiertas));
         }
 
+        // El cuentakilometros no retrocede. Se comprueba AQUI, antes de tocar
+        // nada: si se dejaba para el final, ya se habia consumido un numero del
+        // contador del ejercicio y montado la OT entera para luego tirarla.
+        moto.exigirLecturaNoRetrocede(kmEntrada);
+
         int ejercicio = Year.now().getValue();
         int numero = siguienteNumero(ejercicio);
 
@@ -229,7 +234,8 @@ public class OrdenTrabajoService {
         OrdenTrabajo guardada = ordenRepository.save(orden);
 
         // El kilometraje de entrada es la lectura mas reciente que tenemos de la
-        // moto. Si es menor que el registrado, el dominio de Moto lo rechazara.
+        // moto. Que no retroceda ya se ha comprobado arriba; aqui solo queda
+        // adelantar el contador cuando la moto ha rodado desde la ultima visita.
         if (kmEntrada > moto.getKmActual()) {
             moto.registrarKilometraje(kmEntrada);
         }

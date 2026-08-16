@@ -29,6 +29,14 @@ public record CrearSerieRequest(
         String descripcion,
 
         @NotNull(message = "Hay que decir si la serie es ordinaria o rectificativa")
-        TipoFactura tipo
+        TipoFactura tipo,
+
+        /**
+         * Serie reservada a facturas simplificadas.
+         *
+         * <p>Van en su propia serie para que el libro quede ordenado y la
+         * gestoria las distinga. Solo vale en series ordinarias.
+         */
+        boolean simplificada
 ) {
 }

@@ -55,11 +55,36 @@
     </div>
     <div class="campo">
       <label for="cp">Código postal</label>
-      <input id="cp" [ngModel]="codigoPostal()" (ngModelChange)="codigoPostal.set($event)" />
+      <input
+        id="cp"
+        inputmode="numeric"
+        maxlength="5"
+        autocomplete="postal-code"
+        placeholder="08820"
+        [ngModel]="codigoPostal()"
+        (ngModelChange)="escribirCodigoPostal($event)"
+      />
     </div>
     <div class="campo">
       <label for="ciudad">Ciudad</label>
-      <input id="ciudad" [ngModel]="ciudad()" (ngModelChange)="ciudad.set($event)" />
+      <!-- Con más de una población en el mismo código postal se ofrecen todas y
+           elige quien rellena: escribir una al azar acabaría en una factura. -->
+      <input
+        id="ciudad"
+        list="ciudades-cp"
+        [ngModel]="ciudad()"
+        (ngModelChange)="ciudad.set($event)"
+      />
+      @if (ciudadesSugeridas().length) {
+        <datalist id="ciudades-cp">
+          @for (c of ciudadesSugeridas(); track c) {
+            <option [value]="c"></option>
+          }
+        </datalist>
+        <small class="ayuda">
+          Ese código postal tiene {{ ciudadesSugeridas().length }} poblaciones: elija una.
+        </small>
+      }
     </div>
     <div class="campo">
       <label for="provincia">Provincia</label>

@@ -91,6 +91,25 @@ export interface FilaReparto {
   unidades: number;
 }
 
+/** Una orden terminada que todavía no se ha facturado. */
+export interface OrdenSinFacturar {
+  ordenId: number;
+  codigo: string;
+  estado: string;
+  cliente: string;
+  matricula: string;
+  salida: string | null;
+  /** Suma de sus líneas, con IVA: lo que se le cobraría tal cual está. */
+  importe: number;
+}
+
+/** Trabajo hecho y sin cobrar. No depende del ejercicio que se mire. */
+export interface TrabajoSinFacturar {
+  ordenes: number;
+  importe: number;
+  detalle: OrdenSinFacturar[];
+}
+
 export interface InformeFacturacion {
   ejercicio: number;
   ejerciciosDisponibles: number[];
@@ -98,4 +117,5 @@ export interface InformeFacturacion {
   meses: ResumenMes[];
   mejoresClientes: FilaReparto[];
   piezasMasUsadas: FilaReparto[];
+  trabajoSinFacturar: TrabajoSinFacturar;
 }

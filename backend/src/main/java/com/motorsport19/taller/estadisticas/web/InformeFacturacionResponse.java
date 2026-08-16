@@ -3,6 +3,7 @@ package com.motorsport19.taller.estadisticas.web;
 import com.motorsport19.taller.estadisticas.service.FilaReparto;
 import com.motorsport19.taller.estadisticas.service.ResumenMes;
 import com.motorsport19.taller.estadisticas.service.TotalesEjercicio;
+import com.motorsport19.taller.estadisticas.service.TrabajoSinFacturar;
 
 import java.util.List;
 
@@ -19,6 +20,8 @@ public record InformeFacturacionResponse(
         TotalesEjercicio totales,
         List<ResumenMes> meses,
         List<FilaReparto> mejoresClientes,
-        List<FilaReparto> piezasMasUsadas
+        List<FilaReparto> piezasMasUsadas,
+        /** Ordenes terminadas y sin factura. No depende del ejercicio elegido. */
+        TrabajoSinFacturar trabajoSinFacturar
 ) {
 }

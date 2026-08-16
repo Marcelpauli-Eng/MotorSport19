@@ -156,7 +156,13 @@
           </button>
         }
 
-        @if (o.facturable && puedeFacturar && !faltaSerie() && o.clienteFacturable) {
+        <!--
+          Ya no se exige la ficha fiscal completa para enseñar el botón: sin ella
+          se emite una factura simplificada, que es lo normal con el particular
+          que no pide papel. Quien decide es el servidor, que conoce el límite y
+          lo explica si el importe se pasa.
+        -->
+        @if (o.facturable && puedeFacturar && !faltaSerie()) {
           <button
             type="button"
             class="boton boton--principal"
@@ -186,16 +192,22 @@
       </div>
     }
 
-    <!-- Lo mismo con los datos fiscales del cliente: enterarse al pulsar es
-         enterarse con el cliente delante esperando el papel. -->
+    <!--
+      Sin ficha fiscal esto ya no es un bloqueo, sino un aviso: saldrá una
+      factura simplificada. Se dice antes de pulsar porque cambia el papel que
+      se le entrega al cliente, y porque si el importe se pasa del límite habrá
+      que pedirle los datos con él delante.
+    -->
     @if (o.facturable && puedeFacturar && !faltaSerie() && !o.clienteFacturable) {
-      <div class="faltantes">
+      <div class="faltantes faltantes--aviso">
         <p class="negrita">
-          No se puede facturar a {{ o.clienteNombre }}: le faltan datos fiscales.
+          {{ o.clienteNombre }} no tiene datos fiscales: saldrá una factura simplificada.
         </p>
         <p class="pequeno">
-          Una factura necesita su documento (DNI, NIE o CIF) y su domicilio completo. El trabajo
-          está hecho y la orden no se toca; solo hay que completar su ficha.
+          Sirve para tu contabilidad y para tu gestor, y va en la serie de simplificadas. Lo que no
+          sirve es para que el cliente se deduzca el IVA: para eso hace falta su documento y su
+          domicilio. Por encima del límite que tengas puesto en Ajustes, el programa te pedirá esos
+          datos igualmente, porque ahí ya es obligatorio emitir factura completa.
         </p>
         <a [routerLink]="['/clientes', o.clienteId]" class="boton boton--pequeno">
           <app-icono nombre="clientes" [tamano]="14" />

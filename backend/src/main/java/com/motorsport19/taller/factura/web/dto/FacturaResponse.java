@@ -26,6 +26,8 @@ public record FacturaResponse(
         Integer numero,
         TipoFactura tipo,
         String tipoDescripcion,
+        /** Sin los datos fiscales del cliente: el antiguo tique. */
+        boolean simplificada,
 
         Long ordenTrabajoId,
         String codigoOt,
@@ -68,6 +70,7 @@ public record FacturaResponse(
         return new FacturaResponse(
                 f.getId(), f.getNumeroCompleto(), f.getSerieCodigo(), f.getEjercicio(), f.getNumero(),
                 f.getTipo(), f.getTipo().getDescripcion(),
+                f.isSimplificada(),
 
                 f.getOrdenTrabajo() == null ? null : f.getOrdenTrabajo().getId(),
                 f.getCodigoOt(),

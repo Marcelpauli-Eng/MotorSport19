@@ -3,6 +3,7 @@ package com.motorsport19.taller.estadisticas.repository;
 import com.motorsport19.taller.estadisticas.service.FilaMes;
 import com.motorsport19.taller.estadisticas.service.FilaMesIva;
 import com.motorsport19.taller.estadisticas.service.FilaReparto;
+import com.motorsport19.taller.estadisticas.service.TrabajoSinFacturar;
 import jakarta.persistence.EntityManager;
 import org.springframework.stereotype.Repository;
 
@@ -266,6 +267,48 @@ public class EstadisticasRepository {
                 ((java.sql.Date) fila[1]).toLocalDate()};
     }
 
+    /**
+     * Ordenes terminadas que no tienen factura.
+     *
+     * <p>Se mira que no exista una ORDINARIA suya: una rectificativa no factura
+     * el trabajo, lo corrige.
+     *
+     * <p>Sin filtro de fechas a proposito. Esto no es un dato del ejercicio que
+     * se este mirando, es una lista de tareas: lo que falta por cobrar hoy,
+     * aunque el trabajo se hiciera el año pasado.
+     */
+    public List<TrabajoSinFacturar.Fila> trabajoSinFacturar() {
+        @SuppressWarnings("unchecked")
+        List<Object[]> filas = em.createNativeQuery("""
+            SELECT o.id,
+                   o.codigo,
+                   o.estado,
+                   TRIM(c.nombre || ' ' || COALESCE(c.apellidos, '')),
+                   m.matricula,
+                   o.fecha_real_salida,
+                   COALESCE(SUM(l.total), 0)
+              FROM orden_trabajo o
+              JOIN cliente c ON c.id = o.cliente_id
+              JOIN moto m    ON m.id = o.moto_id
+         LEFT JOIN linea_ot l ON l.orden_trabajo_id = o.id
+             WHERE o.estado IN ('LISTA', 'ENTREGADA')
+               AND NOT EXISTS (SELECT 1 FROM factura f
+                                WHERE f.orden_trabajo_id = o.id
+                                  AND f.tipo = 'ORDINARIA')
+             GROUP BY o.id, o.codigo, o.estado, c.nombre, c.apellidos, m.matricula, o.fecha_real_salida
+             ORDER BY 7 DESC
+            """).getResultList();
+
+        return filas.stream().map(f -> new TrabajoSinFacturar.Fila(
+                ((Number) f[0]).longValue(),
+                (String) f[1],
+                (String) f[2],
+                (String) f[3],
+                (String) f[4],
+                dia(f[5]),
+                dec(f[6]))).toList();
+    }
+
     /** Ejercicios con actividad, para el desplegable de año. */
     @SuppressWarnings("unchecked")
     public List<Integer> ejerciciosConFacturas() {
@@ -347,6 +390,24 @@ public class EstadisticasRepository {
                 .setParameter("ejercicio", ejercicio)
                 .getResultList();
         return filas;
+    }
+
+    /**
+     * Fecha de una consulta nativa.
+     *
+     * <p>Segun la columna y el driver, la misma fecha puede llegar como
+     * {@code Instant}, {@code Timestamp} o {@code Date}. Se aceptan las tres en
+     * vez de castear a una y confiar: castear a la equivocada no falla al
+     * compilar, falla en cuanto alguien abre la pantalla.
+     */
+    private static LocalDate dia(Object valor) {
+        return switch (valor) {
+            case null -> null;
+            case java.time.Instant i -> i.atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+            case java.sql.Timestamp t -> t.toLocalDateTime().toLocalDate();
+            case java.sql.Date d -> d.toLocalDate();
+            default -> null;
+        };
     }
 
     private static BigDecimal dec(Object valor) {

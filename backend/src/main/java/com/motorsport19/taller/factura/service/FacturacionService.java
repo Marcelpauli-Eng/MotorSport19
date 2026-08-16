@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -147,8 +148,8 @@ public class FacturacionService {
      */
     @Transactional
     public SerieFactura crearSerie(String codigo, Integer ejercicio, String descripcion,
-                                   TipoFactura tipo) {
-        SerieFactura serie = SerieFactura.crear(codigo, ejercicio, descripcion, tipo);
+                                   TipoFactura tipo, boolean simplificada) {
+        SerieFactura serie = SerieFactura.crear(codigo, ejercicio, descripcion, tipo, simplificada);
 
         // La base de datos tiene su UNIQUE, pero el mensaje que suelta no dice
         // nada a quien esta rellenando el formulario.
@@ -213,11 +214,6 @@ public class FacturacionService {
         }
 
         Cliente cliente = orden.getCliente();
-        if (!cliente.tieneDatosFiscalesCompletos()) {
-            throw new ReglaNegocioException(
-                    ("No se puede facturar a '%s': faltan datos fiscales. Complete documento y domicilio "
-                     + "antes de emitir.").formatted(cliente.nombreCompleto()));
-        }
 
         List<LineaOT> lineasOrden = ordenService.lineasDe(ordenId);
         if (lineasOrden.isEmpty()) {
@@ -226,8 +222,10 @@ public class FacturacionService {
         }
         List<LineaAFacturar> lineas = lineasOrden.stream().map(LineaAFacturar::copiaDe).toList();
 
+        boolean simplificada = decidirSimplificada(cliente, lineas);
+
         Factura factura = emitir(serieId, TipoFactura.ORDINARIA, orden, null, null, null,
-                cliente, fechaEmision, lineas, usuarioId);
+                cliente, fechaEmision, lineas, simplificada, usuarioId);
 
         registroEventos.anotar(factura, TipoEventoFactura.EMISION, usuarioId,
                 "Emision de la factura %s desde la orden %s"
@@ -284,9 +282,11 @@ public class FacturacionService {
                     .toList();
         }
 
+        // Una rectificativa corrige a su original: si aquella iba sin datos del
+        // cliente, esta tampoco los lleva.
         Factura rectificativa = emitir(serieId, TipoFactura.RECTIFICATIVA, original.getOrdenTrabajo(),
                 original, tipoRectificativa, motivo, original.getReceptor(), fechaEmision,
-                lineasFinales, usuarioId);
+                lineasFinales, original.isSimplificada(), usuarioId);
 
         registroEventos.anotar(rectificativa, TipoEventoFactura.RECTIFICACION, usuarioId,
                 "Emision de la rectificativa %s que corrige a %s"
@@ -402,11 +402,70 @@ public class FacturacionService {
     // ==================================================================
 
     /**
+     * Decide si la factura puede ir sin los datos del cliente.
+     *
+     * <p>Con la ficha fiscal completa se emite factura completa y no hay mas que
+     * hablar: es lo que sirve para todo.
+     *
+     * <p>Sin ella se puede emitir una simplificada, pero solo por debajo del
+     * limite configurado. Por encima <b>hay que</b> emitir factura completa
+     * aunque el cliente diga que no la quiere: la obligacion nace del importe de
+     * la operacion, no de que la pida, y el cliente esta obligado a dar sus
+     * datos. Por eso ahi se corta y se explica, en vez de partir el trabajo en
+     * dos facturas pequeñas, que es justo lo que no se puede hacer.
+     */
+    private boolean decidirSimplificada(Cliente cliente, List<LineaAFacturar> lineas) {
+        if (cliente.tieneDatosFiscalesCompletos()) {
+            return false;
+        }
+
+        // Las facturas sin IVA se emiten sin tope y sin datos del cliente, por
+        // decision expresa del taller.
+        //
+        // Queda escrito aqui porque va en contra de lo que suele exigirse: en una
+        // operacion exenta hay que poder justificar POR QUE no lleva IVA, y eso
+        // normalmente pasa por identificar al destinatario —el NIF-IVA europeo en
+        // una entrega intracomunitaria, por ejemplo—. Si algun dia estas facturas
+        // dejan de ser pruebas, esto es lo primero que hay que repasar con la
+        // gestoria.
+        if (sinIva(lineas)) {
+            return true;
+        }
+
+        // Se suman los importes ya calculados de cada linea: la misma cuenta que
+        // hara la factura, para que el limite se compare contra lo que de verdad
+        // se va a cobrar.
+        BigDecimal total = lineas.stream()
+                .map(l -> l.importes().total())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal limite = configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)
+                .map(ConfiguracionTaller::getLimiteFacturaSimplificada)
+                .orElse(BigDecimal.ZERO);
+
+        if (total.compareTo(limite) > 0) {
+            throw new ReglaNegocioException(
+                    ("No se puede facturar a '%s': son %s € y el maximo de una factura simplificada "
+                     + "son %s €. Por encima de ese importe hay que emitir factura completa, aunque el "
+                     + "cliente no la quiera, asi que necesita su documento y su domicilio en la ficha.")
+                            .formatted(cliente.nombreCompleto(), total.toPlainString(),
+                                    limite.toPlainString()));
+        }
+        return true;
+    }
+
+    /** Ninguna linea repercute IVA: la factura entera va al 0 %. */
+    private boolean sinIva(List<LineaAFacturar> lineas) {
+        return lineas.stream().allMatch(l -> l.importes().cuotaIva().signum() == 0);
+    }
+
+    /**
      * Nucleo de la emision, comun a ordinarias y rectificativas.
      */
     private Factura emitir(Long serieId, TipoFactura tipo, OrdenTrabajo orden, Factura rectificada,
                            TipoRectificativa tipoRectificativa, String motivo, Cliente receptor,
-                           LocalDate fechaEmision, List<LineaAFacturar> lineas, Long usuarioId) {
+                           LocalDate fechaEmision, List<LineaAFacturar> lineas, boolean simplificada,
+                           Long usuarioId) {
 
         // 1. Bloqueo global: serializa TODA la facturacion. La cadena es unica.
         ContadorRegistroFacturacion contador = contadorRepository.bloquear()
@@ -425,6 +484,18 @@ public class FacturacionService {
                     "La serie %s es de tipo %s: no admite facturas %s."
                             .formatted(serie.getCodigo(), serie.getTipo(), tipo));
         }
+        // Las simplificadas van en su propia serie y las completas en la suya. Es
+        // lo que deja el libro ordenado y lo que espera la gestoria.
+        if (serie.isSimplificada() != simplificada) {
+            throw new ConflictoException(simplificada
+                    ? ("Esta factura va sin los datos del cliente y la serie %s no es de facturas "
+                       + "simplificadas. Abra una serie para simplificadas en Ajustes y emitala ahi.")
+                            .formatted(serie.getCodigo())
+                    : ("La serie %s es de facturas simplificadas: no admite una factura completa."
+                            .formatted(serie.getCodigo())));
+        }
+
+        exigirContadoresCuadrados(serie, contador);
 
         int numero = serie.getUltimoNumero() + 1;
         long numeroRegistro = contador.siguientePosicion();
@@ -447,12 +518,13 @@ public class FacturacionService {
                 Instant.now(),
                 datosFiscalesDe(config),
                 receptor,
-                datosFiscalesDe(receptor),
+                simplificada ? soloNombreDe(receptor) : datosFiscalesDe(receptor),
                 orden == null ? null : orden.getMoto().getMatricula(),
                 orden == null ? null : orden.getMoto().descripcion(),
                 orden == null ? null : orden.codigoVisible(),
                 config.getSoftwareNombre(), config.getSoftwareVersion(), config.getSoftwareNif(),
                 config.getUrlVerificacionQr(),
+                simplificada,
                 usuarioId);
 
         Factura factura = Factura.emitir(datos, lineas, huellaAnterior);
@@ -471,6 +543,45 @@ public class FacturacionService {
         entityManager.refresh(guardada);
 
         return conDetalleCargado(guardada);
+    }
+
+    /**
+     * Comprueba que los contadores coinciden con las facturas que hay.
+     *
+     * <p>Los contadores solo avanzan dentro de la transaccion que emite, asi
+     * que en condiciones normales van siempre a la par del registro. Si se
+     * separan es porque alguien ha borrado facturas por debajo de la
+     * aplicacion, saltandose los triggers de inmutabilidad.
+     *
+     * <p>Sin esta comprobacion el intento sigue adelante y lo corta el trigger
+     * de la base con un «Numeracion no correlativa en la serie A: se esperaba el
+     * numero 5, llego 6», que es exacto pero no le dice a nadie que ha pasado ni
+     * como salir. Se para antes y se explica.
+     *
+     * <p>Lo que NO se hace es recolocar el contador solo y seguir emitiendo: en
+     * un libro de facturas, que falte una factura tiene que enterarse alguien.
+     */
+    private void exigirContadoresCuadrados(SerieFactura serie, ContadorRegistroFacturacion contador) {
+        int emitidoEnSerie = facturaRepository.ultimoNumeroEmitidoEn(serie.getId());
+        if (emitidoEnSerie != serie.getUltimoNumero()) {
+            throw new ConflictoException(
+                    ("El registro de la serie %s no cuadra: el contador dice que la ultima factura fue "
+                     + "la %d, pero la ultima que hay es la %d. Falta alguna factura del registro, asi "
+                     + "que no se puede emitir: emitir ahora dejaria un hueco en la numeracion. "
+                     + "Compruebe si esa factura llego a entregarse a un cliente; si nunca existio, "
+                     + "hay que devolver el contador de la serie a %d.")
+                            .formatted(serie.getCodigo(), serie.getUltimoNumero(), emitidoEnSerie,
+                                    emitidoEnSerie));
+        }
+
+        long ocupada = facturaRepository.ultimaPosicionOcupada();
+        if (ocupada != contador.getUltimoNumero()) {
+            throw new ConflictoException(
+                    ("El registro de facturacion no cuadra: el contador global va por la posicion %d y "
+                     + "la ultima ocupada es la %d. Falta alguna factura del registro; no se puede "
+                     + "emitir hasta que cuadre.")
+                            .formatted(contador.getUltimoNumero(), ocupada));
+        }
     }
 
     private java.util.Optional<AnomaliaCadena> comprobarTotales(Factura factura) {
@@ -507,6 +618,18 @@ public class FacturacionService {
     private DatosFiscales datosFiscalesDe(ConfiguracionTaller config) {
         return new DatosFiscales(config.getRazonSocial(), config.getNif(), config.getDireccion(),
                 config.getCodigoPostal(), config.getCiudad(), config.getProvincia(), config.getPais());
+    }
+
+    /**
+     * Datos del receptor de una simplificada: solo el nombre.
+     *
+     * <p>La norma no obliga ni a eso, pero el taller siempre sabe de quien era
+     * la moto, y una factura sin ningun nombre no hay forma de casarla despues
+     * con su orden ni de contestar a un cliente que pregunta por ella.
+     */
+    private DatosFiscales soloNombreDe(Cliente cliente) {
+        return new DatosFiscales(cliente.nombreCompleto(), null, null, null, null, null,
+                cliente.getPais());
     }
 
     private DatosFiscales datosFiscalesDe(Cliente cliente) {

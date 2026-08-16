@@ -52,6 +52,16 @@ public class SerieFactura extends EntidadAuditable {
     @Column(name = "activa", nullable = false)
     private boolean activa;
 
+    /**
+     * Serie reservada a las facturas simplificadas.
+     *
+     * <p>Van aparte para que el libro quede ordenado y la gestoria las distinga
+     * de un vistazo. Una factura simplificada solo se emite en una serie asi, y
+     * una completa nunca.
+     */
+    @Column(name = "simplificada", nullable = false)
+    private boolean simplificada;
+
     // ==================================================================
     // Alta y mantenimiento
     // ==================================================================
@@ -64,7 +74,7 @@ public class SerieFactura extends EntidadAuditable {
      * va a usar.
      */
     public static SerieFactura crear(String codigo, Integer ejercicio, String descripcion,
-                                     TipoFactura tipo) {
+                                     TipoFactura tipo, boolean simplificada) {
         String codigoLimpio = textoONulo(codigo);
         if (codigoLimpio == null) {
             throw new ReglaNegocioException("La serie necesita un codigo (A, R, F...).");
@@ -78,9 +88,16 @@ public class SerieFactura extends EntidadAuditable {
         if (tipo == null) {
             throw new ReglaNegocioException("Hay que decir si la serie es ordinaria o rectificativa.");
         }
+        // Una rectificativa corrige a una factura concreta y arrastra sus datos:
+        // no tiene sentido una serie de rectificativas «simplificadas».
+        if (simplificada && tipo != TipoFactura.ORDINARIA) {
+            throw new ReglaNegocioException(
+                    "Solo una serie de facturas ordinarias puede ser de simplificadas.");
+        }
 
         SerieFactura serie = new SerieFactura();
         serie.codigo = codigoLimpio.toUpperCase();
+        serie.simplificada = simplificada;
         serie.ejercicio = ejercicio;
         serie.descripcion = textoONulo(descripcion) != null
                 ? textoONulo(descripcion)
