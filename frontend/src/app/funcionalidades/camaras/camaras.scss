@@ -1,0 +1,176 @@
+/* ---------- Selector de tamaño del mosaico ---------- */
+
+.rejilla-selector {
+  display: flex;
+  border: 1px solid var(--gris-300);
+  border-radius: var(--radio);
+  overflow: hidden;
+  background: var(--blanco);
+}
+
+.rejilla-selector__boton {
+  min-width: 34px;
+  min-height: var(--alto-control);
+  padding: 0 var(--e2);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--gris-600);
+  background: none;
+  border: none;
+  border-left: 1px solid var(--gris-200);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rejilla-selector__boton:first-child { border-left: none; }
+.rejilla-selector__boton:hover { background: var(--gris-50); color: var(--gris-900); }
+.rejilla-selector__boton:focus-visible { outline: none; box-shadow: var(--anillo-foco); }
+
+.rejilla-selector__boton--activo {
+  color: var(--blanco);
+  background: var(--azul);
+}
+
+.rejilla-selector__boton--activo:hover { background: var(--azul-fuerte); }
+
+/* ---------- Mosaico ---------- */
+
+.mosaico {
+  display: grid;
+  gap: var(--e4);
+  /* Por debajo de 300 px una cámara no se lee, así que antes de estrecharlas
+     más se pasa a una columna menos. */
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.mosaico--1 { grid-template-columns: 1fr; }
+.mosaico--2 { grid-template-columns: repeat(2, 1fr); }
+.mosaico--3 { grid-template-columns: repeat(3, 1fr); }
+
+/* En pantalla completa el mosaico se despega del fondo claro de la aplicación:
+   con imágenes de vídeo alrededor, el blanco deslumbra y resta contraste. */
+.mosaico:fullscreen {
+  padding: var(--e4);
+  background: var(--gris-950);
+  align-content: center;
+  overflow-y: auto;
+}
+
+/* Una cámara ampliada ocupa el mosaico entero; las demás se apartan. */
+.mosaico--ampliada { grid-template-columns: 1fr; }
+.camara--oculta { display: none; }
+
+/* ---------- Cada cámara ---------- */
+
+.camara {
+  position: relative;
+  margin: 0;
+  /* El hueco se reserva antes de que llegue la imagen: sin esto la pantalla da
+     un salto al conectar cada cámara, una detrás de otra. */
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--gris-950);
+  border-radius: var(--radio-g);
+  box-shadow: var(--sombra-s);
+}
+
+.camara--ampliada {
+  /* Ampliada manda la altura de la ventana, no la proporción: así se aprovecha
+     el monitor sea cual sea la forma que dé la cámara. */
+  aspect-ratio: auto;
+  height: min(72vh, 900px);
+}
+
+.mosaico:fullscreen .camara--ampliada { height: calc(100vh - var(--e8)); }
+
+.camara camara-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Pie con el nombre ---------- */
+
+.camara__pie {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e2);
+  padding: var(--e5) var(--e3) var(--e2);
+  /* Degradado y no una banda opaca: el nombre se lee sobre cualquier imagen sin
+     recortar un trozo de lo que se está vigilando. */
+  background: linear-gradient(to top, rgb(0 0 0 / 70%), transparent);
+}
+
+.camara__nombre {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--blanco);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 60%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Punto de «en directo». Late despacio: es lo que distingue una emisión viva de
+   una imagen congelada, que es justo el fallo que nadie detecta a simple vista. */
+.camara__punto {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgb(34 197 94 / 60%);
+  animation: latir 2s ease-out infinite;
+}
+
+@keyframes latir {
+  70% { box-shadow: 0 0 0 6px rgb(34 197 94 / 0%); }
+  100% { box-shadow: 0 0 0 0 rgb(34 197 94 / 0%); }
+}
+
+.camara__ampliar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  color: var(--blanco);
+  background: rgb(255 255 255 / 15%);
+  border: none;
+  border-radius: var(--radio-s);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.camara__ampliar:hover { background: rgb(255 255 255 / 30%); }
+.camara__ampliar:focus-visible { outline: none; box-shadow: var(--anillo-foco); }
+
+/* ---------- Estados vacíos ---------- */
+
+.vacio__detalle {
+  max-width: 52ch;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.vacio__detalle code {
+  padding: 1px 5px;
+  font-size: 0.9em;
+  background: var(--gris-100);
+  border-radius: var(--radio-s);
+}
+
+/* Respeta a quien tiene desactivadas las animaciones. */
+@media (prefers-reduced-motion: reduce) {
+  .camara__punto { animation: none; }
+}

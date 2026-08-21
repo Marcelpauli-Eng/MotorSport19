@@ -1,0 +1,116 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Cámaras</h1>
+    <p class="pagina-cabecera__sub">
+      @if (camaras().length) {
+        {{ camaras().length }} {{ camaras().length === 1 ? 'cámara' : 'cámaras' }} en directo
+      } @else {
+        Vigilancia del taller
+      }
+    </p>
+  </div>
+
+  @if (camaras().length) {
+    <div class="fila" style="gap: var(--e2)">
+      <div class="rejilla-selector" role="group" aria-label="Tamaño del mosaico">
+        @for (opcion of [1, 2, 3]; track opcion) {
+          <button
+            type="button"
+            class="rejilla-selector__boton"
+            [class.rejilla-selector__boton--activo]="rejilla() === opcion"
+            (click)="cambiarRejilla($any(opcion))"
+            [attr.aria-pressed]="rejilla() === opcion"
+            [title]="opcion + ' por fila'"
+          >
+            {{ opcion }}
+          </button>
+        }
+        <button
+          type="button"
+          class="rejilla-selector__boton"
+          [class.rejilla-selector__boton--activo]="rejilla() === 'auto'"
+          (click)="cambiarRejilla('auto')"
+          [attr.aria-pressed]="rejilla() === 'auto'"
+          title="Repartir automáticamente"
+        >
+          Auto
+        </button>
+      </div>
+
+      <button type="button" class="boton" (click)="pantallaCompleta()">
+        <app-icono nombre="panel" [tamano]="15" />
+        Pantalla completa
+      </button>
+    </div>
+  }
+</div>
+
+@if (cargando()) {
+  <app-cargando mensaje="Conectando con las cámaras…" />
+} @else if (error()) {
+  <div class="tarjeta">
+    <div class="vacio">
+      <app-icono class="vacio__icono" nombre="alerta" [tamano]="30" />
+      <p class="vacio__titulo">Las cámaras no responden</p>
+      <p class="vacio__detalle">{{ error() }}</p>
+      <button type="button" class="boton" (click)="cargar()">Reintentar</button>
+    </div>
+  </div>
+} @else if (!camaras().length) {
+  <div class="tarjeta">
+    <div class="vacio">
+      <app-icono class="vacio__icono" nombre="buscar" [tamano]="30" />
+      <p class="vacio__titulo">No hay ninguna cámara configurada</p>
+      <p class="vacio__detalle">
+        Las cámaras se dan de alta en <code>infra/camaras/go2rtc.yaml</code>. Cada una que se añada
+        ahí aparece aquí sola, sin tocar el programa.
+      </p>
+    </div>
+  </div>
+} @else {
+  <div
+    #mosaico
+    class="mosaico"
+    [class.mosaico--1]="rejilla() === 1"
+    [class.mosaico--2]="rejilla() === 2"
+    [class.mosaico--3]="rejilla() === 3"
+    [class.mosaico--ampliada]="ampliada()"
+  >
+    @for (camara of camaras(); track camara.nombre) {
+      <figure
+        class="camara"
+        [class.camara--ampliada]="ampliada() === camara.nombre"
+        [class.camara--oculta]="ampliada() && ampliada() !== camara.nombre"
+      >
+        <!--
+          `src` se escribe como propiedad, no como atributo: el reproductor
+          arranca la conexión en cuanto se le asigna.
+        -->
+        <camara-video [src]="camara.origen"></camara-video>
+
+        <figcaption class="camara__pie">
+          <span class="camara__nombre">
+            <span class="camara__punto" aria-hidden="true"></span>
+            {{ camara.titulo }}
+          </span>
+
+          <button
+            type="button"
+            class="camara__ampliar"
+            (click)="alternarAmpliada(camara.nombre)"
+            [attr.aria-label]="
+              ampliada() === camara.nombre
+                ? 'Volver al mosaico'
+                : 'Ampliar la cámara ' + camara.titulo
+            "
+          >
+            <app-icono
+              [nombre]="ampliada() === camara.nombre ? 'cerrar' : 'buscar'"
+              [tamano]="15"
+            />
+          </button>
+        </figcaption>
+      </figure>
+    }
+  </div>
+}

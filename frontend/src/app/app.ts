@@ -67,6 +67,7 @@ export class App {
       enlaces: [
         { ruta: '/facturas', texto: 'Facturas', icono: 'facturas', roles: ['ADMIN', 'MOSTRADOR'] },
         { ruta: '/informes', texto: 'Informes', icono: 'informes', roles: ['ADMIN', 'MOSTRADOR'] },
+        { ruta: '/camaras', texto: 'Cámaras', icono: 'camaras', roles: ['ADMIN'] },
       ],
     },
   ];

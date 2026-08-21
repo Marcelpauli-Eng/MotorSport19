@@ -1,0 +1,82 @@
+# Camaras del taller.
+#
+# Copia este fichero a `go2rtc.yaml` (sin `.example`) y pon aqui las camaras
+# reales. El de verdad NO se sube al repositorio: lleva las contrasenas de las
+# camaras en claro, y ese fichero no tiene por que estar en GitHub.
+#
+#   cp infra/camaras/go2rtc.example.yaml infra/camaras/go2rtc.yaml
+#   docker compose --profile camaras up -d
+#
+# La pantalla de camaras del programa lee esta lista sola: cada clave de
+# `streams` sale como un recuadro mas en el mosaico. Para anadir o quitar una
+# camara se toca este fichero y se reinicia el servicio; no hay que tocar codigo.
+
+streams:
+  # ---------------------------------------------------------------------------
+  # Camaras Tapo (TP-Link)
+  # ---------------------------------------------------------------------------
+  #
+  # Antes de nada hay que abrir el RTSP en cada camara, que de fabrica viene
+  # cerrado. En la app Tapo: la camara -> engranaje de Configuracion ->
+  # Avanzado -> "Cuenta de la camara". Ahi se crea un usuario y una contrasena,
+  # que son los que van en la URL de abajo (NO los de la cuenta de TP-Link).
+  #
+  # Esto no le quita la app a nadie: la camara sigue viendose desde el movil
+  # igual que antes. RTSP es una puerta mas, solo dentro de la red local.
+  #
+  # Reserva la IP de cada camara en el router. Si se la queda otra por DHCP,
+  # aqui deja de verse y nadie entiende por que.
+  #
+  #   stream1  calidad alta (2K/1080p)  -> para ver desde el taller
+  #   stream2  calidad baja (640x360)   -> para ver desde fuera
+  #
+  # Las Tapo de bateria (C400, C420, serie TC con hub) normalmente NO dan RTSP:
+  # duermen para ahorrar y no sirven un flujo continuo. Con esas, esto no sale.
+  #
+  # El nombre de la izquierda es el que se lee en la pantalla, asi que ponle
+  # algo que signifique algo: "taller", "entrada", "patio"...
+
+  entrada: rtsp://USUARIO:CONTRASENA@192.168.1.101:554/stream1
+  taller: rtsp://USUARIO:CONTRASENA@192.168.1.102:554/stream1
+  patio: rtsp://USUARIO:CONTRASENA@192.168.1.103:554/stream1
+
+  # Si la subida del taller se queda corta al mirar desde casa, cambia esa
+  # camara a `stream2`. Son ~0,5 Mbps en vez de 2-4 Mbps, y para vigilar basta:
+  #
+  #   patio: rtsp://USUARIO:CONTRASENA@192.168.1.103:554/stream2
+
+# -----------------------------------------------------------------------------
+# API
+# -----------------------------------------------------------------------------
+api:
+  # Solo escucha dentro de la red de Docker. El puerto 1984 no se publica en el
+  # `docker-compose.yml`, asi que a go2rtc no se llega desde la red del taller:
+  # solo el nginx del contenedor `web` habla con el.
+  listen: ":1984"
+
+# -----------------------------------------------------------------------------
+# WebRTC (opcional, pero recomendado)
+# -----------------------------------------------------------------------------
+#
+# El navegador prueba WebRTC primero porque va con menos de un segundo de
+# retardo. Para que funcione tiene que poder abrir una conexion directa contra
+# el servidor, y desde dentro de Docker go2rtc no sabe con que IP se le ve.
+#
+# Descomenta la linea y pon la IP FIJA del equipo donde corre esto (la del
+# mini-PC o la de tu ordenador), no la del contenedor:
+#
+# webrtc:
+#   candidates:
+#     - 192.168.1.50:8555
+#
+# Si lo dejas comentado no se rompe nada: el reproductor cae solo a MSE, que va
+# por el mismo sitio que la pagina y funciona igual, con un par de segundos de
+# retardo en vez de uno. Mirando camaras de vigilancia no se nota.
+
+# -----------------------------------------------------------------------------
+# Registro
+# -----------------------------------------------------------------------------
+log:
+  level: warn
+  # Sube a `debug` si una camara no se ve y quieres saber por que:
+  #   docker compose logs -f camaras

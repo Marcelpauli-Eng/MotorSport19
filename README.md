@@ -132,6 +132,87 @@ cd frontend && npm install && npm start
 
 ---
 
+## Cámaras del taller
+
+Pantalla **Cámaras**: todas las cámaras del taller en mosaico, en directo, dentro
+del programa y detrás del mismo login que el resto. Es opcional; quien no tenga
+cámaras arranca la pila igual que siempre y no ve nada de esto.
+
+### Por qué hace falta un servicio aparte
+
+Las cámaras hablan **RTSP**, y ningún navegador reproduce RTSP. En medio va un
+[go2rtc](https://github.com/AlexxIT/go2rtc) que lee el RTSP y lo reparte en algo
+que el navegador sí entiende, eligiendo solo según el dispositivo: WebRTC cuando
+puede (menos de un segundo de retardo), y si no MSE, HLS o imágenes sueltas. Por
+eso se ve igual en el PC del mostrador que en un iPhone.
+
+```
+Cámaras ──RTSP──► go2rtc ──► nginx (contenedor web) ──► navegador
+```
+
+### Ponerlo en marcha
+
+1. **Abrir el RTSP en cada cámara.** En las Tapo: app Tapo → la cámara →
+   Configuración → Avanzado → **Cuenta de la cámara**. El usuario y la contraseña
+   que se creen ahí no son los de la cuenta de TP-Link. Esto no le quita la app a
+   nadie: la cámara se sigue viendo desde el móvil igual que antes.
+2. **Reservar la IP** de cada cámara en el router. Si se la queda otra por DHCP,
+   deja de verse y no hay ningún mensaje que lo explique.
+3. **Dar de alta las cámaras**:
+
+   ```bash
+   cp infra/camaras/go2rtc.example.yaml infra/camaras/go2rtc.yaml
+   # editar el fichero con las IPs y credenciales reales
+   docker compose --profile camaras up -d
+   ```
+
+El fichero real no se sube al repositorio: lleva las contraseñas de las cámaras
+en claro. Cada entrada de `streams:` sale como un recuadro más en el mosaico, así
+que añadir una cámara es editar ese fichero y reiniciar el servicio. **El programa
+no se toca.**
+
+### Lo que conviene saber antes
+
+| | |
+|---|---|
+| **Cámaras de batería** | Las Tapo C400, C420 y la serie TC con hub normalmente **no** dan RTSP: duermen para ahorrar y no sirven un flujo continuo. Con esas esto no funciona. Las de cable (C100, C200, C210, C310, C320WS, C500…) sí. |
+| **Subida de internet** | Cada cámara en calidad alta son 2–4 Mbps de subida. Mirando cuatro a la vez desde fuera, 8–16 Mbps. Si el taller no da para tanto, cambia esas cámaras a `stream2` en `go2rtc.yaml`: son ~0,5 Mbps y para vigilar basta. |
+| **WebRTC** | Para la vía rápida hay que descomentar `webrtc.candidates` en `go2rtc.yaml` y poner ahí la IP fija del equipo. Sin eso no se rompe nada: el reproductor cae solo a MSE, con un par de segundos de retardo en vez de uno. |
+| **Quién las ve** | Solo el perfil **Dirección**. Las cámaras vigilan al personal además del local, así que no las abre cualquiera. Para que también las vea Mostrador: añadir `'MOSTRADOR'` en la ruta (`app.routes.ts`) y en el enlace del menú (`app.ts`). |
+| **Solo directo** | No hay grabación ni histórico: esto sirve para asomarse, no para revisar lo de anoche. Guardar vídeo necesita disco, detección de movimiento y una política de borrado; para eso está [Frigate](https://frigate.video). |
+| **Sin sonido** | Se pide solo imagen. Grabar sonido en un centro de trabajo tiene bastantes más límites legales que grabar imagen, y para vigilar una nave no aporta. |
+
+### Limitación pendiente: el vídeo no pide sesión
+
+El menú de cámaras solo lo ve Dirección, y la ruta `/camaras` está cerrada con
+`rolGuard`. **Eso protege la pantalla, no el vídeo.** La ruta `/camaras-api/`
+que sirve nginx no comprueba la sesión, así que quien conozca la dirección puede
+abrir el flujo sin entrar en el programa.
+
+No es un descuido, es hasta dónde llega esta versión: el reproductor negocia por
+WebSocket, y el navegador no deja poner la cabecera `Authorization` en una
+conexión así, de modo que el token de sesión no llega. Cerrarlo bien pide un
+ticket de corta duración emitido por la API y validado en nginx con
+`auth_request`, y eso es trabajo de backend.
+
+Mientras tanto:
+
+- **Dentro del taller** el riesgo es el de la propia red local: quien esté en esa
+  wifi puede ver las cámaras. El puerto de go2rtc no se abre a la red, así que
+  hay que pasar por el nginx del programa, pero sin login.
+- **Desde fuera, nunca a pelo.** Pon **Cloudflare Access** delante del túnel
+  (autenticación por correo, gratis hasta 50 usuarios) o usa **Tailscale**. Con
+  cualquiera de los dos, quien no esté autorizado no llega ni a la puerta.
+
+> **Videovigilancia laboral.** Si el taller tiene empleados, en España hace falta
+> cartel informativo, informar a la plantilla y por comité si lo hay, y no colocar
+> cámaras en zonas de descanso ni vestuarios. Las grabaciones se borran a los 30
+> días salvo incidencia. Esta pantalla no graba nada, así que lo de la retención
+> aplica el día que se añada Frigate — pero el cartel y el aviso a la plantilla
+> hacen falta desde el primer día.
+
+---
+
 ## Estructura
 
 ```

@@ -4,5 +4,13 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "debug"
+  },
+  "/camaras-api": {
+    "target": "http://localhost:1984",
+    "secure": false,
+    "changeOrigin": true,
+    "ws": true,
+    "pathRewrite": { "^/camaras-api": "" },
+    "logLevel": "debug"
   }
 }

@@ -81,6 +81,44 @@ services:
     networks:
       - motorsport19
 
+  # Camaras del taller. Lee el RTSP de cada camara y lo reparte al navegador,
+  # que no sabe reproducir RTSP por su cuenta.
+  #
+  # Va en un perfil aparte: sin `--profile camaras` este servicio ni se levanta,
+  # asi que quien no tenga camaras sigue arrancando la pila como siempre.
+  #
+  #   cp infra/camaras/go2rtc.example.yaml infra/camaras/go2rtc.yaml
+  #   docker compose --profile camaras up -d
+  camaras:
+    image: alexxit/go2rtc:1.9.14
+    container_name: motorsport19-camaras
+    profiles: ["camaras"]
+    restart: unless-stopped
+    volumes:
+      - ./infra/camaras/go2rtc.yaml:/config/go2rtc.yaml:ro
+    ports:
+      # WebRTC necesita conexion directa con el navegador, asi que este si se
+      # abre a la red.
+      - "${WEBRTC_PORT:-8555}:8555/tcp"
+      - "${WEBRTC_PORT:-8555}:8555/udp"
+
+      # La API de las camaras, en cambio, se ata al `127.0.0.1` del equipo: la
+      # alcanza el propio ordenador y nadie mas. Abierta a la red del taller,
+      # cualquiera con la IP entraria directo a las camaras. Al programa le da
+      # igual: el nginx del contenedor `web` habla con go2rtc por dentro de la
+      # red de Docker. Se publica solo para poder desarrollar con `npm start`.
+      #
+      # OJO, y esta escrito tal cual en el README: la ruta /camaras-api/ que
+      # publica ese nginx NO pide sesion. El menu de camaras se le esconde a
+      # quien no es de direccion, pero quien conozca la ruta ve el video sin
+      # entrar en el programa. Mientras esto no se cierre, el acceso desde
+      # fuera va con Cloudflare Access o Tailscale delante, no a pelo.
+      - "127.0.0.1:${CAMARAS_PORT:-1984}:1984"
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    networks:
+      - motorsport19
+
 volumes:
   db_data:
     name: motorsport19_db_data

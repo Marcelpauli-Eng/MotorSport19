@@ -106,6 +106,16 @@ export const routes: Routes = [
           import('./funcionalidades/inventario/inventario').then((m) => m.Inventario),
       },
 
+      // Las cámaras vigilan al personal además del local, así que no las abre
+      // cualquiera: quedan en dirección. Para que también las vea el mostrador,
+      // basta con añadir 'MOSTRADOR' aquí y en el enlace del menú (app.ts).
+      {
+        path: 'camaras',
+        title: 'Cámaras · MotorSport19',
+        canActivate: [rolGuard('ADMIN')],
+        loadComponent: () => import('./funcionalidades/camaras/camaras').then((m) => m.Camaras),
+      },
+
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta · MotorSport19',

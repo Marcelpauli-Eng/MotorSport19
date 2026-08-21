@@ -37,3 +37,7 @@ backend/exportaciones/
 # La config real de rclone lleva credenciales del destino de copias.
 infra/respaldo/rclone.conf
 !infra/respaldo/rclone.conf.example
+
+# La de las cámaras lleva el usuario y la contraseña RTSP de cada Tapo.
+infra/camaras/go2rtc.yaml
+!infra/camaras/go2rtc.example.yaml

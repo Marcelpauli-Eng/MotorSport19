@@ -79,6 +79,35 @@ services:
     networks: [interna]
 
   # ------------------------------------------------------------------------
+  # Cámaras del taller (opcional)
+  # ------------------------------------------------------------------------
+  #
+  # Lee el RTSP de cada cámara y lo reparte al navegador, que no sabe
+  # reproducir RTSP. Se activa con: --profile camaras
+  #
+  # Antes hay que crear `infra/camaras/go2rtc.yaml` a partir del `.example`.
+  # Las cámaras tienen que estar en la misma red que este mini-PC.
+  #
+  # IMPORTANTE: la ruta /camaras-api/ del nginx NO pide sesión (ver README).
+  # Con el túnel puesto, pon Cloudflare Access delante: sin él, el vídeo queda
+  # accesible desde internet a quien conozca la dirección.
+  camaras:
+    image: alexxit/go2rtc:1.9.14
+    container_name: motorsport19-camaras
+    profiles: ["camaras"]
+    restart: always
+    volumes:
+      - ./infra/camaras/go2rtc.yaml:/config/go2rtc.yaml:ro
+    ports:
+      # WebRTC necesita conexión directa con el navegador. El 1984 de la API no
+      # se publica: solo lo alcanza el nginx por dentro de la red de Docker.
+      - "${WEBRTC_PORT:-8555}:8555/tcp"
+      - "${WEBRTC_PORT:-8555}:8555/udp"
+    environment:
+      TZ: ${TZ:-Europe/Madrid}
+    networks: [interna]
+
+  # ------------------------------------------------------------------------
   # Copia de seguridad cifrada
   # ------------------------------------------------------------------------
   respaldo:

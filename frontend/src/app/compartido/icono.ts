@@ -26,7 +26,8 @@ export type NombreIcono =
   | 'documento'
   | 'llave'
   | 'caja'
-  | 'informes';
+  | 'informes'
+  | 'camaras';
 
 /**
  * Trazos de cada icono, sin el `<svg>` que los envuelve.
@@ -88,6 +89,9 @@ const TRAZOS: Record<NombreIcono, string> = {
   llave:
     '<path d="M15.5 8.5a4 4 0 1 0-4.3 4L9 15h-2v2H5v2H2.5v-2.6l6.2-6.2a4 4 0 0 0 6.8-1.7z"/>' +
     '<path d="M16.5 6.5h.01"/>',
+  camaras:
+    '<rect x="2" y="6.5" width="13" height="11" rx="2"/>' +
+    '<path d="m15 10.5 5-2.8a.8.8 0 0 1 1.2.7v7.2a.8.8 0 0 1-1.2.7l-5-2.8z"/>',
 };
 
 /**
