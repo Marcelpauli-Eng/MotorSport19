@@ -1,6 +1,7 @@
 """Genera SportMotor-Folleto.pdf a partir del folleto original.
 
 - Cambia la marca «MotorSport19» por «SportMotor» en el texto del folleto.
+- Cambia el logo de 19 Racing Motorsport por el de SportMotor (../marca).
 - Rellena los datos de contacto de la última página.
 - Inserta la página de planes y precios (pagina-precios.html) antes del contacto.
 
@@ -19,6 +20,8 @@ AQUI = Path(__file__).resolve().parent
 ORIGINAL = AQUI / "original" / "MotorSport19-Folleto.pdf"
 SALIDA = AQUI / "SportMotor-Folleto.pdf"
 PRECIOS_HTML = AQUI / "pagina-precios.html"
+LOGO = AQUI.parent / "marca" / "logo" / "logo-horizontal-claro.svg"
+XREF_LOGO_ORIGINAL = 5  # el mismo PNG en la portada y en el contacto
 FUENTES = AQUI / "fuentes"
 CHROMIUM = os.environ.get("CHROMIUM", "/opt/pw-browsers/chromium")
 
@@ -87,8 +90,23 @@ def pagina_precios():
         return pymupdf.open("pdf", pdf.read_bytes())
 
 
+def cambiar_logo(doc):
+    """Quita el logo antiguo y pone el nuevo en vectorial, alineado a la izquierda
+    y con la misma altura que tenía."""
+    logo = pymupdf.open(LOGO)
+    logo = pymupdf.open("pdf", logo.convert_to_pdf())
+    proporcion = logo[0].rect.width / logo[0].rect.height
+    for pagina in (doc[0], doc[-1]):
+        cajas = [i["bbox"] for i in pagina.get_image_info(xrefs=True) if i["xref"] == XREF_LOGO_ORIGINAL]
+        for caja in cajas:
+            x0, y0, _, y1 = caja
+            pagina.show_pdf_page(pymupdf.Rect(x0, y0, x0 + (y1 - y0) * proporcion, y1), logo, 0)
+        pagina.delete_image(XREF_LOGO_ORIGINAL)
+
+
 def main():
     doc = pymupdf.open(ORIGINAL)
+    cambiar_logo(doc)
 
     # Portada: antetítulo y pestaña de la captura del panel.
     p = doc[0]
