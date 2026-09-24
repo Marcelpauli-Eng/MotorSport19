@@ -137,19 +137,28 @@ export class FormularioMoto {
     };
 
     const existente = this.moto();
+    // El kilometraje tiene su propia operación, que además comprueba que no baje.
+    // Va primero y solo si ha cambiado: antes el campo se podía editar y su valor
+    // se tiraba sin avisar.
+    const km = datos.kmActual;
+    const kilometraje: Observable<unknown> =
+      existente && km !== null && km !== existente.kmActual
+        ? this.servicio.registrarKilometraje(existente.id, km)
+        : of(null);
     const peticion = existente
-      ? // Al editar no se manda el kilometraje: tiene su propia operación, que
-        // ademas comprueba que no baje.
-        this.servicio.actualizar(existente.id, {
-          matricula: datos.matricula,
-          marca: datos.marca,
-          modelo: datos.modelo,
-          anio: datos.anio,
-          cilindrada: datos.cilindrada,
-          color: datos.color,
-          numeroBastidor: datos.numeroBastidor,
-          observaciones: datos.observaciones,
-        }).pipe(
+      ? kilometraje.pipe(
+          switchMap(() =>
+            this.servicio.actualizar(existente.id, {
+              matricula: datos.matricula,
+              marca: datos.marca,
+              modelo: datos.modelo,
+              anio: datos.anio,
+              cilindrada: datos.cilindrada,
+              color: datos.color,
+              numeroBastidor: datos.numeroBastidor,
+              observaciones: datos.observaciones,
+            }),
+          ),
           switchMap(motoActualizada => {
             if (this.clienteId() !== existente.clienteId) {
               return this.servicio.cambiarPropietario(existente.id, this.clienteId()!);

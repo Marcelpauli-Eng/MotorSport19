@@ -19,7 +19,9 @@ public record OrdenTrabajoResumenResponse(
         Instant fechaEntrada,
         LocalDate fechaEstimadaSalida,
         Instant fechaRealSalida,
-        String problemaReportado
+        String problemaReportado,
+        /** Los km con los que entro la moto en esta visita. */
+        Integer kmEntrada
 ) {
 
     public static OrdenTrabajoResumenResponse de(OrdenTrabajo orden) {
@@ -35,6 +37,7 @@ public record OrdenTrabajoResumenResponse(
                 orden.getFechaEntrada(),
                 orden.getFechaEstimadaSalida(),
                 orden.getFechaRealSalida(),
-                orden.getProblemaReportado());
+                orden.getProblemaReportado(),
+                orden.getKmEntrada());
     }
 }

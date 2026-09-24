@@ -86,7 +86,19 @@
 
 /* ---------- Tarjeta del presupuesto ---------- */
 
-.presupuesto { padding: 0; overflow: hidden; }
+/*
+  Va con `tarjeta--ajustada`, que es lo que significa: una tarjeta sin relleno
+  porque la tabla ocupa el ancho entero y son las celdas de los extremos las
+  que guardan el margen.
+
+  No es cosmético. La regla global tira de `.tabla-envoltorio` con un margen
+  negativo de --e5 para que la tabla llegue a los bordes de una tarjeta CON
+  relleno. Aquí no hay relleno que compensar, así que ese tirón sacaba la tabla
+  20 px fuera de la tarjeta por cada lado: los encabezados quedaban pegados al
+  borde y la columna de la derecha se salía. `--ajustada` la excluye de esa
+  regla, que es justo para lo que existe.
+*/
+.presupuesto { overflow: hidden; }
 
 .presupuesto__cabecera {
   display: flex;
@@ -338,6 +350,19 @@
 .barra-acciones__der { margin-left: auto; justify-content: flex-end; }
 
 /* ---------- Pantallas estrechas ---------- */
+
+/* La barra se estira hasta el borde del contenido, cuyo relleno baja en tablet
+   (16 px) y en el móvil (12 px): con los 20 px de siempre se salía de la
+   pantalla y la página entera se podía arrastrar de lado. */
+@media (max-width: 900px) {
+  .barra-inferior { margin-inline: calc(-1 * var(--e4)); }
+}
+
+/* En el móvil, fija abajo tapaba casi media pantalla y no dejaba ver las líneas:
+   ahí va al final, como el resto de la página. */
+@media (max-width: 640px) {
+  .barra-inferior { position: static; margin-inline: calc(-1 * var(--e3)); }
+}
 
 @media (max-width: 720px) {
   .barra-totales { flex-wrap: wrap; }

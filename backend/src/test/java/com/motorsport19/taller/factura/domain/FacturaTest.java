@@ -355,4 +355,74 @@ class FacturaTest {
             assertThat(f1.huellaEsCoherente()).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("Lo que vale hoy")
+    class LineasVigentes {
+
+        private final Factura original = FacturasDePrueba.ordinaria(serieA, 1, 1, Factura.HUELLA_GENESIS, List.of(
+                FacturasDePrueba.manoDeObra("1.500", "45.0000"),
+                FacturasDePrueba.pieza("FIL-ACE-HF204", "1.000", "9.5000")));
+
+        /** Se facturaron 1,5 h y eran 1 h: fuera la linea mala, dentro la buena. */
+        private Factura correccion() {
+            return FacturasDePrueba.rectificativa(serieR, 1, 2, original.getHuella(), original,
+                    TipoRectificativa.POR_DIFERENCIAS, "Eran 1 h",
+                    List.of(FacturasDePrueba.manoDeObra("-1.5", "45"), FacturasDePrueba.manoDeObra("1", "45")));
+        }
+
+        private BigDecimal base(List<LineaAFacturar> lineas) {
+            return lineas.stream().map(l -> l.importes().baseImponible()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        }
+
+        @Test
+        @DisplayName("una correccion se lleva la linea que anula y deja la corregida")
+        void correccionParcial() {
+            Factura rect = correccion();
+
+            List<LineaAFacturar> vigentes = original.lineasVigentes(List.of(rect));
+
+            assertThat(vigentes).extracting(LineaAFacturar::cantidad)
+                    .usingElementComparator(BigDecimal::compareTo)
+                    .containsExactly(new BigDecimal("1"), new BigDecimal("1"));
+            assertThat(base(vigentes))
+                    .isEqualByComparingTo(original.getBaseImponible().add(rect.getBaseImponible()));
+        }
+
+        @Test
+        @DisplayName("anular despues de corregir deja la factura a cero, no en negativo")
+        void anularTrasCorregir() {
+            Factura rect = correccion();
+            List<LineaAFacturar> antes = original.lineasVigentes(List.of(rect));
+            Factura anulacion = FacturasDePrueba.rectificativa(serieR, 2, 3, rect.getHuella(), original,
+                    TipoRectificativa.POR_DIFERENCIAS, "Anulada", antes.stream().map(LineaAFacturar::negada).toList());
+
+            assertThat(original.lineasVigentes(List.of(rect, anulacion))).isEmpty();
+            assertThat(original.getBaseImponible().add(rect.getBaseImponible()).add(anulacion.getBaseImponible()))
+                    .isEqualByComparingTo("0");
+        }
+
+        @Test
+        @DisplayName("dos lineas iguales no se juntan: juntas redondearian un centimo distinto")
+        void lineasIgualesNoSeJuntan() {
+            // 0,3 x 10,05 = 3,015 -> 3,02 cada una, 6,04 las dos; juntas serian 0,6 x 10,05 = 6,03.
+            Factura dos = FacturasDePrueba.ordinaria(serieA, 1, 1, Factura.HUELLA_GENESIS, List.of(
+                    FacturasDePrueba.manoDeObra("0.300", "10.0500"),
+                    FacturasDePrueba.manoDeObra("0.300", "10.0500")));
+
+            assertThat(base(dos.lineasVigentes(List.of()))).isEqualByComparingTo(dos.getBaseImponible());
+        }
+
+        @Test
+        @DisplayName("una por sustitucion reemplaza todo lo anterior")
+        void sustitucion() {
+            Factura rect = FacturasDePrueba.rectificativa(serieR, 1, 2, original.getHuella(), original,
+                    TipoRectificativa.POR_SUSTITUCION, "Precio mal",
+                    List.of(FacturasDePrueba.manoDeObra("1", "40")));
+
+            assertThat(original.lineasVigentes(List.of(rect))).hasSize(1)
+                    .first().extracting(LineaAFacturar::precioUnitario)
+                    .satisfies(p -> assertThat(p).isEqualByComparingTo("40"));
+        }
+    }
 }

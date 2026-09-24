@@ -20,7 +20,7 @@
         list="familiasConocidas"
         [ngModel]="familia()"
         (ngModelChange)="familia.set($event)"
-        placeholder="Frenos"
+        [placeholder]="ultima.familia || 'Frenos'"
       />
       <datalist id="familiasConocidas">
         @for (f of familias(); track f) {
@@ -30,6 +30,11 @@
       <span class="pequeno silenciado">
         Elija uno de los que ya usa o escriba uno nuevo. Es como se busca luego la pieza.
       </span>
+      @if (esAlta() && (ultima.familia || ultima.ubicacion || ultima.unidadMedida)) {
+        <span class="pequeno silenciado">
+          Lo que aparece en gris viene del alta anterior: si lo deja tal cual, se guarda eso.
+        </span>
+      }
     </div>
   </div>
 
@@ -54,7 +59,7 @@
         id="ubicacionPieza"
         [ngModel]="ubicacion()"
         (ngModelChange)="ubicacion.set($event)"
-        placeholder="Estantería B, cajón 3"
+        [placeholder]="ultima.ubicacion || 'Estantería B, cajón 3'"
       />
     </div>
   </div>
@@ -126,9 +131,12 @@
 
   <div class="fila" style="align-items: center; gap: var(--e2)">
     <span class="pequeno silenciado">
-      @if (margen(); as m) {
-        Margen: <strong>{{ m | number: '1.0-1' : 'es' }}%</strong>
-        ({{ precioVenta() - precioCoste() | number: '1.2-2' : 'es' }} € por unidad)
+      @let m = margen();
+      @if (m !== null) {
+        <span [style.color]="m < 0 ? 'var(--rojo)' : null">
+          Margen: <strong>{{ m | number: '1.0-1' : 'es' }}%</strong>
+          ({{ precioVenta() - precioCoste() | number: '1.2-2' : 'es' }} € por unidad){{ m < 0 ? ': se vende con pérdidas' : '' }}
+        </span>
       } @else {
         Ponga el coste para ver el margen.
       }
@@ -175,7 +183,7 @@
           id="unidadPieza"
           [ngModel]="unidadMedida()"
           (ngModelChange)="unidadMedida.set($event)"
-          placeholder="UD"
+          [placeholder]="ultima.unidadMedida || 'UD'"
         />
       </div>
     }

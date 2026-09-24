@@ -1,5 +1,6 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
@@ -87,6 +88,7 @@ import { environment } from '../../../environments/environment';
                     <th>Estado</th>
                     <th>Entrada</th>
                     <th>Salida</th>
+                    <th class="num">Km</th>
                     <th>Avería</th>
                   </tr>
                 </thead>
@@ -103,6 +105,7 @@ import { environment } from '../../../environments/environment';
                       <td class="pequeno">
                         {{ o.fechaRealSalida ? (o.fechaRealSalida | date: 'dd/MM/yy') : '—' }}
                       </td>
+                      <td class="num pequeno">{{ o.kmEntrada | number: '1.0-0' : 'es' }}</td>
                       <td class="pequeno silenciado">{{ o.problemaReportado }}</td>
                     </tr>
                   }
@@ -111,6 +114,13 @@ import { environment } from '../../../environments/environment';
             </div>
           }
         </section>
+      </div>
+    } @else {
+      <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
+      <div class="vacio">
+        <span class="vacio__titulo">No se ha podido abrir esta moto</span>
+        <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
+        <a routerLink="/motos" class="boton boton--pequeno">Volver a motos</a>
       </div>
     }
   `,
@@ -140,7 +150,7 @@ export class DetalleMoto {
   protected readonly historial = signal<OrdenTrabajoResumen[]>([]);
   
   protected readonly mostrarFormulario = signal(false);
-  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  protected readonly puedeEditar = inject(SesionService).tienePermiso('MOTOS_EDITAR');
 
   protected trasGuardar(m: Moto): void {
     this.moto.set(m);
@@ -158,16 +168,30 @@ export class DetalleMoto {
   }
 
   constructor() {
-    queueMicrotask(() => {
-      const id = Number(this.id());
-      this.motos.obtener(id).subscribe({
-        next: (m) => {
-          this.moto.set(m);
-          this.cargando.set(false);
-        },
-        error: () => this.cargando.set(false),
+    // Con otro id en la misma ruta Angular reutiliza la pantalla: hay que volver a cargar.
+    effect(() => {
+      this.id();
+      untracked(() => {
+        this.moto.set(null);
+        this.cargando.set(true);
+        this.cargar();
       });
-      this.ordenes.historialDeMoto(id).subscribe((h) => this.historial.set(h));
     });
+    // Con el formulario abierto no: le cambiaría la moto que se está editando.
+    alCambiarDatos(() => {
+      if (!this.mostrarFormulario()) this.cargar();
+    });
+  }
+
+  private cargar(): void {
+    const id = Number(this.id());
+    this.motos.obtener(id).subscribe({
+      next: (m) => {
+        this.moto.set(m);
+        this.cargando.set(false);
+      },
+      error: () => this.cargando.set(false),
+    });
+    this.ordenes.historialDeMoto(id).subscribe((h) => this.historial.set(h));
   }
 }

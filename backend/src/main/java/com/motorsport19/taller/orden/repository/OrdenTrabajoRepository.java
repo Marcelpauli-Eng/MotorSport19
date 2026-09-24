@@ -88,6 +88,9 @@ public interface OrdenTrabajoRepository extends JpaRepository<OrdenTrabajo, Long
             """)
     long contarAbiertasDeMoto(@Param("motoId") Long motoId);
 
+    /** Si la moto ya ha pasado alguna vez por el taller. */
+    boolean existsByMotoId(Long motoId);
+
     /** Ordenes sin cerrar de un cliente. Con trabajo abierto no se le da de baja. */
     @Query("""
             SELECT COUNT(o) FROM OrdenTrabajo o

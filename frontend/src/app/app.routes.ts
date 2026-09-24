@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { invitadoGuard, rolGuard, sesionGuard } from './nucleo/api/sesion.guard';
+import { invitadoGuard, permisoGuard, sesionGuard } from './nucleo/api/sesion.guard';
 
 /**
  * Rutas de la aplicación.
@@ -8,7 +8,8 @@ import { invitadoGuard, rolGuard, sesionGuard } from './nucleo/api/sesion.guard'
  * En una tablet con conexión regular eso se nota.
  *
  * Salvo la de entrada, todas cuelgan de una ruta sin componente que aplica
- * `sesionGuard` a sus hijas, y las reservadas añaden `rolGuard`. Los guards solo
+ * `sesionGuard` a sus hijas, y las reservadas añaden `permisoGuard` con el mismo
+ * permiso que exige la API para esa pantalla. Los guards solo
  * evitan pintar algo que la API va a rechazar de todos modos: el permiso de
  * verdad se comprueba en el backend en cada petición.
  */
@@ -33,22 +34,27 @@ export const routes: Routes = [
       },
 
       // Lo que va a entrar. La consulta todo el taller —un técnico necesita ver
-      // qué llega mañana— y darla o moverla lo controla la propia pantalla.
+      // qué llega mañana— y darla o moverla lo controla la propia pantalla. Aun
+      // así cada ruta pide el permiso de consulta: los roles son a medida y uno
+      // sin él solo encontraba una pantalla vacía y avisos de permisos.
       {
         path: 'agenda',
         title: 'Agenda · MotorSport19',
+        canActivate: [permisoGuard('AGENDA_VER')],
         loadComponent: () => import('./funcionalidades/agenda/agenda').then((m) => m.Agenda),
       },
 
       {
         path: 'ordenes',
         title: 'Órdenes de trabajo · MotorSport19',
+        canActivate: [permisoGuard('ORDENES_VER')],
         loadComponent: () =>
           import('./funcionalidades/ordenes/lista-ordenes').then((m) => m.ListaOrdenes),
       },
       {
         path: 'ordenes/:id',
         title: 'Orden de trabajo · MotorSport19',
+        canActivate: [permisoGuard('ORDENES_VER')],
         loadComponent: () =>
           import('./funcionalidades/ordenes/detalle-orden').then((m) => m.DetalleOrden),
       },
@@ -58,6 +64,7 @@ export const routes: Routes = [
       {
         path: 'ordenes/:id/presupuesto',
         title: 'Presupuesto · MotorSport19',
+        canActivate: [permisoGuard('ORDENES_VER')],
         loadComponent: () =>
           import('./funcionalidades/ordenes/presupuesto-orden').then((m) => m.PresupuestoOrden),
       },
@@ -66,14 +73,14 @@ export const routes: Routes = [
       {
         path: 'facturas',
         title: 'Facturas · MotorSport19',
-        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        canActivate: [permisoGuard('FACTURAS_VER')],
         loadComponent: () =>
           import('./funcionalidades/facturas/lista-facturas').then((m) => m.ListaFacturas),
       },
       {
         path: 'facturas/:id',
         title: 'Factura · MotorSport19',
-        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        canActivate: [permisoGuard('FACTURAS_VER')],
         loadComponent: () =>
           import('./funcionalidades/facturas/detalle-factura').then((m) => m.DetalleFactura),
       },
@@ -85,7 +92,7 @@ export const routes: Routes = [
       {
         path: 'informes',
         title: 'Informes · MotorSport19',
-        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        canActivate: [permisoGuard('INFORMES_VER')],
         loadComponent: () =>
           import('./funcionalidades/informes/facturacion-informe').then((m) => m.FacturacionInforme),
       },
@@ -93,12 +100,14 @@ export const routes: Routes = [
       {
         path: 'clientes',
         title: 'Clientes · MotorSport19',
+        canActivate: [permisoGuard('CLIENTES_VER')],
         loadComponent: () =>
           import('./funcionalidades/clientes/lista-clientes').then((m) => m.ListaClientes),
       },
       {
         path: 'clientes/:id',
         title: 'Cliente · MotorSport19',
+        canActivate: [permisoGuard('CLIENTES_VER')],
         loadComponent: () =>
           import('./funcionalidades/clientes/detalle-cliente').then((m) => m.DetalleCliente),
       },
@@ -106,12 +115,14 @@ export const routes: Routes = [
       {
         path: 'motos',
         title: 'Motos · MotorSport19',
+        canActivate: [permisoGuard('MOTOS_VER')],
         loadComponent: () =>
           import('./funcionalidades/motos/lista-motos').then((m) => m.ListaMotos),
       },
       {
         path: 'motos/:id',
         title: 'Moto · MotorSport19',
+        canActivate: [permisoGuard('MOTOS_VER')],
         loadComponent: () =>
           import('./funcionalidades/motos/detalle-moto').then((m) => m.DetalleMoto),
       },
@@ -119,6 +130,7 @@ export const routes: Routes = [
       {
         path: 'inventario',
         title: 'Inventario · MotorSport19',
+        canActivate: [permisoGuard('ALMACEN_VER')],
         loadComponent: () =>
           import('./funcionalidades/inventario/inventario').then((m) => m.Inventario),
       },
@@ -130,9 +142,20 @@ export const routes: Routes = [
       {
         path: 'adelantar-ot',
         title: 'Adelantar OT · MotorSport19',
-        canActivate: [rolGuard('ADMIN')],
+        canActivate: [permisoGuard('ORDENES_PREPARAR')],
         loadComponent: () =>
           import('./funcionalidades/ordenes/adelantar-orden').then((m) => m.AdelantarOrden),
+      },
+
+      // El registro de jornada del taller. Obligatorio por ley (art. 34.9 ET),
+      // así que no es una pantalla de control sino un libro que hay que poder
+      // enseñar: horas concretas por día, cuatro años hacia atrás.
+      {
+        path: 'horas',
+        title: 'Control de horas · MotorSport19',
+        canActivate: [permisoGuard('FICHAJES_VER')],
+        loadComponent: () =>
+          import('./funcionalidades/fichajes/control-horas').then((m) => m.ControlHoras),
       },
 
       // Las plantillas de trabajo: «revisión 10.000 km» con sus horas y su kit
@@ -144,7 +167,7 @@ export const routes: Routes = [
       {
         path: 'plantillas',
         title: 'Plantillas · MotorSport19',
-        canActivate: [rolGuard('ADMIN')],
+        canActivate: [permisoGuard('SERVICIOS_GESTIONAR')],
         loadComponent: () =>
           import('./funcionalidades/servicios/servicios').then((m) => m.Servicios),
       },
@@ -155,7 +178,7 @@ export const routes: Routes = [
       {
         path: 'ajustes',
         title: 'Ajustes · MotorSport19',
-        canActivate: [rolGuard('ADMIN', 'MOSTRADOR')],
+        canActivate: [permisoGuard('AJUSTES_VER')],
         loadComponent: () => import('./funcionalidades/ajustes/ajustes').then((m) => m.Ajustes),
       },
 

@@ -11,6 +11,7 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { authInterceptor } from './nucleo/api/auth.interceptor';
 import { errorInterceptor } from './nucleo/api/error.interceptor';
+import { sinConexionInterceptor } from './nucleo/api/sin-conexion.interceptor';
 
 // Fechas, decimales y moneda en formato español en toda la aplicación.
 registerLocaleData(localeEs, 'es');
@@ -27,7 +28,7 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ scrollPositionRestoration: 'enabled' }),
     ),
 
-    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor, sinConexionInterceptor])),
 
     { provide: LOCALE_ID, useValue: 'es' },
   ],

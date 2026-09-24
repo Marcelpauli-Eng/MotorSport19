@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Cargando } from '../../compartido/cargando';
@@ -11,6 +12,7 @@ import {
 } from '../../nucleo/modelos/agenda';
 import { CitasService } from '../../nucleo/servicios/citas.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { ActivatedRoute } from '@angular/router';
 import { DetalleCita } from './detalle-cita';
 import { FormularioCita } from './formulario-cita';
 
@@ -64,7 +66,7 @@ export class Agenda {
   private readonly sesion = inject(SesionService);
 
   /** Dar y mover citas es trabajo de quien coge el teléfono. */
-  protected readonly gestionaAgenda = this.sesion.puede('ADMIN', 'MOSTRADOR');
+  protected readonly gestionaAgenda = this.sesion.tienePermiso('AGENDA_GESTIONAR');
 
   protected readonly vista = signal<Vista>('semana');
   protected readonly cargando = signal(true);
@@ -128,7 +130,23 @@ export class Agenda {
   });
 
   constructor() {
+    alCambiarDatos(() => this.cargar());
     this.cargar();
+
+    // ?cita=N llega desde el rastro de la jornada en Control de horas: hay que
+    // caer en el dia de esa cita y con ella abierta, no en la semana de hoy.
+    const id = Number(inject(ActivatedRoute).snapshot.queryParamMap.get('cita'));
+    if (id) {
+      this.servicio.obtener(id).subscribe({
+        next: (c) => {
+          this.referencia.set(new Date(c.fechaHora));
+          this.vista.set('dia');
+          this.abierta.set(c);
+          this.cargar();
+        },
+        error: () => {},
+      });
+    }
   }
 
   // ----- Navegación -----

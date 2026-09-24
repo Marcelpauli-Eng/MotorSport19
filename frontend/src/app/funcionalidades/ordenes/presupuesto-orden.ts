@@ -1,5 +1,6 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Observable, concat } from 'rxjs';
@@ -10,7 +11,9 @@ import { TipoIva } from '../../nucleo/modelos/configuracion';
 import { ServicioTipo } from '../../nucleo/modelos/servicios';
 import { ConfiguracionService } from '../../nucleo/servicios/configuracion.service';
 import { LineaOT, OrdenTrabajo, Pieza } from '../../nucleo/modelos/taller';
-import { InventarioService } from '../../nucleo/servicios/inventario.service';
+import { Dialogo } from '../../compartido/dialogo';
+import { FormularioPieza } from '../inventario/formulario-pieza';
+import { InventarioService, porGrupo } from '../../nucleo/servicios/inventario.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
 import { ServiciosTipoService } from '../../nucleo/servicios/servicios-tipo.service';
@@ -35,7 +38,7 @@ type Pestana = 'mano-obra' | 'materiales';
  */
 @Component({
   selector: 'app-presupuesto-orden',
-  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormsModule],
+  imports: [Dialogo, CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormsModule, FormularioPieza],
   templateUrl: './presupuesto-orden.html',
   styleUrl: './presupuesto-orden.scss',
 })
@@ -60,17 +63,28 @@ export class PresupuestoOrden {
    * con los importes a nulo; aquí solo se evita pintar columnas vacías. Para él
    * esta pantalla no es un presupuesto: es la lista de lo que tiene que hacer.
    */
-  protected readonly vePrecios = this.sesion.puede('ADMIN', 'MOSTRADOR');
+  protected readonly vePrecios = this.sesion.tienePermiso('IMPORTES_VER');
 
   constructor() {
-    queueMicrotask(() => this.cargar());
+    alCambiarDatos(() => this.cargar());
+    // Con otro id en la misma ruta Angular reutiliza la pantalla: hay que volver a cargar.
+    effect(() => {
+      this.id();
+      untracked(() => {
+        this.orden.set(null);
+        this.cargando.set(true);
+        this.cargar();
+      });
+    });
   }
 
   private cargar(): void {
     // El catálogo de tipos de IVA, para el desplegable de la cabecera. Solo lo
     // necesita quien puede tocar precios; a un técnico ese control no se le
     // enseña, así que tampoco se le pide el dato.
-    if (this.vePrecios) {
+    // La configuración la sirve la API solo con AJUSTES_VER: pedirla con otro
+    // permiso le daba a un rol a medida un error de permisos en cada presupuesto.
+    if (this.vePrecios && this.sesion.tienePermiso('AJUSTES_VER')) {
       this.configuracion.obtener().subscribe({
         next: (c) => this.tiposIva.set(c.tiposIva ?? []),
         error: () => this.tiposIva.set([]),
@@ -103,7 +117,7 @@ export class PresupuestoOrden {
   private readonly puedeTrabajarla = computed(() => {
     const o = this.orden();
     if (!o) return false;
-    if (!this.sesion.puede('TECNICO')) return true;
+    if (this.sesion.tienePermiso('ORDENES_VER_TODAS')) return true;
     return o.tecnicoId === null || o.tecnicoId === this.sesion.usuario()?.id;
   });
 
@@ -239,7 +253,7 @@ export class PresupuestoOrden {
    */
   protected cambiarTipoIva(codigo: string): void {
     const o = this.orden();
-    if (!o || !codigo || codigo === o.tipoIva) return;
+    if (!o || !codigo || codigo === o.tipoIva || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio.aplicarTipoIva(o.id, codigo).subscribe({
@@ -268,7 +282,11 @@ export class PresupuestoOrden {
   protected guardarTarifa(): void {
     const o = this.orden();
     const tarifa = this.borradorTarifa();
-    if (!o || tarifa === null || tarifa <= 0) return;
+    if (!o || this.trabajando()) return;
+    if (tarifa === null || tarifa <= 0) {
+      this.notificaciones.error('El precio de la hora tiene que ser mayor que cero.');
+      return;
+    }
 
     if (tarifa === o.tarifaHora) {
       this.editandoTarifa.set(false);
@@ -317,7 +335,14 @@ export class PresupuestoOrden {
   protected aplicarDtoGeneral(): void {
     const o = this.orden();
     const pct = this.borradorDtoGeneral();
-    if (!o || pct === null || pct < 0 || pct > 100) return;
+    if (!o) return;
+    // Fuera de rango no se aplica, pero tampoco se puede quedar escrito: el campo
+    // decía «150» con el presupuesto sin ningún descuento.
+    if (pct === null || pct < 0 || pct > 100) {
+      if (pct !== null) this.notificaciones.error('El descuento tiene que estar entre 0 y 100 %.');
+      this.borradorDtoGeneral.set(this.dtoGeneral());
+      return;
+    }
     if (pct === this.dtoGeneral()) return;
 
     // El campo se aplica al pulsar Intro y al salir de él, y pulsar Intro hace
@@ -400,16 +425,49 @@ export class PresupuestoOrden {
     this.cargarPiezas();
   }
 
+  protected readonly piezasPorGrupo = computed(() => porGrupo(this.piezas()));
+
   private cargarPiezas(): void {
     this.inventario
       .buscarPiezas('', { familia: this.familia() || null, tamano: 300 })
       .subscribe((p) => this.piezas.set(p.contenido));
   }
 
+  // ------------------------------------------------------------------
+  // Dar de alta una pieza sin salir de aquí
+  // ------------------------------------------------------------------
+
+  /**
+   * El almacén se llena trabajando, no inventariando.
+   *
+   * <p>El momento de dar de alta una pieza es este: con la moto delante y la
+   * caja en la mano. Mandar al almacén a crearla obligaba a perder el
+   * presupuesto a medias, y lo que se acababa haciendo era apuntarla en un
+   * papel para meterla «luego».
+   */
+  protected readonly altaPieza = signal(false);
+
+  protected trasAltaPieza(creada: Pieza | null): void {
+    this.altaPieza.set(false);
+    if (!creada) return;
+
+    // Se pone su grupo para que salga en la lista corta, y queda elegida: lo
+    // siguiente es la cantidad, no volver a buscarla.
+    this.familia.set(creada.familia ?? '');
+    this.inventario.familias().subscribe((f) => this.familias.set(f));
+    this.inventario
+      .buscarPiezas('', { familia: this.familia() || null, tamano: 300 })
+      .subscribe((p) => {
+        this.piezas.set(p.contenido);
+        this.piezaId.set(creada.id);
+      });
+  }
+
   protected anadirManoDeObra(): void {
     const o = this.orden();
     const horas = this.horas();
-    if (!o || !horas || !this.descripcionTrabajo().trim()) return;
+    // Con dos clics rápidos, antes de que el botón se desactive, la línea salía repetida.
+    if (!o || !horas || !this.descripcionTrabajo().trim() || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio
@@ -427,7 +485,11 @@ export class PresupuestoOrden {
   protected anadirPieza(): void {
     const o = this.orden();
     const pieza = this.piezaId();
-    if (!o || !pieza || this.cantidad() <= 0) return;
+    if (!o || !pieza || this.trabajando()) return;
+    if (this.cantidad() <= 0) {
+      this.notificaciones.error('La cantidad tiene que ser mayor que cero.');
+      return;
+    }
 
     this.trabajando.set(true);
     this.servicio
@@ -462,10 +524,66 @@ export class PresupuestoOrden {
    * descuentan y se quitan como cualquier otra, y la plantilla no queda
    * enganchada de ninguna forma.
    */
+  /**
+   * Piezas de la plantilla que no hay en el almacén, con lo que falta.
+   * Con la lista vacía no hay diálogo: se vuelca directo.
+   */
+  protected readonly faltanEnAlmacen = signal<
+    { piezaId: number; descripcion: string; necesita: number; hay: number; reponer: number }[]
+  >([]);
+
+  /** Comprueba el almacén antes de volcar: una plantilla no crea stock. */
   protected aplicarServicio(): void {
+    const servicio = this.servicioSeleccionado();
+    if (!this.orden() || !servicio) return;
+
+    const conPieza = servicio.lineas.filter((l) => l.piezaId);
+    if (!conPieza.length) return this.volcar();
+
+    this.trabajando.set(true);
+    this.inventario.buscarPiezas('', { tamano: 300 }).subscribe({
+      next: (p) => {
+        const stock = new Map(p.contenido.map((x) => [x.id, x.stockActual]));
+        const faltan = conPieza
+          .map((l) => ({
+            piezaId: l.piezaId!,
+            descripcion: l.descripcion,
+            necesita: l.cantidad,
+            hay: stock.get(l.piezaId!) ?? 0,
+            reponer: Math.max(0, l.cantidad - (stock.get(l.piezaId!) ?? 0)),
+          }))
+          .filter((f) => f.hay < f.necesita);
+
+        this.trabajando.set(false);
+        if (faltan.length) this.faltanEnAlmacen.set(faltan);
+        else this.volcar();
+      },
+      // Si el almacén no contesta no se bloquea el trabajo: se vuelca y ya
+      // avisará el consumo cuando toque.
+      error: () => { this.trabajando.set(false); this.volcar(); },
+    });
+  }
+
+  /** Mete en el almacén lo que falta de una pieza, sin salir del diálogo. */
+  protected reponer(f: { piezaId: number; reponer: number }): void {
+    if (f.reponer <= 0 || this.trabajando()) return;
+    this.trabajando.set(true);
+    this.inventario.registrarEntrada(f.piezaId, { cantidad: f.reponer, motivo: 'Reposición al volcar una plantilla' })
+      .subscribe({
+        next: () => {
+          this.trabajando.set(false);
+          this.faltanEnAlmacen.update((l) => l.filter((x) => x.piezaId !== f.piezaId));
+          if (!this.faltanEnAlmacen().length) this.volcar();
+        },
+        error: () => this.trabajando.set(false),
+      });
+  }
+
+  protected volcar(): void {
     const o = this.orden();
     const servicio = this.servicioSeleccionado();
-    if (!o || !servicio) return;
+    if (!o || !servicio || this.trabajando()) return;
+    this.faltanEnAlmacen.set([]);
 
     this.trabajando.set(true);
     this.serviciosTipo.aplicarAOrden(o.id, servicio.id).subscribe({
@@ -514,11 +632,20 @@ export class PresupuestoOrden {
    */
   protected guardarEdicion(l: LineaOT): void {
     const o = this.orden();
-    if (!o) return;
+    if (!o || this.trabajando()) return;
 
     const cantidad = this.edCantidad();
     const precio = this.edPrecio();
     const dto = this.edDescuento();
+
+    // Un valor imposible se descartaba sin decir nada y la fila se cerraba como
+    // si se hubiera guardado.
+    if ((cantidad !== null && cantidad <= 0) || (precio !== null && precio < 0) || (dto !== null && (dto < 0 || dto > 100))) {
+      this.notificaciones.error(
+        'Revise la línea: la cantidad tiene que ser mayor que cero, el precio no puede ser negativo y el descuento va de 0 a 100 %.',
+      );
+      return;
+    }
 
     const peticiones: Observable<unknown>[] = [];
 
@@ -557,7 +684,7 @@ export class PresupuestoOrden {
 
   protected quitarLinea(lineaId: number): void {
     const o = this.orden();
-    if (!o) return;
+    if (!o || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio.quitarLinea(o.id, lineaId).subscribe({

@@ -1,5 +1,6 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
-import { Component, inject, input, signal } from '@angular/core';
+import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Cliente, MotoResumen } from '../../nucleo/modelos/taller';
@@ -128,6 +129,13 @@ import { FormularioCliente } from './formulario-cliente';
           }
         </section>
       </div>
+    } @else {
+      <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
+      <div class="vacio">
+        <span class="vacio__titulo">No se ha podido abrir este cliente</span>
+        <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
+        <a routerLink="/clientes" class="boton boton--pequeno">Volver a clientes</a>
+      </div>
     }
   `,
   styles: [
@@ -158,7 +166,7 @@ export class DetalleCliente {
   protected readonly editando = signal<Cliente | null>(null);
 
   /** Corregir la ficha es cosa de mostrador y dirección, igual que darla de alta. */
-  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  protected readonly puedeEditar = inject(SesionService).tienePermiso('CLIENTES_EDITAR');
 
   /** Hoja de vida del cliente: todas sus motos con su historial. */
   protected abrirHistorial(cliente: Cliente): void {
@@ -175,16 +183,27 @@ export class DetalleCliente {
   }
 
   constructor() {
-    queueMicrotask(() => {
-      const id = Number(this.id());
-      this.servicio.obtener(id).subscribe({
-        next: (c) => {
-          this.cliente.set(c);
-          this.cargando.set(false);
-        },
-        error: () => this.cargando.set(false),
+    // Con otro id en la misma ruta Angular reutiliza la pantalla: hay que volver a cargar.
+    effect(() => {
+      this.id();
+      untracked(() => {
+        this.cliente.set(null);
+        this.cargando.set(true);
+        this.cargar();
       });
-      this.servicio.motosDe(id).subscribe((m) => this.motos.set(m));
     });
+    alCambiarDatos(() => this.cargar());
+  }
+
+  private cargar(): void {
+    const id = Number(this.id());
+    this.servicio.obtener(id).subscribe({
+      next: (c) => {
+        this.cliente.set(c);
+        this.cargando.set(false);
+      },
+      error: () => this.cargando.set(false),
+    });
+    this.servicio.motosDe(id).subscribe((m) => this.motos.set(m));
   }
 }

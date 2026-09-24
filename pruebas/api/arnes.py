@@ -180,6 +180,10 @@ def entrar(usuario: str, password: str) -> Api:
     api.token = r["token"]
     yo = api.get("/auth/yo")
     api.permisos = yo.get("permisos", []) if yo.ok else []
+    # Quien no esta exento de fichar recibe 423 en todo hasta empezar la jornada,
+    # igual que en el taller: lo primero del dia es fichar.
+    if "FICHAJE_EXENTO" not in api.permisos:
+        api.post("/fichajes/jornada")
     return api
 
 
@@ -233,7 +237,9 @@ def moto_de(api: Api, cliente_id: int, **extra) -> dict:
         "modelo": "MT-07",
         "anio": 2021,
         "cilindrada": 689,
-        "kmActual": 18000,
+        # Sin km de alta: las pruebas abren ordenes con lecturas bajas y en la
+        # primera visita el cuentakilometros no puede quedar por debajo del alta.
+        "kmActual": 0,
         "color": "Azul",
         "numeroBastidor": f"VIN{next(_secuencia):014d}",
     }

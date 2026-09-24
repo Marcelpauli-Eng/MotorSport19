@@ -1,5 +1,6 @@
 package com.motorsport19.taller.configuracion.web;
 
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +45,8 @@ class ConfiguracionControllerTest {
         return new ConfiguracionController.ActualizarConfiguracion(
                 "Taller Ejemplo S.L.", "B12345674", "Calle Mayor 1", "28001", "Madrid",
                 "Madrid", "ES", "910000000", "taller@ejemplo.example",
-                new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"));
+                new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"),
+                new BigDecimal("3000.00"));
     }
 
     @Nested
@@ -83,6 +86,18 @@ class ConfiguracionControllerTest {
                     .isEqualTo(ConfiguracionTaller.SOFTWARE_NOMBRE);
             assertThat(respuesta.configurado()).isTrue();
         }
+
+        @Test
+        @DisplayName("la tasa de neumaticos pide antes los datos de la empresa, sin tocar la base")
+        void tasaSinDatosDeEmpresa() {
+            when(repositorio.findById(ConfiguracionTaller.ID_UNICO)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> controlador.configurarTasaNeumatico(
+                    new ConfiguracionController.TasaNeumaticoRequest("Neumaticos", null)))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("datos de la empresa");
+            org.mockito.Mockito.verify(repositorio, org.mockito.Mockito.never()).save(any());
+        }
     }
 
     @Nested
@@ -95,7 +110,7 @@ class ConfiguracionControllerTest {
             ConfiguracionTaller existente = ConfiguracionTaller.sinRellenar();
             existente.actualizar("Antiguo S.L.", "B12345674", "Calle Vieja 2", "28002", "Madrid",
                     "Madrid", "ES", null, null, new BigDecimal("30.00"), "GENERAL",
-                    new BigDecimal("8.00"));
+                    new BigDecimal("8.00"), new BigDecimal("3000.00"));
             when(repositorio.findById(ConfiguracionTaller.ID_UNICO))
                     .thenReturn(Optional.of(existente));
             when(repositorio.save(any(ConfiguracionTaller.class)))
@@ -116,7 +131,8 @@ class ConfiguracionControllerTest {
         ConfiguracionTaller cfg = ConfiguracionTaller.sinRellenar();
 
         cfg.actualizar("Taller Ejemplo S.L.", "B12345674", "Calle Mayor 1", "28001", "Madrid",
-                null, "ES", null, null, new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"));
+                null, "ES", null, null, new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"),
+                new BigDecimal("3000.00"));
 
         assertThat(cfg.getProvincia()).isEmpty();
     }

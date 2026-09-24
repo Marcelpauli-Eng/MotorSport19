@@ -16,6 +16,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -50,6 +52,8 @@ public class ManejadorGlobalErrores {
     private static final String SQLSTATE_FK_VIOLATION = "23503";
     /** Prefijo de la familia "integrity constraint violation". */
     private static final String SQLSTATE_INTEGRIDAD = "23";
+    /** Texto mas largo que la columna. */
+    private static final String SQLSTATE_TEXTO_LARGO = "22001";
 
     @ExceptionHandler(RecursoNoEncontradoException.class)
     public ResponseEntity<RespuestaError> noEncontrado(RecursoNoEncontradoException ex, HttpServletRequest req) {
@@ -149,6 +153,13 @@ public class ManejadorGlobalErrores {
         if (sqlState.startsWith(SQLSTATE_INTEGRIDAD)) {
             return construir(HttpStatus.UNPROCESSABLE_ENTITY, "Regla de negocio", mensaje, req);
         }
+        // El texto de PostgreSQL («value too long for type character varying(300)»)
+        // no dice que campo es ni esta en espanol: quien lo pego solo necesita
+        // saber que tiene que acortarlo.
+        if (SQLSTATE_TEXTO_LARGO.equals(sqlState)) {
+            return construir(HttpStatus.BAD_REQUEST, "Datos no validos",
+                    "Algun texto es demasiado largo para guardarse. Acortelo y vuelva a intentarlo.", req);
+        }
 
         log.warn("Violacion de integridad no contemplada (SQLSTATE {})", sqlState, ex);
         return construir(HttpStatus.CONFLICT, "Conflicto de datos", mensaje, req);
@@ -172,6 +183,27 @@ public class ManejadorGlobalErrores {
                                                          HttpServletRequest req) {
         return construir(HttpStatus.BAD_REQUEST, "Parametro no valido",
                 "El valor '%s' no es valido para el parametro '%s'.".formatted(ex.getValue(), ex.getName()), req);
+    }
+
+    /** Falta un parametro obligatorio de la URL: un enlace a medias, no una averia. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<RespuestaError> parametroQueFalta(MissingServletRequestParameterException ex,
+                                                            HttpServletRequest req) {
+        return construir(HttpStatus.BAD_REQUEST, "Parametro obligatorio",
+                "Falta el parametro '%s'.".formatted(ex.getParameterName()), req);
+    }
+
+    /**
+     * El puesto se ha ido: cerro la pestana, recargo o perdio la red.
+     *
+     * <p>Lo descubre el siguiente latido del canal de avisos al escribir en una
+     * conexion muerta. No hay a quien responder, y registrarlo como error
+     * inesperado llenaba el log de trazas cada vez que alguien recargaba la
+     * pagina, tapando los errores de verdad.
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void clienteDesconectado(AsyncRequestNotUsableException ex) {
+        log.debug("Puesto desconectado: {}", ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -297,16 +329,25 @@ public class ManejadorGlobalErrores {
                 .body(RespuestaError.de(estado.value(), error, mensaje, req.getRequestURI()));
     }
 
+    /**
+     * La {@link SQLException} mas profunda de la cadena.
+     *
+     * <p>La mas profunda y no la primera: con el envio por lotes de Hibernate el
+     * driver envuelve el error en un {@code BatchUpdateException} cuyo mensaje es
+     * «Batch entry 0 insert into ... was aborted», la sentencia entera. El texto
+     * del trigger viene en la causa, y es el que hay que enseñar.
+     */
     private SQLException buscarSqlException(Throwable ex) {
+        SQLException encontrada = null;
         for (Throwable t = ex; t != null; t = t.getCause()) {
             if (t instanceof SQLException sql) {
-                return sql;
+                encontrada = sql;
             }
             if (t.getCause() == t) {
                 break;
             }
         }
-        return null;
+        return encontrada;
     }
 
     /**

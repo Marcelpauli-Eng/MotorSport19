@@ -17,6 +17,12 @@ spring:
     # van en orden, y esta permisividad no debe estar activa.
     out-of-order: true
 
+    # V900 se ha tenido que corregir para el esquema actual (en una base nueva
+    # corre detras de V22 y usaba una columna que ya no existe). Eso cambia su
+    # checksum, y una base de demo que ya la tenia aplicada no arrancaria. Son
+    # datos de demostracion: aqui no hay nada que proteger con la validacion.
+    validate-on-migrate: false
+
 logging:
   level:
     com.motorsport19.taller: DEBUG

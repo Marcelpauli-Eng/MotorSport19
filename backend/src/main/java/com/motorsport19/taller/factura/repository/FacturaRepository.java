@@ -71,6 +71,22 @@ public interface FacturaRepository extends JpaRepository<Factura, Long> {
     List<Factura> buscarOrdinariasDeOrden(@Param("ordenId") Long ordenId);
 
     /**
+     * Todas las facturas de una orden: su ordinaria y las rectificativas.
+     *
+     * <p>La ficha de la orden lo pide cada vez que se abre y con cada aviso de
+     * cambios. Antes se sacaba del libro entero, sin paginar, filtrando en
+     * memoria: con unos años de facturas, abrir una orden cargaba miles.
+     */
+    @Query("""
+            SELECT f FROM Factura f
+              JOIN FETCH f.serie
+              LEFT JOIN FETCH f.facturaRectificada
+             WHERE f.ordenTrabajo.id = :ordenId
+             ORDER BY f.numeroRegistro DESC
+            """)
+    List<Factura> buscarDeOrden(@Param("ordenId") Long ordenId);
+
+    /**
      * Rectificativas emitidas sobre una factura.
      *
      * <p>La serie y la factura corregida se traen en el mismo viaje. Sin eso la

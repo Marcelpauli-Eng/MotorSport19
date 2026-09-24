@@ -7,6 +7,7 @@ import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
+import com.motorsport19.taller.fichaje.service.RegistroActividad;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.repository.MovimientoStockRepository;
 import com.motorsport19.taller.inventario.service.IntentoConsumo;
@@ -68,6 +69,7 @@ public class OrdenTrabajoService {
     private final ConfiguracionTallerRepository configuracionRepository;
     private final UsuarioActual usuarioActual;
     private final ServicioTipoService servicioTipoService;
+    private final RegistroActividad registroActividad;
 
     public OrdenTrabajoService(OrdenTrabajoRepository ordenRepository,
                                LineaOTRepository lineaRepository,
@@ -81,7 +83,8 @@ public class OrdenTrabajoService {
                                TipoIvaRepository tipoIvaRepository,
                                ConfiguracionTallerRepository configuracionRepository,
                                UsuarioActual usuarioActual,
-                               ServicioTipoService servicioTipoService) {
+                               ServicioTipoService servicioTipoService,
+                               RegistroActividad registroActividad) {
         this.ordenRepository = ordenRepository;
         this.lineaRepository = lineaRepository;
         this.contadorRepository = contadorRepository;
@@ -95,6 +98,7 @@ public class OrdenTrabajoService {
         this.configuracionRepository = configuracionRepository;
         this.usuarioActual = usuarioActual;
         this.servicioTipoService = servicioTipoService;
+        this.registroActividad = registroActividad;
     }
 
     // ==================================================================
@@ -219,10 +223,17 @@ public class OrdenTrabajoService {
                      + "abrir otra.").formatted(moto.getMatricula(), abiertas));
         }
 
-        // El cuentakilometros no retrocede. Se comprueba AQUI, antes de tocar
-        // nada: si se dejaba para el final, ya se habia consumido un numero del
-        // contador del ejercicio y montado la OT entera para luego tirarla.
-        moto.exigirLecturaNoRetrocede(kmEntrada);
+        // En la PRIMERA visita el cuentakilometros no puede retroceder: los km
+        // del alta los tecleo alguien mirando la moto, y una lectura menor solo
+        // puede ser un error. De la segunda en adelante si puede bajar, porque
+        // un cambio de motor trae otro cuentakilometros. Se comprueba AQUI,
+        // antes de tocar nada: si se dejaba para el final, ya se habia
+        // consumido un numero del contador del ejercicio y montado la OT entera
+        // para luego tirarla.
+        boolean primeraVisita = !ordenRepository.existsByMotoId(motoId);
+        if (primeraVisita) {
+            moto.exigirLecturaNoRetrocede(kmEntrada);
+        }
 
         int ejercicio = Year.now().getValue();
         int numero = siguienteNumero(ejercicio);
@@ -234,11 +245,9 @@ public class OrdenTrabajoService {
         OrdenTrabajo guardada = ordenRepository.save(orden);
 
         // El kilometraje de entrada es la lectura mas reciente que tenemos de la
-        // moto. Que no retroceda ya se ha comprobado arriba; aqui solo queda
-        // adelantar el contador cuando la moto ha rodado desde la ultima visita.
-        if (kmEntrada > moto.getKmActual()) {
-            moto.registrarKilometraje(kmEntrada);
-        }
+        // moto, tanto si sube como si baja: despues de un cambio de motor los km
+        // que valen son los del cuentakilometros nuevo.
+        moto.anotarLecturaDeVisita(kmEntrada);
 
         log.info("Abierta la orden {} para la moto {}", guardada.codigoVisible(), moto.getMatricula());
         return guardada;
@@ -303,7 +312,9 @@ public class OrdenTrabajoService {
     public OrdenTrabajo asignarTecnico(Long id, Long tecnicoId) {
         OrdenTrabajo orden = obtener(id);
         exigirQueNoSeaDeOtroTecnico(orden);
-        orden.asignarTecnico(cargarUsuario(tecnicoId));
+        Usuario tecnico = cargarUsuario(tecnicoId);
+        orden.asignarTecnico(tecnico);
+        anotar(orden, tecnico == null ? "quitó el técnico" : "asignó a " + tecnico.getNombreCompleto());
         return orden;
     }
 
@@ -318,6 +329,7 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = cargarConLineas(id);
         exigirPermisoDeTrabajo(orden);
         orden.cambiarTarifaHora(tarifaHora);
+        anotar(orden, "cambió la tarifa/hora a %s €".formatted(tarifaHora.toPlainString()));
         log.info("Tarifa/hora de la orden {} cambiada a {}", orden.codigoVisible(), tarifaHora);
         return orden;
     }
@@ -327,6 +339,7 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = obtener(id);
         exigirPermisoDeTrabajo(orden);
         orden.registrarDiagnostico(diagnostico);
+        anotar(orden, "escribió el diagnóstico: " + diagnostico.strip());
         return orden;
     }
 
@@ -483,8 +496,10 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
         TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, codigoTipoIva));
-        return orden.anadirManoDeObra(descripcion, horas, descuentoPct, tipoIva.getCodigo(),
+        LineaOT linea = orden.anadirManoDeObra(descripcion, horas, descuentoPct, tipoIva.getCodigo(),
                 tipoIva.getPorcentaje());
+        anotar(orden, "añadió mano de obra: %s (%s h)".formatted(descripcion, horas.stripTrailingZeros().toPlainString()));
+        return linea;
     }
 
     /**
@@ -503,7 +518,81 @@ public class OrdenTrabajoService {
 
         LineaOT linea = orden.anadirPieza(pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
         servirSiYaSeEstaReparando(orden, linea, usuarioId);
+        anadirTasaDeReciclaje(orden, pieza, cantidad, usuarioId);
+        anotar(orden, "añadió pieza: %s × %s".formatted(pieza.getSku(), cantidad.stripTrailingZeros().toPlainString()));
         return linea;
+    }
+
+    /**
+     * Anade la tasa de reciclaje que acompana a un neumatico.
+     *
+     * <p>La tasa de gestion del neumatico fuera de uso se repercute como
+     * concepto aparte, no sumada al precio, asi que en el presupuesto es una
+     * linea mas. Es la linea que se olvida: nadie echa en falta un euro y medio
+     * hasta que la gestoria pregunta.
+     *
+     * <p>Tantas tasas como neumaticos, en una sola linea. Si ya hay una de una
+     * pieza anterior se le suma la cantidad en vez de repetir el concepto: dos
+     * neumaticos son dos tasas, pero en la factura del cliente eso es una linea
+     * de dos unidades, no dos lineas de una.
+     *
+     * <p>Devuelve la linea de la tasa, o nulo si esta orden no lleva —la tasa no
+     * esta configurada, o la pieza no es un neumatico—.
+     */
+    private LineaOT anadirTasaDeReciclaje(OrdenTrabajo orden, Pieza pieza, BigDecimal cantidad,
+                                          Long usuarioId) {
+        ConfiguracionTaller config = configuracionRepository
+                .findById(ConfiguracionTaller.ID_UNICO).orElse(null);
+        if (config == null || !config.llevaTasaDeReciclaje(pieza)) {
+            return null;
+        }
+
+        Pieza tasa = config.getPiezaTasaNeumatico();
+        LineaOT yaPuesta = orden.getLineas().stream()
+                .filter(l -> l.getPieza() != null && l.getPieza().getId().equals(tasa.getId()))
+                .findFirst()
+                .orElse(null);
+
+        if (yaPuesta != null) {
+            yaPuesta.cambiarCantidad(yaPuesta.getCantidad().add(cantidad), consumoDe(yaPuesta));
+            return yaPuesta;
+        }
+
+        TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, tasa.getTipoIva()));
+        LineaOT linea = orden.anadirPieza(tasa, cantidad, null, tipoIva.getPorcentaje());
+        servirSiYaSeEstaReparando(orden, linea, usuarioId);
+        return linea;
+    }
+
+    /**
+     * Mueve la tasa de reciclaje lo mismo que se ha movido un neumatico.
+     *
+     * <p>Al anadir neumaticos la tasa se sumaba, pero al cambiar la cantidad o
+     * quitar la linea no se tocaba: cuatro neumaticos salian con dos tasas, y sin
+     * ningun neumatico la tasa se seguia cobrando. Solo se corrige la linea de
+     * tasa que ya haya; si alguien la quito a mano, no se vuelve a poner.
+     */
+    private void moverTasaDeReciclaje(OrdenTrabajo orden, Pieza neumatico, BigDecimal diferencia) {
+        if (diferencia.signum() == 0) {
+            return;
+        }
+        ConfiguracionTaller config = configuracionRepository
+                .findById(ConfiguracionTaller.ID_UNICO).orElse(null);
+        if (config == null || !config.llevaTasaDeReciclaje(neumatico)) {
+            return;
+        }
+        Long tasaId = config.getPiezaTasaNeumatico().getId();
+        orden.getLineas().stream()
+                .filter(l -> l.getPieza() != null && tasaId.equals(l.getPieza().getId()))
+                .findFirst()
+                .ifPresent(tasa -> {
+                    BigDecimal nueva = tasa.getCantidad().add(diferencia);
+                    if (nueva.signum() > 0) {
+                        tasa.cambiarCantidad(nueva, consumoDe(tasa));
+                    } else if (consumoDe(tasa).signum() == 0) {
+                        orden.quitarLinea(tasa);
+                    }
+                });
     }
 
     /**
@@ -571,9 +660,17 @@ public class OrdenTrabajoService {
                         tipoIva.getPorcentaje());
                 servirSiYaSeEstaReparando(orden, linea, usuarioId);
                 anadidas.add(linea);
+                // Una plantilla de cambio de neumatico tambien lleva su tasa: si
+                // solo se pusiera en el alta suelta, volcar la plantilla —que es
+                // el camino rapido— seria justo el que se la salta.
+                LineaOT tasa = anadirTasaDeReciclaje(orden, pieza, plantilla.getCantidad(), usuarioId);
+                if (tasa != null) {
+                    anadidas.add(tasa);
+                }
             }
         }
 
+        anotar(orden, "aplicó el servicio «%s»".formatted(servicio.getNombre()));
         log.info("Volcado el servicio tipo {} ({} lineas) en la orden {}",
                 servicio.getNombre(), anadidas.size(), orden.getCodigo());
         return anadidas;
@@ -584,7 +681,11 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
+        BigDecimal anterior = linea.getCantidad();
         linea.cambiarCantidad(cantidad, consumoDe(linea));
+        moverTasaDeReciclaje(orden, linea.getPieza(), cantidad.subtract(anterior));
+        anotar(orden, "cambió la cantidad de la línea %d (%s) a %s".formatted(linea.getNumeroLinea(),
+                linea.getDescripcion(), cantidad.stripTrailingZeros().toPlainString()));
         return conPiezaCargada(linea);
     }
 
@@ -599,6 +700,7 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = cargarConLineas(ordenId);
         exigirPermisoDeTrabajo(orden);
         orden.aplicarDescuentoGeneral(descuentoPct, forzar);
+        anotar(orden, "aplicó un descuento general del %s %%".formatted(textoDe(descuentoPct)));
         log.info("Descuento general del {} % aplicado a la orden {}", descuentoPct,
                 orden.codigoVisible());
         return orden;
@@ -617,6 +719,7 @@ public class OrdenTrabajoService {
 
         TipoIva tipoIva = cargarTipoIva(codigoTipoIva);
         orden.aplicarTipoIvaGeneral(tipoIva.getCodigo(), tipoIva.getPorcentaje());
+        anotar(orden, "puso toda la orden al IVA %s".formatted(tipoIva.getCodigo()));
 
         log.info("Orden {} puesta al tipo de IVA {} ({} %)", orden.codigoVisible(),
                 tipoIva.getCodigo(), tipoIva.getPorcentaje());
@@ -629,6 +732,8 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         orden.cambiarDescuentoDeLinea(linea, descuentoPct);
+        anotar(orden, "puso un descuento del %s %% a la línea %d (%s)".formatted(textoDe(descuentoPct),
+                linea.getNumeroLinea(), linea.getDescripcion()));
         return conPiezaCargada(linea);
     }
 
@@ -638,6 +743,7 @@ public class OrdenTrabajoService {
         OrdenTrabajo orden = obtener(id);
         exigirPermisoDeTrabajo(orden);
         orden.actualizarDatos(fechaEstimadaSalida, observaciones);
+        anotar(orden, "actualizó fecha estimada y observaciones");
         return orden;
     }
 
@@ -648,6 +754,8 @@ public class OrdenTrabajoService {
         exigirPermisoDeTrabajo(orden);
         LineaOT linea = buscarLinea(orden, lineaId);
         orden.cambiarPrecioDeManoDeObra(linea, precioUnitario);
+        anotar(orden, "puso precio cerrado a la línea %d (%s): %s €".formatted(linea.getNumeroLinea(),
+                linea.getDescripcion(), textoDe(precioUnitario)));
         return conPiezaCargada(linea);
     }
 
@@ -672,6 +780,8 @@ public class OrdenTrabajoService {
                             consumido.toPlainString(), linea.skuPieza()));
         }
         orden.quitarLinea(linea);
+        moverTasaDeReciclaje(orden, linea.getPieza(), linea.getCantidad().negate());
+        anotar(orden, "quitó la línea %d (%s)".formatted(linea.getNumeroLinea(), linea.getDescripcion()));
     }
 
     /** Devuelve al almacen piezas ya consumidas por una linea. */
@@ -695,6 +805,7 @@ public class OrdenTrabajoService {
 
         inventarioService.registrarDevolucion(linea.getPieza().getId(), cantidad, orden, linea,
                 motivo != null ? motivo : "Devolucion desde la orden " + orden.codigoVisible(), usuarioId);
+        anotar(orden, "devolvió al almacén %s × %s".formatted(linea.skuPieza(), cantidad.stripTrailingZeros().toPlainString()));
     }
 
     // ==================================================================
@@ -765,6 +876,10 @@ public class OrdenTrabajoService {
         // pero tampoco se puede avanzar.
         if (orden.getEstado() != EstadoOT.ESPERANDO_PIEZAS) {
             orden.bloquearPorFaltaDePiezas(resultado.descripcionDeFaltantes(), usuario);
+        } else {
+            // Sin cambio de estado no queda en el historial, pero el intento se hizo.
+            anotar(orden, "reintentó servir material, sigue esperando piezas: "
+                          + resultado.descripcionDeFaltantes());
         }
 
         log.info("Orden {} en espera de piezas: {}", orden.codigoVisible(),
@@ -860,6 +975,15 @@ public class OrdenTrabajoService {
         return tipoIvaRepository.findById(codigoFinal)
                 .orElseThrow(() -> new ConflictoException(
                         "El tipo de IVA '%s' no existe en el catalogo.".formatted(codigoFinal)));
+    }
+
+    /** Deja constancia de quien trabajo la orden, aunque no cambie de estado. */
+    private void anotar(OrdenTrabajo orden, String que) {
+        registroActividad.anotar("OT", "orden", orden.getId(), orden.codigoVisible() + " · " + que);
+    }
+
+    private static String textoDe(BigDecimal valor) {
+        return valor == null ? "0" : valor.stripTrailingZeros().toPlainString();
     }
 
     private Usuario cargarUsuario(Long usuarioId) {

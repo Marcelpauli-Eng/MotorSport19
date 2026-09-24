@@ -39,6 +39,18 @@ export interface LineaFactura {
   total: number;
 }
 
+/** Una línea tal como se manda en una rectificativa; en negativo, resta. */
+export interface LineaRectificativa {
+  tipo: string;
+  descripcion: string;
+  piezaSku: string | null;
+  cantidad: number;
+  precioUnitario: number;
+  descuentoPct: number;
+  tipoIva: string;
+  porcentajeIva: number;
+}
+
 export interface DesgloseIva {
   tipoIva: string;
   porcentajeIva: number;
@@ -119,6 +131,8 @@ export interface SerieFactura {
   ultimoNumero: number;
   proximoNumero: number;
   activa: boolean;
+  /** Serie reservada a las facturas simplificadas (sin datos del cliente). */
+  simplificada: boolean;
 }
 
 export interface AnomaliaCadena {

@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 
 import java.util.List;
 
@@ -66,6 +67,17 @@ class ErroresDeNavegacionTest {
                 .contains("DELETE")
                 .contains("GET")
                 .contains("PUT");
+    }
+
+    @Test
+    @DisplayName("un enlace sin un parametro obligatorio da 400 y dice cual falta, no 500")
+    void parametroQueFalta() {
+        var ex = new MissingServletRequestParameterException("desde", "LocalDate");
+
+        ResponseEntity<RespuestaError> respuesta = manejador.parametroQueFalta(ex, peticion);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().mensaje()).contains("desde");
     }
 
     @Test

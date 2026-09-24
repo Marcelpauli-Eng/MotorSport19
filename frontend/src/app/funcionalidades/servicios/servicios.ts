@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -38,6 +39,7 @@ export class Servicios {
   protected readonly activos = computed(() => this.filas().filter((s) => s.activo).length);
 
   constructor() {
+    alCambiarDatos(() => this.cargar());
     this.cargar();
   }
 

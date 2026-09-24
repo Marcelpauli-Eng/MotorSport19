@@ -515,6 +515,13 @@ select {
   border-bottom: var(--borde);
 }
 
+/* En el móvil cuatro pestañas no caben: se desplazan en su fila en vez de
+   ensanchar la página entera y dejar la última cortada. */
+@media (max-width: 640px) {
+  .pestanas { overflow-x: auto; overflow-y: hidden; }
+  .pestana { flex: none; }
+}
+
 .pestana {
   display: flex;
   align-items: center;

@@ -93,7 +93,7 @@
     </div>
   </div>
 
-  <section class="tarjeta presupuesto">
+  <section class="tarjeta tarjeta--ajustada presupuesto">
     <div class="presupuesto__cabecera">
       <div class="pestanas pestanas--doc">
         <button
@@ -161,12 +161,12 @@
 
             <button
               type="button"
-              class="boton boton--pequeno"
+              class="boton boton--pequeno boton--principal"
               [disabled]="!servicioSeleccionado() || trabajando()"
               (click)="aplicarServicio()"
             >
               <app-icono nombre="mas" [tamano]="14" />
-              Volcar
+              Añadir al presupuesto
             </button>
 
             @if (servicioSeleccionado(); as s) {
@@ -186,6 +186,60 @@
         <span class="pequeno silenciado">Cerrado: en este estado no se editan líneas</span>
       }
     </div>
+
+    <!-- Falta material de la plantilla: se avisa antes de volcarla -->
+    @if (faltanEnAlmacen().length; as n) {
+      <app-dialogo
+        titulo="Falta material en el almacén"
+        subtitulo="La plantilla lleva piezas que no tienes"
+        (cerrar)="faltanEnAlmacen.set([])"
+      >
+        <p class="pequeno silenciado">
+          Puedes reponerlas aquí mismo si las tienes en la estantería y no estaban apuntadas, o
+          volcar igualmente y pedirlas después: la orden se quedará esperando piezas al repararla.
+        </p>
+
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr><th>Pieza</th><th class="num">Hay</th><th class="num">Necesita</th><th class="num">Añadir</th><th></th></tr>
+            </thead>
+            <tbody>
+              @for (f of faltanEnAlmacen(); track f.piezaId) {
+                <tr>
+                  <td>{{ f.descripcion }}</td>
+                  <td class="num silenciado">{{ f.hay | number: '1.0-2' : 'es' }}</td>
+                  <td class="num">{{ f.necesita | number: '1.0-2' : 'es' }}</td>
+                  <td class="num">
+                    <input
+                      class="celda-input"
+                      type="number"
+                      min="0"
+                      step="1"
+                      [ngModel]="f.reponer"
+                      (ngModelChange)="f.reponer = +$event"
+                      [attr.aria-label]="'Unidades a añadir de ' + f.descripcion"
+                    />
+                  </td>
+                  <td class="num">
+                    <button type="button" class="boton boton--pequeno" [disabled]="trabajando()" (click)="reponer(f)">
+                      Tengo más
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+
+        <ng-container pie>
+          <button type="button" class="boton" (click)="faltanEnAlmacen.set([])">Cancelar</button>
+          <button type="button" class="boton boton--principal" [disabled]="trabajando()" (click)="volcar()">
+            Volcar igualmente
+          </button>
+        </ng-container>
+      </app-dialogo>
+    }
 
     <!-- Alta de una línea de mano de obra -->
     @if (anadiendo() === 'mano-obra') {
@@ -262,12 +316,17 @@
             <option [ngValue]="null">
               {{ familia() ? 'Elige la pieza de ' + familia() + '…' : 'Elige del almacén…' }}
             </option>
-            @for (p of piezas(); track p.id) {
-              <option [ngValue]="p.id">
-                {{ p.sku }} · {{ p.descripcion }}
-                @if (vePrecios) { — {{ p.precioVenta | number: '1.2-2' : 'es' }} € }
-                (quedan {{ p.stockActual | number: '1.0-2' : 'es' }})
-              </option>
+            <!-- optgroup: el navegador ya separa por grupo, no hace falta pintarlo -->
+            @for (g of piezasPorGrupo(); track g.grupo) {
+              <optgroup [label]="g.grupo">
+                @for (p of g.piezas; track p.id) {
+                  <option [ngValue]="p.id">
+                    {{ p.sku }} · {{ p.descripcion }}
+                    @if (vePrecios) { — {{ p.precioVenta | number: '1.2-2' : 'es' }} € }
+                    (quedan {{ p.stockActual | number: '1.0-2' : 'es' }})
+                  </option>
+                }
+              </optgroup>
             }
           </select>
         </div>
@@ -296,6 +355,10 @@
             />
           </div>
         }
+        <button type="button" class="boton" (click)="altaPieza.set(true)" title="Crear una pieza que todavía no está en el almacén">
+          <app-icono nombre="mas" [tamano]="14" />
+          Pieza nueva
+        </button>
         <button type="button" class="boton" (click)="anadiendo.set(null)">Cancelar</button>
         <button
           type="button"
@@ -308,6 +371,7 @@
       </div>
       <p class="pie-alta">
         Añadirla al presupuesto no la saca del almacén: eso ocurre al entrar en reparación.
+        ¿No está en la lista? «Pieza nueva» la da de alta aquí mismo y la deja elegida.
       </p>
     }
 
@@ -594,4 +658,17 @@
       </div>
     </div>
   </div>
+} @else {
+  <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
+  <div class="vacio">
+    <span class="vacio__titulo">No se ha podido abrir esta orden</span>
+    <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
+    <a routerLink="/ordenes" class="boton boton--pequeno">Volver a órdenes de trabajo</a>
+  </div>
+}
+
+<!-- Alta de pieza sin salir del presupuesto. Es el mismo formulario del
+     almacén: la ficha que sale de aquí es una ficha normal y corriente. -->
+@if (altaPieza()) {
+  <app-formulario-pieza (cerrar)="altaPieza.set(false)" (guardado)="trasAltaPieza($event)" />
 }

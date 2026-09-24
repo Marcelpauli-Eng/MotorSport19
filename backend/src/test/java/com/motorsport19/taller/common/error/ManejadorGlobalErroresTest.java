@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.sql.BatchUpdateException;
 import java.sql.SQLException;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -102,6 +103,34 @@ class ManejadorGlobalErroresTest {
 
         assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
         assertThat(respuesta.getBody().mensaje()).contains("Numeracion no correlativa");
+    }
+
+    @Test
+    @DisplayName("con escritura por lotes se enseña el mensaje del trigger, no la sentencia SQL")
+    void errorDentroDeUnLote() {
+        SQLException trigger = new SQLException(
+                "ERROR: La OT OT-2026-00001 esta ENTREGADA y es inmutable\n  Where: PL/pgSQL function", "23001");
+        BatchUpdateException lote = new BatchUpdateException(
+                "Batch entry 0 update orden_trabajo set estado=('LISTA') where id=('1') was aborted: "
+                + "ERROR: La OT OT-2026-00001 esta ENTREGADA y es inmutable  Call getNextException to see other errors in the batch.",
+                "23001", 0, new int[0], trigger);
+
+        ResponseEntity<RespuestaError> respuesta = manejador.integridad(
+                new DataIntegrityViolationException("could not execute batch", lote), peticion);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        assertThat(respuesta.getBody().mensaje())
+                .isEqualTo("La OT OT-2026-00001 esta ENTREGADA y es inmutable");
+    }
+
+    @Test
+    @DisplayName("un texto mas largo que la columna da 400 en espanol, no el mensaje de PostgreSQL")
+    void textoDemasiadoLargo() {
+        ResponseEntity<RespuestaError> respuesta = manejador.integridad(
+                errorDeTrigger("22001", "value too long for type character varying(300)"), peticion);
+
+        assertThat(respuesta.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(respuesta.getBody().mensaje()).contains("demasiado largo").doesNotContain("varying");
     }
 
     @Test

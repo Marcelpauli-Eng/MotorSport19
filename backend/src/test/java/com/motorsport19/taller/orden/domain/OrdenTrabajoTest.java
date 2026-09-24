@@ -165,6 +165,22 @@ class OrdenTrabajoTest {
         }
 
         @Test
+        @DisplayName("aprobar con el nombre en blanco apunta al titular y no deja «Aprobado por » vacio")
+        void aprobarSinNombre() {
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.iniciarDiagnostico(null, null);
+            orden.registrarDiagnostico("Pastillas gastadas");
+            orden.anadirManoDeObra("Cambio de pastillas", new BigDecimal("1"), BigDecimal.ZERO,
+                    "GENERAL", new BigDecimal("21.00"));
+            orden.presupuestar(null);
+
+            orden.aprobar("   ", null);
+
+            assertThat(orden.getAprobadoPor()).isEqualTo("Carlos Nunez Prieto");
+            assertThat(orden.getHistorialEstados().getLast().getMotivo()).isNull();
+        }
+
+        @Test
         @DisplayName("el rechazo exige motivo y cierra la orden")
         void rechazo() {
             OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();

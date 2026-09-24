@@ -11,19 +11,17 @@ import java.util.List;
 /**
  * Emision de una factura rectificativa.
  *
- * @param tipoRectificativa POR_SUSTITUCION si las lineas sustituyen integramente
- *                          a las de la original; POR_DIFERENCIAS si recogen solo
- *                          el ajuste
- * @param lineas            lineas corregidas. Pueden ir vacias solo en una
- *                          rectificativa POR_DIFERENCIAS, y entonces se genera el
- *                          negativo exacto de la original (anulacion completa)
+ * @param tipoRectificativa solo se admite POR_DIFERENCIAS: una por sustitucion
+ *                          se contaria dos veces en los informes
+ * @param lineas            lo que cambia, en negativo lo que se quita. Vacias, se
+ *                          anula lo que la factura vale hoy
  */
 public record RectificarFacturaRequest(
 
         @NotNull(message = "Hay que indicar la serie de rectificativas")
         Long serieId,
 
-        @NotNull(message = "Hay que indicar si la rectificativa es por sustitucion o por diferencias")
+        @NotNull(message = "Hay que indicar el tipo de rectificativa: POR_DIFERENCIAS")
         TipoRectificativa tipoRectificativa,
 
         @NotBlank(message = "Hay que explicar el motivo de la rectificacion")

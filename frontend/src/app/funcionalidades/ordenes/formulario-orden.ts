@@ -87,7 +87,7 @@ export class FormularioOrden {
   /** Moto ya elegida: entonces no se pregunta cuál entra. */
   readonly motoFijada = input<number | null>(null);
 
-  protected readonly reparteTrabajo = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  protected readonly reparteTrabajo = inject(SesionService).tienePermiso('ORDENES_ASIGNAR_TECNICO');
 
   /**
    * Fija el camino y esconde el selector.

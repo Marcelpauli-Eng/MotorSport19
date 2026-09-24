@@ -1,4 +1,3 @@
-import { Rol } from '../servicios/sesion.service';
 
 export interface TipoIva {
   codigo: string;
@@ -28,6 +27,12 @@ export interface ConfiguracionTaller {
   tipoIvaDefecto: string;
   /** Horas de taller al día. La agenda avisa cuando un día las pasa. */
   capacidadDiariaHoras: number;
+  /** Importe (IVA incluido) a partir del cual una factura ya no puede ser simplificada. */
+  limiteFacturaSimplificada: number;
+  /** Familia de pieza que se cobra con tasa de reciclaje. Nula: tasa desactivada. */
+  familiaNeumaticos: string | null;
+  piezaTasaNeumaticoId: number | null;
+  piezaTasaNeumaticoNombre: string | null;
   softwareNombre: string;
   softwareVersion: string;
   tiposIva: TipoIva[];

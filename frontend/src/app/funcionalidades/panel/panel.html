@@ -7,6 +7,7 @@
 
 <div class="apilado">
   <!-- Lo que reclama acción -->
+  @if (metricas().length) {
   <div class="metricas">
     @for (m of metricas(); track m.texto) {
       <a [routerLink]="m.ruta" class="metrica" [class.metrica--atencion]="m.atencion">
@@ -15,8 +16,10 @@
       </a>
     }
   </div>
+  }
 
   <!-- Tablero por estados -->
+  @if (veOrdenes()) {
   <section class="tarjeta tarjeta--ajustada">
     <div class="tarjeta__titulo">
       <h2>Trabajo en curso <span class="contador">{{ totalAbiertas() }}</span></h2>
@@ -62,8 +65,9 @@
       </div>
     }
   </section>
+  }
 
-  @if (veFacturacion && informe(); as inf) {
+  @if (veInformes() && informe(); as inf) {
     <div class="rejilla rejilla--dos">
       <section class="tarjeta">
         <div class="tarjeta__titulo">
@@ -92,6 +96,7 @@
 
   <div class="rejilla rejilla--dos">
     <!-- Reposición -->
+    @if (veAlmacen()) {
     <section class="tarjeta tarjeta--ajustada">
       <div class="tarjeta__titulo">
         <h2>Piezas por reponer <span class="contador">{{ alertas().length }}</span></h2>
@@ -136,9 +141,10 @@
         </div>
       }
     </section>
+    }
 
     <!-- Últimas facturas: solo para quien puede facturar -->
-    @if (veFacturacion) {
+    @if (veFacturas()) {
       <section class="tarjeta tarjeta--ajustada">
         <div class="tarjeta__titulo">
           <h2>Últimas facturas</h2>

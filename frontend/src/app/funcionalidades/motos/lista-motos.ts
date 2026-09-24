@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -127,7 +128,7 @@ export class ListaMotos {
   protected readonly totalPaginas = signal(0);
   protected readonly texto = signal('');
   protected readonly mostrarFormulario = signal(false);
-  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  protected readonly puedeEditar = inject(SesionService).tienePermiso('MOTOS_CREAR', 'MOTOS_EDITAR');
 
   protected trasGuardar(): void {
     this.mostrarFormulario.set(false);
@@ -135,6 +136,7 @@ export class ListaMotos {
   }
 
   constructor() {
+    alCambiarDatos(() => this.cargar(this.pagina()));
     this.cargar();
   }
 

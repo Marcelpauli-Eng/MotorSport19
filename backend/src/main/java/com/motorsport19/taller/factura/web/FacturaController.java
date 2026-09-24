@@ -109,6 +109,24 @@ public class FacturaController {
                 "%s/%d/%06d".formatted(serie, ejercicio, numero)));
     }
 
+    /**
+     * Facturas emitidas desde una orden de trabajo.
+     *
+     * <p>Sirve para poder ir de la orden a su factura. Devuelve una lista y no
+     * una sola porque una orden puede acabar teniendo su ordinaria y las
+     * rectificativas que la corrijan.
+     */
+    @GetMapping("/orden/{ordenId}")
+    public List<FacturaResumenResponse> deLaOrden(@PathVariable Long ordenId) {
+        return facturacionService.deOrden(ordenId).stream().map(FacturaResumenResponse::de).toList();
+    }
+
+    /** Lo que vale hoy la factura, con sus rectificativas aplicadas: de ahi parte una correccion. */
+    @GetMapping("/{id}/lineas-vigentes")
+    public List<LineaAFacturar> lineasVigentes(@PathVariable Long id) {
+        return facturacionService.lineasVigentes(id);
+    }
+
     /** Rectificativas emitidas sobre una factura. */
     @GetMapping("/{id}/rectificativas")
     public List<FacturaResumenResponse> rectificativas(@PathVariable Long id) {

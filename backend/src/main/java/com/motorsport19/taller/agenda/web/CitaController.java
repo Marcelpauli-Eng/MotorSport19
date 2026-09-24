@@ -141,7 +141,7 @@ public class CitaController {
                 peticion.fechaHora(), peticion.duracionEstimada(), peticion.motoId(),
                 peticion.clienteId(), peticion.contactoNombre(), peticion.contactoTelefono(),
                 peticion.descripcionMoto(), peticion.motivo(), peticion.tecnicoId(),
-                peticion.observaciones());
+                peticion.observaciones(), usuarioActual.id());
 
         return ResponseEntity
                 .created(uriBuilder.path("/citas/{id}").build(cita.getId()))
@@ -162,7 +162,7 @@ public class CitaController {
     @PutMapping("/{id}/fecha")
     public CitaResponse reprogramar(@PathVariable Long id,
                                     @Valid @RequestBody ReprogramarRequest peticion) {
-        return CitaResponse.de(citaService.reprogramar(id, peticion.fechaHora()));
+        return CitaResponse.de(citaService.reprogramar(id, peticion.fechaHora(), usuarioActual.id()));
     }
 
     // ------------------------------------------------------------------
@@ -171,7 +171,7 @@ public class CitaController {
 
     @PostMapping("/{id}/confirmacion")
     public CitaResponse confirmar(@PathVariable Long id) {
-        return CitaResponse.de(citaService.confirmar(id));
+        return CitaResponse.de(citaService.confirmar(id, usuarioActual.id()));
     }
 
     /** La moto ha llegado: abre su orden de trabajo y cierra la cita. */
@@ -186,7 +186,7 @@ public class CitaController {
     @PostMapping("/{id}/cancelacion")
     public CitaResponse cancelar(@PathVariable Long id,
                                  @RequestBody(required = false) MotivoRequest peticion) {
-        return CitaResponse.de(citaService.cancelar(id, peticion == null ? null : peticion.motivo()));
+        return CitaResponse.de(citaService.cancelar(id, peticion == null ? null : peticion.motivo(), usuarioActual.id()));
     }
 
     /** El cliente no aparecio. Se distingue de cancelar: el hueco se perdio. */
@@ -194,7 +194,7 @@ public class CitaController {
     public CitaResponse marcarNoPresentado(@PathVariable Long id,
                                            @RequestBody(required = false) MotivoRequest peticion) {
         return CitaResponse.de(
-                citaService.marcarNoPresentado(id, peticion == null ? null : peticion.motivo()));
+                citaService.marcarNoPresentado(id, peticion == null ? null : peticion.motivo(), usuarioActual.id()));
     }
 
     // ------------------------------------------------------------------

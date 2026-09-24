@@ -6,13 +6,26 @@
    pantalla; aquí solo se resume.
    ============================================================ */
 
+/* Las secciones de la ficha, separadas de una en una.
+   Van pegadas de más para lo largas que son: el ojo necesita el hueco para
+   saber dónde acaba una y empieza la siguiente, sobre todo ahora que el color
+   marca en cuál hay que trabajar. */
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--e6);
+}
+
 .volver {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin-bottom: var(--e3);
+  /* El enlace de volver se queda pegado a su cabecera: es su título, no una
+     sección más. */
+  margin-bottom: calc(var(--e3) - var(--e6));
   font-size: 0.8125rem;
   color: var(--gris-500);
+  align-self: flex-start;
 }
 
 .volver:hover { color: var(--gris-900); text-decoration: none; }
@@ -25,7 +38,6 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: var(--e3) var(--e5);
-  margin-bottom: var(--e4);
   padding: var(--e4) var(--e5);
   background: var(--blanco);
   border: var(--borde);
@@ -76,6 +88,39 @@
 .pasos-tarjeta {
   background: linear-gradient(var(--azul-suave), var(--blanco) 120px);
   border-color: var(--azul-borde);
+}
+
+/* ---------- La sección en la que toca trabajar ahora ----------
+   Mismo tratamiento que el recorrido, y a propósito: el técnico aprende que el
+   rosa es «aquí», y en cada paso solo hay una sección pintada. La ficha es
+   larga y sin esto hay que acordarse de si faltaba el diagnóstico o las horas. */
+
+.zona--activa {
+  background: linear-gradient(var(--azul-suave), var(--blanco) 120px);
+  border-color: var(--azul-borde);
+}
+
+.marca-ahora {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--e2);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--blanco);
+  background: var(--azul);
+  border-radius: 999px;
+}
+
+/* Qué toca, cuando lo que toca está más abajo y no es un botón de aquí. */
+.ahora-toca {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--azul-oscuro);
 }
 
 .pasos {

@@ -1,7 +1,7 @@
 # Batería de pruebas de extremo a extremo
 
 Recorre el programa entero por HTTP, como lo recorrería el taller en un día de
-trabajo, y comprueba **321 cosas** en 16 secciones. Se lanza con un comando:
+trabajo, y comprueba **346 cosas** en 17 secciones. Se lanza con un comando:
 
 ```bash
 ./pruebas/api/lanzar.sh
@@ -32,6 +32,11 @@ para un servidor de integración continua.
 | 14 | Concurrencia | Botones pulsados a la vez: facturas, almacén, altas duplicadas |
 | 15 | Robustez | Cuerpos rotos, tipos equivocados, textos gigantes, emojis, inyección SQL |
 | 16 | Bajas | No hacer desaparecer cosas que se están usando |
+| 17 | Auditoría | Fichaje obligatorio, tasa de neumáticos, facturas de una orden, parámetros que faltan, textos largos, notas del alta, corregir parte de una factura sin poder anularla dos veces, solo rectificativas por diferencias, permisos de roles |
+
+Quien no está exento de fichar recibe 423 en todo hasta empezar la jornada, así
+que `entrar()` del arnés empieza la jornada de esas sesiones, como haría el
+taller a primera hora.
 
 ## En qué se diferencia de los tests de JUnit
 
@@ -48,14 +53,16 @@ mal, dos peticiones a la vez, un token que sigue valiendo cuando ya no debería.
 
 - `arnes.py` — la sesión HTTP, el registro de resultados y los generadores de
   datos válidos (NIF con letra correcta, matrículas, SKUs).
-- `suite.py` — las 16 secciones. Cada comprobación se lee como una acción de
+- `suite.py` — las 17 secciones. Cada comprobación se lee como una acción de
   taller, no como una petición HTTP.
 - `lanzar.sh` — lo anterior, automatizado.
 
 ## Avisos
 
 Además de OK/FALLO, la batería puede dar **avisos**: cosas que no son fallos pero
-convendría mirar. Ahora mismo salen dos:
+convendría mirar. Ahora mismo no sale ninguno. Los dos que salían se decidieron así:
 
-- La lista para asignar órdenes a un técnico incluye al administrador.
-- Deja dar de alta una pieza que se vende por debajo del coste sin decir nada.
+- Que la lista para asignar órdenes incluya al administrador es a propósito: recibe
+  trabajo quien puede moverlo, y en un taller pequeño la dirección también repara.
+- Dar de alta una pieza por debajo del coste se admite (una liquidación existe); el
+  formulario pregunta antes de guardarla.

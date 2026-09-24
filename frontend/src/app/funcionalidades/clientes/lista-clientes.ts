@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -152,7 +153,7 @@ export class ListaClientes {
   protected readonly mostrarFormulario = signal(false);
 
   /** Dar de alta clientes es cosa de mostrador y dirección. */
-  protected readonly puedeEditar = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  protected readonly puedeEditar = inject(SesionService).tienePermiso('CLIENTES_CREAR', 'CLIENTES_EDITAR');
 
   protected trasGuardar(): void {
     this.mostrarFormulario.set(false);
@@ -160,6 +161,7 @@ export class ListaClientes {
   }
 
   constructor() {
+    alCambiarDatos(() => this.cargar(this.pagina()));
     this.cargar();
   }
 

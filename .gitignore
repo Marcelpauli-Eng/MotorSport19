@@ -37,3 +37,8 @@ backend/exportaciones/
 # La config real de rclone lleva credenciales del destino de copias.
 infra/respaldo/rclone.conf
 !infra/respaldo/rclone.conf.example
+
+# ---------- Copias de macOS/iCloud ----------
+# «Fichero 2.java» junto a «Fichero.java»: aparecen solas al sincronizar y
+# rompen la compilacion (clase duplicada). Nunca deben entrar al repositorio.
+* [0-9].*

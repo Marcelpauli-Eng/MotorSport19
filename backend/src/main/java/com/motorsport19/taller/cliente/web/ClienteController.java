@@ -111,7 +111,8 @@ public class ClienteController {
         Cliente cliente = clienteService.crear(
                 peticion.nombre(), peticion.apellidos(), peticion.telefono(), peticion.email(),
                 peticion.tipoDocumento(), peticion.documento(), peticion.direccion(),
-                peticion.codigoPostal(), peticion.ciudad(), peticion.provincia(), peticion.pais());
+                peticion.codigoPostal(), peticion.ciudad(), peticion.provincia(), peticion.pais(),
+                peticion.observaciones());
 
         return ResponseEntity
                 .created(uriBuilder.path("/clientes/{id}").build(cliente.getId()))

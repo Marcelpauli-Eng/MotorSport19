@@ -241,14 +241,14 @@ public class CitaService {
     @Transactional
     public Cita agendar(Instant fechaHora, BigDecimal duracionEstimada, Long motoId, Long clienteId,
                         String contactoNombre, String contactoTelefono, String descripcionMoto,
-                        String motivo, Long tecnicoId, String observaciones) {
+                        String motivo, Long tecnicoId, String observaciones, Long usuarioId) {
 
         Moto moto = motoId == null ? null : motoService.obtener(motoId);
         avisarSiYaTieneCita(moto, fechaHora);
 
         Cita cita = Cita.agendar(fechaHora, duracionEstimada, moto, cargarCliente(clienteId),
                 contactoNombre, contactoTelefono, descripcionMoto, motivo,
-                cargarUsuario(tecnicoId), observaciones);
+                cargarUsuario(tecnicoId), observaciones, cargarUsuario(usuarioId));
 
         Cita guardada = citaRepository.save(cita);
         log.info("Cita {} agendada para el {}", guardada.getId(), fechaHora);
@@ -270,31 +270,31 @@ public class CitaService {
 
     /** Mueve la cita de dia sin tocar el resto de la ficha. */
     @Transactional
-    public Cita reprogramar(Long id, Instant nuevaFechaHora) {
+    public Cita reprogramar(Long id, Instant nuevaFechaHora, Long usuarioId) {
         Cita cita = obtener(id);
-        cita.reprogramar(nuevaFechaHora);
+        cita.reprogramar(nuevaFechaHora, cargarUsuario(usuarioId));
         return cita;
     }
 
     @Transactional
-    public Cita confirmar(Long id) {
+    public Cita confirmar(Long id, Long usuarioId) {
         Cita cita = obtener(id);
-        cita.confirmar();
+        cita.confirmar(cargarUsuario(usuarioId));
         return cita;
     }
 
     @Transactional
-    public Cita cancelar(Long id, String motivo) {
+    public Cita cancelar(Long id, String motivo, Long usuarioId) {
         Cita cita = obtener(id);
-        cita.cancelar(motivo);
+        cita.cancelar(motivo, cargarUsuario(usuarioId));
         log.info("Cita {} cancelada", id);
         return cita;
     }
 
     @Transactional
-    public Cita marcarNoPresentado(Long id, String motivo) {
+    public Cita marcarNoPresentado(Long id, String motivo, Long usuarioId) {
         Cita cita = obtener(id);
-        cita.marcarNoPresentado(motivo);
+        cita.marcarNoPresentado(motivo, cargarUsuario(usuarioId));
         return cita;
     }
 
@@ -330,7 +330,7 @@ public class CitaService {
                 cita.getTecnico() == null ? null : cita.getTecnico().getId(),
                 cita.getObservaciones(), usuarioId);
 
-        cita.atender(orden);
+        cita.atender(orden, cargarUsuario(usuarioId));
         log.info("Cita {} atendida: abierta la orden {}", id, orden.codigoVisible());
         return cita;
     }

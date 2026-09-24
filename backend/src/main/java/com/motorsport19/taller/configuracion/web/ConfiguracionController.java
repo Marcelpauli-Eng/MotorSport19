@@ -1,5 +1,9 @@
 package com.motorsport19.taller.configuracion.web;
 
+import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.inventario.domain.Pieza;
+import com.motorsport19.taller.inventario.repository.PiezaRepository;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
@@ -34,10 +38,13 @@ public class ConfiguracionController {
 
     private final ConfiguracionTallerRepository repositorio;
     private final TipoIvaRepository tiposIva;
+    private final PiezaRepository piezas;
 
-    public ConfiguracionController(ConfiguracionTallerRepository repositorio, TipoIvaRepository tiposIva) {
+    public ConfiguracionController(ConfiguracionTallerRepository repositorio,
+                                   TipoIvaRepository tiposIva, PiezaRepository piezas) {
         this.repositorio = repositorio;
         this.tiposIva = tiposIva;
+        this.piezas = piezas;
     }
 
     /**
@@ -74,6 +81,41 @@ public class ConfiguracionController {
         return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
     }
 
+    /**
+     * Configura la tasa de reciclaje de neumaticos, o la desactiva.
+     *
+     * <p>Endpoint propio y no un par de campos mas en el PUT de arriba: aquello
+     * son los datos fiscales del taller y esto es una regla de cobro. Mezclarlas
+     * obligaria a reenviar la razon social y el NIF para cambiar un desplegable.
+     *
+     * <p>Con cualquiera de los dos vacios queda desactivada, que es como sale de
+     * fabrica y como se queda un taller que no vende neumaticos.
+     */
+    @PutMapping("/tasa-neumatico")
+    @Transactional
+    public ConfiguracionResponse configurarTasaNeumatico(@Valid @RequestBody TasaNeumaticoRequest peticion) {
+        // Sin fila no se puede crear una a medias: la razon social y el NIF son
+        // obligatorios en la base, y guardarla vacia reventaba con la sentencia SQL
+        // entera como mensaje.
+        ConfiguracionTaller cfg = repositorio.findById(ConfiguracionTaller.ID_UNICO)
+                .orElseThrow(() -> new ReglaNegocioException(
+                        "Guarde primero los datos de la empresa; despues podra configurar la tasa de neumaticos."));
+
+        Pieza tasa = peticion.piezaTasaId() == null ? null
+                : piezas.findById(peticion.piezaTasaId()).orElseThrow(
+                        () -> RecursoNoEncontradoException.de("la pieza de la tasa",
+                                peticion.piezaTasaId()));
+
+        cfg.configurarTasaNeumatico(peticion.familiaNeumaticos(), tasa);
+        return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
+    }
+
+    /** @param piezaTasaId nulo para desactivar la tasa */
+    public record TasaNeumaticoRequest(
+            @Size(max = 60, message = "La familia no puede superar los 60 caracteres") String familiaNeumaticos,
+            Long piezaTasaId) {
+    }
+
     /** Lo que se puede cambiar, mas el catalogo de IVA para el desplegable. */
     public record ConfiguracionResponse(
             // false mientras el taller no haya guardado sus datos ni una vez.
@@ -83,6 +125,9 @@ public class ConfiguracionController {
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
             BigDecimal capacidadDiariaHoras,
             BigDecimal limiteFacturaSimplificada,
+            String familiaNeumaticos,
+            Long piezaTasaNeumaticoId,
+            String piezaTasaNeumaticoNombre,
             String softwareNombre, String softwareVersion,
             List<TipoIvaResponse> tiposIva
     ) {
@@ -93,6 +138,11 @@ public class ConfiguracionController {
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
                     c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
                     c.getLimiteFacturaSimplificada(),
+                    c.getFamiliaNeumaticos(),
+                    c.getPiezaTasaNeumatico() == null ? null : c.getPiezaTasaNeumatico().getId(),
+                    c.getPiezaTasaNeumatico() == null ? null
+                            : c.getPiezaTasaNeumatico().getSku() + " · "
+                              + c.getPiezaTasaNeumatico().getDescripcion(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
@@ -105,6 +155,8 @@ public class ConfiguracionController {
                     null, "GENERAL", null,
                     // El tope que trae la instalacion de serie; la gestoria lo confirma.
                     ConfiguracionTaller.LIMITE_SIMPLIFICADA_POR_DEFECTO,
+                    // Sin estrenar no hay tasa de neumaticos: se configura si el taller los vende.
+                    null, null, null,
                     ConfiguracionTaller.SOFTWARE_NOMBRE, ConfiguracionTaller.SOFTWARE_VERSION,
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }

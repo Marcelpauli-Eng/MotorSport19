@@ -9,7 +9,7 @@
 </div>
 
 <div class="apilado">
-  @if (esAdmin) {
+  @if (veSeries || veRoles || veUsuarios) {
     <div class="pestanas">
       <button
         type="button"
@@ -19,6 +19,7 @@
       >
         Empresa y facturación
       </button>
+      @if (veSeries) {
       <button
         type="button"
         class="pestana"
@@ -27,6 +28,8 @@
       >
         Series de facturación
       </button>
+      }
+      @if (veRoles) {
       <button
         type="button"
         class="pestana"
@@ -35,6 +38,8 @@
       >
         Roles y permisos
       </button>
+      }
+      @if (veUsuarios) {
       <button
         type="button"
         class="pestana"
@@ -43,6 +48,7 @@
       >
         Usuarios
       </button>
+      }
     </div>
   }
 
@@ -211,6 +217,25 @@
               no impide meter una urgencia más.
             </span>
           </div>
+
+          <div class="campo" id="limite-simplificada">
+            <label for="limiteSimplificada">Límite de la factura simplificada</label>
+            <input
+              id="limiteSimplificada"
+              type="number"
+              step="0.01"
+              min="0"
+              [disabled]="!esAdmin"
+              [ngModel]="b.limiteFacturaSimplificada"
+              (ngModelChange)="campo('limiteFacturaSimplificada', +$event)"
+            />
+            <span class="pequeno silenciado">
+              Por encima de este importe (IVA incluido) la factura ya no puede ser simplificada:
+              hace falta el nombre, el NIF y el domicilio del cliente. La ley (RD 1619/2012) marca
+              400 € con carácter general; solo algunas actividades tienen ese límite ampliado a
+              3.000 €. Confírmalo con tu gestoría antes de subirlo.
+            </span>
+          </div>
         </div>
 
         @if (esAdmin) {
@@ -233,6 +258,66 @@
           Emite {{ b.softwareNombre }} {{ b.softwareVersion }}. Esos datos identifican al programa,
           no al taller, y no se tocan desde aquí.
         </p>
+
+        <!--
+          Tasa de reciclaje: se guarda aparte de los datos fiscales porque es una
+          regla de cobro, no la identidad del taller. Su propio botón para no
+          obligar a reenviar la razón social al cambiar un desplegable.
+        -->
+        @if (esAdmin) {
+          <div class="separador" style="margin-top: var(--e4)"></div>
+          <h3 style="margin-top: var(--e4)">Tasa de reciclaje de neumáticos</h3>
+          <p class="pequeno silenciado">
+            Al añadir un neumático al presupuesto se añade sola su tasa, con la misma cantidad.
+            Déjalo vacío si el taller no vende neumáticos.
+          </p>
+
+          <div class="rejilla-2" style="margin-top: var(--e3)">
+            <div class="campo">
+              <label for="familia-neu">Qué familia son los neumáticos</label>
+              <select
+                id="familia-neu"
+                [ngModel]="familiaNeumaticos()"
+                (ngModelChange)="familiaNeumaticos.set($event)"
+              >
+                <option value="">Sin tasa</option>
+                @for (f of familiasPieza(); track f) {
+                  <option [value]="f">{{ f }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="campo">
+              <label for="pieza-tasa">Qué pieza se cobra como tasa</label>
+              <select
+                id="pieza-tasa"
+                [ngModel]="piezaTasaId()"
+                (ngModelChange)="piezaTasaId.set($event ? +$event : null)"
+              >
+                <option [ngValue]="null">Sin tasa</option>
+                @for (p of piezasParaTasa(); track p.id) {
+                  <option [ngValue]="p.id">
+                    {{ p.sku }} · {{ p.descripcion }} — {{ p.precioVenta | number: '1.2-2' : 'es' }} €
+                  </option>
+                }
+              </select>
+              <span class="pequeno silenciado">
+                Es una pieza normal del almacén: para subir la tasa, cambias su precio de venta.
+              </span>
+            </div>
+          </div>
+
+          <div class="fila fila--fin" style="margin-top: var(--e3)">
+            <button
+              type="button"
+              class="boton boton--principal"
+              [disabled]="guardandoTasa()"
+              (click)="guardarTasaNeumatico()"
+            >
+              {{ guardandoTasa() ? 'Guardando…' : 'Guardar la tasa' }}
+            </button>
+          </div>
+        }
       </section>
     }
   }
@@ -241,7 +326,7 @@
        Sin una serie abierta no se puede emitir ni una factura. Antes solo
        existían en el juego de datos de demostración, así que una instalación
        de verdad se quedaba sin poder facturar y sin saber por qué. -->
-  @if (pestana() === 'series' && esAdmin) {
+  @if (pestana() === 'series' && veSeries) {
     @if (cargandoSeries()) {
       <app-cargando mensaje="Cargando las series…" />
     } @else {
@@ -410,7 +495,7 @@
        El administrador compone los roles marcando lo que puede hacer cada uno.
        El catálogo lo sirve el backend: cada casilla se comprueba de verdad en
        la API, así que ninguna es decorativa. -->
-  @if (pestana() === 'roles' && esAdmin) {
+  @if (pestana() === 'roles' && veRoles) {
     @if (cargandoRoles()) {
       <app-cargando mensaje="Cargando los roles…" />
     } @else if (editandoRol()) {
@@ -587,7 +672,7 @@
     }
   }
 
-  @if (pestana() === 'usuarios' && esAdmin) {
+  @if (pestana() === 'usuarios' && veUsuarios) {
     <section class="tarjeta tarjeta--ajustada">
       <div class="tarjeta__titulo">
         <h2>Quién entra en el programa</h2>
@@ -603,7 +688,7 @@
             <tr>
               <th>Nombre</th>
               <th>Usuario</th>
-              <th>Perfil</th>
+              <th>Rol</th>
               <th>Último acceso</th>
               <th></th>
             </tr>
@@ -620,7 +705,17 @@
                   </div>
                 </td>
                 <td class="mono">{{ u.username }}</td>
-                <td><span class="etiqueta etiqueta--gris">{{ u.rolDescripcion }}</span></td>
+                <!--
+                  El nombre del rol, que es lo que se busca en esta tabla: para
+                  qué sirve cada uno se lee en «Roles y permisos», y aquí lo
+                  único que se quiere saber de un vistazo es quién es qué. La
+                  descripción se queda a mano, al pasar el ratón por encima.
+                -->
+                <td>
+                  <span class="etiqueta etiqueta--gris" [title]="u.rolDescripcion ?? ''">
+                    {{ u.rol }}
+                  </span>
+                </td>
                 <td class="pequeno silenciado">
                   {{ u.ultimoAcceso ? (u.ultimoAcceso | date: 'd MMM · HH:mm' : undefined : 'es') : 'Nunca' }}
                 </td>

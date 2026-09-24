@@ -62,6 +62,194 @@
       </section>
     }
 
+    <!--
+      Corregir una factura. Es la única forma: una factura emitida no se edita
+      ni se borra, así que este botón lleva a emitir otra que la corrija.
+
+      No sale en las rectificativas —no se rectifica una corrección, se
+      corrige la original— ni si el taller no tiene abierta una serie para
+      ellas, y en ese caso se dice, que es mejor que un botón que falla.
+    -->
+    @if (puedeRectificar()) {
+      <section class="tarjeta rectificar">
+        <div>
+          <p class="negrita">¿Hay algo mal en esta factura?</p>
+          <p class="pequeno silenciado">
+            No se puede editar ni borrar: se corrige con una rectificativa que ajusta lo que estaba mal
+            o la anula entera. La original se queda como está y las dos quedan enlazadas.
+          </p>
+        </div>
+        @if (serieRectificativa()) {
+          <button type="button" class="boton" (click)="abrirRectificar()">Rectificar</button>
+        } @else {
+          <a routerLink="/ajustes" class="boton boton--pequeno">Abrir una serie rectificativa</a>
+        }
+      </section>
+    }
+
+    <!-- Diálogo de rectificación -->
+    @if (rectificando()) {
+      <app-dialogo
+        titulo="Rectificar la factura"
+        [subtitulo]="f.numeroCompleto"
+        (cerrar)="rectificando.set(false)"
+        class="dialogo--ancho"
+      >
+        <div class="apilado">
+        @if (filas() === null) {
+          <app-cargando mensaje="Cargando lo que vale hoy la factura…" />
+        } @else if (!filas()!.length && !anularEntera()) {
+          <p>Esta factura ya está anulada: no queda nada que corregir.</p>
+        } @else {
+          <div class="pestanas" role="tablist">
+            <button type="button" role="tab" class="pestana" [class.pestana--activa]="!anularEntera()"
+              [attr.aria-selected]="!anularEntera()" (click)="anularEntera.set(false)">
+              Corregir conceptos
+            </button>
+            <button type="button" role="tab" class="pestana" [class.pestana--activa]="anularEntera()"
+              [attr.aria-selected]="anularEntera()" (click)="anularEntera.set(true)">
+              Anular entera
+            </button>
+          </div>
+
+          @if (anularEntera()) {
+            <div class="aviso aviso--ambar">
+              <div>
+                <p class="negrita" style="margin: 0">Se anula la factura entera.</p>
+                <p class="pequeno" style="margin: 0.3rem 0 0">
+                  Sale una rectificativa con lo que vale hoy en negativo y la factura queda a cero. No se
+                  puede deshacer, y la orden no se puede volver a facturar.
+                </p>
+              </div>
+            </div>
+          } @else {
+            <p class="pequeno silenciado" style="margin: 0">
+              Deje los conceptos como deberían haber salido. Se emite una rectificativa solo con la
+              diferencia; la factura original no cambia.
+            </p>
+            <div class="tabla-envoltorio">
+              <table class="correccion">
+                <thead>
+                  <tr>
+                    <th>Concepto</th>
+                    <th class="num">Cant.</th>
+                    <th class="num">Precio</th>
+                    <th class="num">Dto. %</th>
+                    <th class="num">Total</th>
+                    <th aria-label="Acciones"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (fila of filas(); track $index; let i = $index) {
+                    <tr [class.correccion__quitada]="fila.quitada">
+                      <td>
+                        @if (!fila.original) {
+                          <select class="celda-input correccion__tipo" aria-label="Tipo de concepto"
+                            [ngModel]="fila.linea.tipo" (ngModelChange)="cambiarTipo(i, $event)">
+                            <option value="MANO_DE_OBRA">Mano de obra</option>
+                            <option value="PIEZA">Pieza</option>
+                          </select>
+                          @if (fila.linea.tipo === 'PIEZA' && veAlmacen) {
+                            <select class="celda-input correccion__tipo" aria-label="Pieza del almacén"
+                              [ngModel]="fila.linea.piezaSku" (ngModelChange)="elegirPieza(i, $event)">
+                              <option [ngValue]="null">
+                                {{ piezas() ? 'Elige del almacén…' : 'Cargando el almacén…' }}
+                              </option>
+                              <!-- optgroup: el navegador ya separa por grupo, como en el presupuesto -->
+                              @for (g of piezasPorGrupo(); track g.grupo) {
+                                <optgroup [label]="g.grupo">
+                                  @for (p of g.piezas; track p.id) {
+                                    <option [ngValue]="p.sku">
+                                      {{ p.sku }} · {{ p.descripcion }} — {{ (p.precioVenta ?? 0) | number: '1.2-2' : 'es' }} €
+                                    </option>
+                                  }
+                                </optgroup>
+                              }
+                            </select>
+                          }
+                        }
+                        <input class="celda-input correccion__descripcion" aria-label="Descripción"
+                          maxlength="300" [disabled]="fila.quitada" placeholder="Qué se cobra"
+                          [ngModel]="fila.linea.descripcion" (ngModelChange)="cambiar(i, { descripcion: $event })" />
+                      </td>
+                      <td class="num">
+                        <input type="number" class="celda-input" step="0.5" aria-label="Cantidad"
+                          [disabled]="fila.quitada" [ngModel]="fila.linea.cantidad"
+                          (ngModelChange)="cambiar(i, { cantidad: numero($event) })" />
+                      </td>
+                      <td class="num">
+                        <input type="number" class="celda-input" step="0.01" min="0" aria-label="Precio unitario"
+                          [disabled]="fila.quitada" [ngModel]="fila.linea.precioUnitario"
+                          (ngModelChange)="cambiar(i, { precioUnitario: numero($event) })" />
+                      </td>
+                      <td class="num">
+                        <input type="number" class="celda-input" step="1" min="0" max="100" aria-label="Descuento"
+                          [disabled]="fila.quitada" [ngModel]="fila.linea.descuentoPct"
+                          (ngModelChange)="cambiar(i, { descuentoPct: numero($event) })" />
+                      </td>
+                      <td class="num">
+                        {{ (fila.quitada ? 0 : totalDe(fila.linea)) | number: '1.2-2' : 'es' }}
+                      </td>
+                      <td>
+                        <button type="button" class="boton boton--pequeno" (click)="alternarQuitada(i)">
+                          {{ fila.quitada ? 'Deshacer' : 'Quitar' }}
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="fila">
+              <button type="button" class="boton boton--pequeno" (click)="anadirConcepto()">
+                Añadir un concepto que no se cobró
+              </button>
+            </div>
+
+            <p class="correccion__resumen" aria-live="polite">
+              @if (problema(); as p) {
+                <span class="correccion__problema">{{ p }}</span>
+              } @else if (!lineasCorreccion().length) {
+                <span class="silenciado">Todavía no ha cambiado nada.</span>
+              } @else {
+                Vale hoy {{ valeHoy() | number: '1.2-2' : 'es' }} € · la rectificativa será de
+                <strong>{{ importeCorreccion() | number: '1.2-2' : 'es' }} €</strong> · quedará en
+                {{ valeHoy() + importeCorreccion() | number: '1.2-2' : 'es' }} €
+              }
+            </p>
+          }
+
+        <div class="campo" style="margin: 0">
+          <label for="motivoRect">Motivo <span class="silenciado">(obligatorio)</span></label>
+          <input
+            id="motivoRect"
+            [ngModel]="motivoRect()"
+            (ngModelChange)="motivoRect.set($event)"
+            placeholder="Se facturó una pieza que no se llegó a montar"
+          />
+          <span class="pequeno silenciado">
+            Lo exige Hacienda, y es lo que leerás tú dentro de un año al mirar por qué se corrigió.
+          </span>
+        </div>
+        }
+        </div>
+
+        <ng-container pie>
+          <button type="button" class="boton" (click)="rectificando.set(false)">Cancelar</button>
+          @if (filas()?.length) {
+            <button
+              type="button"
+              class="boton boton--principal"
+              [disabled]="!motivoRect().trim() || emitiendo() || (!anularEntera() && (!!problema() || !lineasCorreccion().length))"
+              (click)="rectificar()"
+            >
+              {{ emitiendo() ? 'Emitiendo…' : anularEntera() ? 'Anular la factura' : 'Emitir la corrección' }}
+            </button>
+          }
+        </ng-container>
+      </app-dialogo>
+    }
+
     @if (rectificativas().length) {
       <section class="tarjeta aviso-rectificativa">
         <p class="negrita">Esta factura ha sido rectificada</p>
@@ -208,5 +396,12 @@
         </ul>
       </section>
     }
+  </div>
+} @else {
+  <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
+  <div class="vacio">
+    <span class="vacio__titulo">No se ha podido abrir esta factura</span>
+    <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
+    <a routerLink="/facturas" class="boton boton--pequeno">Volver a facturas</a>
   </div>
 }

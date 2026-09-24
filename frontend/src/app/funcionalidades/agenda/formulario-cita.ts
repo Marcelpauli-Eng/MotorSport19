@@ -8,6 +8,7 @@ import { MotoResumen } from '../../nucleo/modelos/taller';
 import { CitasService, DatosCita } from '../../nucleo/servicios/citas.service';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
+import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 
 /** `2026-08-07T09:30` — lo que espera un input datetime-local, en hora local. */
@@ -76,7 +77,11 @@ export class FormularioCita {
 
   constructor() {
     this.motos.buscar('', true, 0, 300).subscribe((p) => this.listaMotos.set(p.contenido));
-    this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
+    // La lista de técnicos es de quien reparte trabajo; sin ese permiso la API
+    // la niega y la cita se da igual, sin técnico.
+    if (inject(SesionService).tienePermiso('ORDENES_ASIGNAR_TECNICO')) {
+      this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
+    }
 
     // El valor de `input()` no está puesto todavía cuando corre el constructor.
     queueMicrotask(() => {

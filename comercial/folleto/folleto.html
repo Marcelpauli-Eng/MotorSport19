@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>MotorSport19 · Folleto comercial</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  @page { size: A4; margin: 0; }
+  :root {
+    --tinta: #0a0c11; --noche: #14171f; --noche-2: #1c212b; --noche-3: #262c38;
+    --marca: #ff006d; --marca-f: #d9005c; --marca-t: #fff1f6; --marca-b: #ffc2d9;
+    --gris: #6d7686; --gris-2: #9aa2b1; --gris-3: #cbd1da; --fondo: #f4f6f9; --linea: #e3e7ed; --blanco: #fff;
+    --verde: #0f7a41;
+    --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --texto: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; background: #7a808b; }
+  body { font: 400 9.6pt/1.45 var(--texto); color: var(--tinta); }
+
+  .pagina { position: relative; width: 210mm; height: 297mm; overflow: hidden; background: var(--fondo);
+            padding: 15mm 15mm 0; page-break-after: always; break-after: page; margin: 0 auto; }
+  .pagina:last-child { page-break-after: auto; break-after: auto; }
+  .pagina--blanca { background: var(--blanco); }
+  .pagina--noche { background: var(--tinta); color: var(--blanco); }
+
+  .pie { position: absolute; left: 15mm; right: 15mm; bottom: 8mm; display: flex; justify-content: space-between;
+         font-size: 7pt; color: var(--gris-2); border-top: .2mm solid var(--linea); padding-top: 2.5mm; }
+  .pagina--noche .pie { border-color: var(--noche-3); color: var(--gris); }
+
+  .ceja { font: 700 8pt/1 var(--texto); letter-spacing: .14em; text-transform: uppercase; color: var(--marca-f); margin: 0 0 2.5mm; }
+  .pagina--noche .ceja { color: var(--marca); }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  h1 { font: 700 34pt/0.98 var(--display); letter-spacing: -.005em; }
+  h1 em { font-style: normal; color: var(--marca); }
+  .entradilla { margin: 3.5mm 0 0; font-size: 10.5pt; line-height: 1.5; color: var(--gris); max-width: 150mm; }
+  .pagina--noche .entradilla { color: var(--gris-3); }
+
+  .icono { width: 5.2mm; height: 5.2mm; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .ficha-icono { width: 10mm; height: 10mm; border-radius: 2.8mm; display: grid; place-items: center; background: var(--marca-t); color: var(--marca-f); flex: none; }
+  .pagina--noche .ficha-icono { background: #2c0a1e; color: var(--marca); }
+
+  /* ---------- Marcos de dispositivo ---------- */
+  .ventana { border-radius: 2.6mm; overflow: hidden; background: #fff; border: .3mm solid #cfd5de; }
+  .pagina--noche .ventana, .portada .ventana { border-color: #2a303c; }
+  .ventana__barra { height: 5.4mm; background: var(--noche); display: flex; align-items: center; gap: 1.3mm; padding: 0 2.6mm; }
+  .ventana__barra i { width: 1.7mm; height: 1.7mm; border-radius: 50%; background: #3a4150; }
+  .ventana__barra i:first-child { background: #ff5f57; } .ventana__barra i:nth-child(2) { background: #febc2e; } .ventana__barra i:nth-child(3) { background: #28c840; }
+  .ventana__url { margin-left: 3mm; font: 500 6.3pt/1 var(--texto); color: var(--gris-2); background: var(--noche-3); border-radius: 1.2mm; padding: 1mm 4mm; }
+  .ventana img { display: block; width: 100%; }
+  .tablet { background: #0b0d12; border-radius: 6.5mm; padding: 3mm; border: .4mm solid #2a303c; }
+  .tablet img { display: block; width: 100%; border-radius: 3.6mm; }
+  .movil { background: #0b0d12; border-radius: 8mm; padding: 2.3mm; border: .4mm solid #2a303c; }
+  .movil img { display: block; width: 100%; border-radius: 6mm; }
+  .pie-foto { margin: 2.6mm 0 0; font-size: 8.4pt; color: var(--gris); }
+  .pie-foto strong { color: var(--tinta); font-weight: 600; }
+  .pagina--noche .pie-foto { color: var(--gris-2); }
+  .pagina--noche .pie-foto strong { color: var(--blanco); }
+
+  /* ---------- 1. Portada ---------- */
+  .portada { padding: 0; background:
+      radial-gradient(135mm 135mm at 190mm 40mm, #5e0a36, var(--tinta) 72%); }
+  .portada__raya { position: absolute; top: -20mm; right: 38mm; width: 9mm; height: 175mm; background: #9a0045; transform: skewX(-22deg); }
+  .portada__raya--2 { right: 24mm; width: 3mm; background: #6a0332; }
+  .portada__cabecera { position: absolute; top: 14mm; left: 15mm; right: 15mm; display: flex; align-items: center; justify-content: space-between; }
+  .portada__cabecera img { height: 10.5mm; }
+  .chip { font: 600 7.5pt/1 var(--texto); letter-spacing: .08em; text-transform: uppercase; color: var(--gris-3); border: .3mm solid var(--noche-3); border-radius: 10mm; padding: 2mm 3.5mm; }
+  .portada__texto { position: absolute; top: 42mm; left: 15mm; width: 135mm; }
+  .portada h1 { font-size: 58pt; line-height: .92; color: var(--blanco); }
+  .portada .entradilla { font-size: 11.5pt; color: var(--gris-3); max-width: 118mm; margin-top: 5mm; }
+  .portada__ventana { position: absolute; top: 132mm; left: 44mm; width: 184mm; }
+  .portada__tablet { position: absolute; top: 166mm; left: 13mm; width: 56mm; }
+  .portada__movil { position: absolute; top: 176mm; right: 12mm; width: 31mm; }
+  .portada__datos { position: absolute; left: 15mm; right: 15mm; bottom: 13mm; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm;
+                    border-top: .3mm solid var(--noche-3); padding-top: 5mm; }
+  .dato { display: flex; gap: 2.6mm; align-items: center; color: var(--gris-3); font-size: 8.6pt; line-height: 1.3; }
+  .dato .icono { color: var(--marca); width: 5.5mm; height: 5.5mm; }
+  .dato strong { color: var(--blanco); display: block; font-weight: 600; }
+
+  /* ---------- 2. Problema ---------- */
+  .bocadillos { display: flex; flex-wrap: wrap; gap: 4.5mm 3.5mm; margin: 10mm 0 0; }
+  .bocadillo { position: relative; background: var(--blanco); border-radius: 4mm; padding: 3mm 4.5mm; font: 600 10.5pt/1.2 var(--texto);
+               border: .3mm solid var(--linea); }
+  .bocadillo::after { content: ""; position: absolute; left: 6mm; bottom: -2.2mm; border: 2.4mm solid transparent; border-top-color: var(--blanco); border-bottom: 0; }
+  .bocadillo span { color: var(--marca-f); }
+  .bocadillo--oscuro { background: var(--tinta); color: var(--blanco); border-color: var(--tinta); }
+  .bocadillo--oscuro::after { border-top-color: var(--tinta); }
+  .bocadillo:nth-child(2) { margin-top: 5mm; } .bocadillo:nth-child(4) { margin-top: 3mm; }
+  .nota-bocadillos { margin: 8mm 0 0; font-size: 9pt; color: var(--gris); }
+  .rejilla-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .problemas { margin-top: 10mm; }
+  .tarjeta { background: var(--blanco); border: .25mm solid var(--linea); border-radius: 4mm; padding: 6mm 5.5mm; }
+  .tarjeta h3 { font: 700 10.5pt/1.25 var(--texto); margin: 3.5mm 0 1.5mm; }
+  .tarjeta p { margin: 0; font-size: 8.8pt; color: var(--gris); }
+  .problema__coste { display: inline-block; margin-top: 3mm; font: 600 7.4pt/1 var(--texto); letter-spacing: .04em; text-transform: uppercase; color: var(--marca-f); }
+  .franja { margin-top: 11mm; border-radius: 5mm; background: var(--tinta); color: var(--blanco); padding: 7mm 8mm; display: grid; grid-template-columns: auto 1fr; gap: 6mm; align-items: center; }
+  .franja__grande { font: 800 40pt/.9 var(--display); color: var(--marca); }
+  .franja p { margin: 0; font-size: 11pt; line-height: 1.45; color: var(--gris-3); }
+  .franja p strong { color: var(--blanco); font-weight: 600; }
+
+  /* ---------- 3. Solución ---------- */
+  .flujo { margin: 7mm 0 0; display: grid; grid-template-columns: repeat(7, 1fr); position: relative; }
+  .flujo::before { content: ""; position: absolute; top: 5.5mm; left: 12mm; right: 12mm; height: .5mm; background: linear-gradient(90deg, var(--marca-b), var(--marca)); }
+  .paso-flujo { text-align: center; position: relative; }
+  .paso-flujo .ficha-icono { margin: 0 auto; width: 11mm; height: 11mm; border-radius: 50%; background: var(--blanco); border: .5mm solid var(--marca); }
+  .paso-flujo:last-child .ficha-icono { background: var(--marca); color: var(--blanco); }
+  .paso-flujo span { display: block; margin-top: 2mm; font: 600 8.2pt/1.2 var(--texto); }
+  .solucion__captura { margin-top: 10mm; }
+  .equipo { margin-top: 12mm; }
+  .equipo__titulo { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4mm; }
+  .equipo__titulo h2 { font: 700 19pt/1 var(--display); }
+  .equipo__titulo p { margin: 0; font-size: 8.6pt; color: var(--gris); }
+  .rol { background: var(--blanco); border: .25mm solid var(--linea); border-radius: 4mm; overflow: hidden; }
+  .rol__foto { height: 44mm; background: var(--fondo); overflow: hidden; border-bottom: .25mm solid var(--linea); }
+  .rol__foto img { width: 175%; display: block; }
+  .rol__texto { padding: 4mm 4.5mm 4.5mm; }
+  .rol__quien { font: 700 7.4pt/1 var(--texto); letter-spacing: .1em; text-transform: uppercase; color: var(--marca-f); }
+  .rol h3 { font: 700 10.5pt/1.25 var(--texto); margin: 1.8mm 0 1.2mm; }
+  .rol p { margin: 0; font-size: 8.6pt; color: var(--gris); }
+
+  /* ---------- 4. Funciones ---------- */
+  .bento { margin-top: 7mm; display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .funcion { background: var(--blanco); border: .25mm solid var(--linea); border-radius: 4mm; overflow: hidden; display: flex; flex-direction: column; }
+  .funcion__foto { height: 31mm; overflow: hidden; background: var(--fondo); border-bottom: .25mm solid var(--linea); }
+  .funcion__foto img { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
+  .funcion__texto { padding: 3.6mm 4.5mm 4mm; display: flex; gap: 3mm; align-items: flex-start; }
+  .funcion__texto .ficha-icono { width: 8mm; height: 8mm; border-radius: 2.2mm; }
+  .funcion__texto .icono { width: 4.4mm; height: 4.4mm; }
+  .funcion h3 { font: 700 10pt/1.2 var(--texto); margin: .6mm 0 .8mm; }
+  .funcion p { margin: 0; font-size: 8.4pt; color: var(--gris); line-height: 1.4; }
+  .funcion--oscura { background: var(--tinta); border-color: var(--tinta); color: var(--blanco); padding: 5mm; }
+  .funcion--oscura h3 { font: 700 13pt/1.1 var(--texto); margin: 0 0 3mm; }
+  .lista-mini { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.4mm; }
+  .lista-mini li { display: flex; gap: 2.4mm; align-items: flex-start; font-size: 8.6pt; color: var(--gris-3); line-height: 1.35; }
+  .lista-mini li strong { color: var(--blanco); font-weight: 600; }
+  .lista-mini .icono { color: var(--marca); width: 4.4mm; height: 4.4mm; margin-top: .2mm; }
+
+  /* ---------- 5 y 6. Capturas ---------- */
+  .capturas-2 { margin-top: 12mm; display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .lado { display: grid; grid-template-columns: 110mm 1fr; gap: 8mm; margin-top: 8mm; }
+  .lado__izq { display: grid; gap: 7mm; align-content: start; }
+  .lado__der { display: grid; gap: 8mm; align-content: start; justify-items: center; }
+  .lado__der .pie-foto { text-align: center; }
+  .sello-real { position: absolute; top: 15mm; right: 15mm; display: flex; align-items: center; gap: 2mm; font: 600 7.6pt/1 var(--texto); color: var(--gris-3);
+                border: .3mm solid var(--noche-3); border-radius: 10mm; padding: 2mm 3.4mm; }
+  .sello-real i { width: 2mm; height: 2mm; border-radius: 50%; background: #28c840; }
+
+  /* ---------- Registro de jornada ---------- */
+  .sello-real--claro { color: var(--gris); border-color: var(--linea); background: var(--blanco); }
+  .fichaje { margin-top: 7mm; display: grid; grid-template-columns: 110mm 1fr; gap: 7mm; }
+  .fichaje__izq, .fichaje__der { display: grid; gap: 5mm; align-content: start; }
+  .contador { background: var(--blanco); border: .25mm solid var(--linea); border-radius: 4mm; padding: 4mm; }
+  .contador img { display: block; width: 100%; border-radius: 2mm; border: .25mm solid var(--linea); }
+  .contador .pie-foto { margin-top: 2.4mm; }
+  .a-mano { background: var(--tinta); color: var(--blanco); border-radius: 4mm; padding: 5mm; }
+  .a-mano strong { display: block; font: 700 17pt/1.05 var(--display); color: var(--marca); }
+  .a-mano p { margin: 2mm 0 0; font-size: 8.8pt; line-height: 1.4; color: var(--gris-3); }
+  .fichaje__claves { margin-top: 6mm; gap: 3mm 4mm; }
+  .clave { display: grid; grid-template-columns: 6mm 1fr; gap: 2.6mm; background: var(--blanco); border: .25mm solid var(--linea); border-radius: 3.5mm; padding: 3.4mm 3.8mm; }
+  .clave .icono { color: var(--marca-f); width: 5.4mm; height: 5.4mm; margin-top: .3mm; }
+  .clave h3 { font: 700 9.4pt/1.2 var(--texto); margin: 0 0 .8mm; }
+  .clave p { margin: 0; font-size: 8.2pt; line-height: 1.35; color: var(--gris); }
+
+  /* ---------- 7. Beneficios ---------- */
+  .beneficios { margin-top: 8mm; display: grid; grid-template-columns: 1fr 56mm; gap: 7mm; }
+  .beneficio { display: grid; grid-template-columns: 10mm 1fr; gap: 4mm; padding: 4.2mm 0; border-bottom: .25mm solid var(--linea); }
+  .beneficio:first-child { padding-top: 0; }
+  .beneficio .ficha-icono { background: #ecfdf3; color: var(--verde); border-radius: 50%; }
+  .beneficio h3 { font: 700 12.5pt/1.2 var(--texto); margin: .4mm 0 1.2mm; }
+  .beneficio p { margin: 0; font-size: 9pt; color: var(--gris); }
+  .cifras { background: var(--tinta); color: var(--blanco); border-radius: 5mm; padding: 7mm 6mm; display: grid; gap: 7mm; align-content: start; }
+  .cifra strong { display: block; font: 800 42pt/.9 var(--display); color: var(--marca); }
+  .cifra span { display: block; margin-top: 1.6mm; font-size: 8.8pt; line-height: 1.35; color: var(--gris-3); }
+  .antes-ahora { margin-top: 10mm; border-radius: 4mm; overflow: hidden; border: .25mm solid var(--linea); }
+  .antes-ahora__cab, .antes-ahora__fila { display: grid; grid-template-columns: 42mm 1fr 1fr; gap: 4mm; padding: 3.4mm 5mm; align-items: center; }
+  .antes-ahora__cab { background: var(--tinta); color: var(--gris-2); font: 700 7.4pt/1 var(--texto); letter-spacing: .1em; text-transform: uppercase; }
+  .antes-ahora__cab span:last-child { color: var(--marca); }
+  .antes-ahora__fila { border-top: .25mm solid var(--linea); font-size: 9pt; }
+  .antes-ahora__fila strong { font-weight: 700; }
+  .antes-ahora__fila span:nth-child(2) { color: var(--gris); text-decoration: line-through; text-decoration-color: #b4bac4; }
+  .antes-ahora__fila span:nth-child(3) { font-weight: 600; }
+  .cita-grande { margin-top: 8mm; font: 700 22pt/1.1 var(--display); text-wrap: balance; border-left: 1.4mm solid var(--marca); padding-left: 6mm; }
+
+  /* ---------- 8. Cómo funciona ---------- */
+  .como { margin-top: 8mm; display: grid; grid-template-columns: 1fr 64mm; gap: 9mm; }
+  .pasos { position: relative; display: grid; gap: 6.5mm; }
+  .pasos::before { content: ""; position: absolute; left: 5.5mm; top: 6mm; bottom: 6mm; width: .5mm; background: var(--marca-b); }
+  .paso { position: relative; display: grid; grid-template-columns: 11mm 1fr; gap: 5mm; }
+  .paso__num { width: 11mm; height: 11mm; border-radius: 50%; background: var(--marca); color: var(--blanco); display: grid; place-items: center; font: 800 15pt/1 var(--display); }
+  .paso h3 { font: 700 12.5pt/1.2 var(--texto); margin: 1.4mm 0 1.4mm; }
+  .paso p { margin: 0; font-size: 9pt; color: var(--gris); }
+  .donde { margin-top: 10mm; }
+  .donde h2 { font: 700 19pt/1 var(--display); margin-bottom: 4mm; }
+  .donde__rejilla { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .opcion { border-radius: 4mm; padding: 5mm; background: var(--blanco); border: .25mm solid var(--linea); }
+  .opcion--destacada { background: var(--tinta); color: var(--blanco); border-color: var(--tinta); }
+  .opcion__cab { display: flex; align-items: center; gap: 3mm; margin-bottom: 3mm; }
+  .opcion__cab h3 { font: 700 11.5pt/1.2 var(--texto); }
+  .opcion__cab small { display: block; font-size: 7.6pt; color: var(--marca); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .opcion ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.8mm; }
+  .opcion li { display: flex; gap: 2mm; font-size: 8.8pt; color: var(--gris); }
+  .opcion--destacada li { color: var(--gris-3); }
+  .opcion li .icono { width: 4mm; height: 4mm; color: var(--marca); margin-top: .3mm; }
+
+  .seguro { margin-top: 9mm; }
+  .seguro h2 { font: 700 19pt/1 var(--display); margin-bottom: 4mm; }
+  .seguro__rejilla { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .seguro__item { display: grid; gap: 2.4mm; background: var(--blanco); border: .25mm solid var(--linea); border-radius: 4mm; padding: 4.5mm; font-size: 8.6pt; color: var(--gris); line-height: 1.35; }
+  .seguro__item strong { color: var(--tinta); font-weight: 700; }
+  .seguro__item .icono { color: var(--marca-f); width: 6mm; height: 6mm; }
+
+  /* ---------- 9. Precios ---------- */
+  .planes { margin-top: 12mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; align-items: stretch; }
+  .plan { position: relative; background: var(--blanco); border: .25mm solid var(--linea); border-radius: 5mm; padding: 6mm 5mm; }
+  .plan--top { background: var(--tinta); color: var(--blanco); border-color: var(--tinta); transform: translateY(-3mm); }
+  .plan__etiqueta { position: absolute; top: -3.2mm; left: 5mm; background: var(--marca); color: var(--blanco); font: 700 7pt/1 var(--texto); letter-spacing: .1em; text-transform: uppercase; padding: 1.8mm 3mm; border-radius: 10mm; }
+  .plan h3 { font: 700 11pt/1 var(--texto); }
+  .plan__precio { margin: 4mm 0 1mm; font: 800 40pt/.9 var(--display); }
+  .plan__precio--texto { font-size: 30pt; line-height: 1.2; white-space: nowrap; }
+  .plan__precio small { font: 500 9pt/1 var(--texto); color: var(--gris); margin-left: 1mm; }
+  .plan--top .plan__precio small { color: var(--gris-2); }
+  .plan__usuarios { font-size: 8.8pt; color: var(--gris); padding-bottom: 4mm; border-bottom: .25mm solid var(--linea); margin-bottom: 4mm; }
+  .plan--top .plan__usuarios { color: var(--gris-3); border-color: var(--noche-3); }
+  .plan ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2.4mm; }
+  .plan li { display: flex; gap: 2.2mm; font-size: 8.8pt; line-height: 1.35; }
+  .plan li .icono { width: 4.2mm; height: 4.2mm; color: var(--verde); margin-top: .2mm; }
+  .plan--top li .icono { color: var(--marca); }
+  .plan--top li { color: var(--gris-3); }
+  .ventajas { margin-top: 7mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .ventaja { display: flex; align-items: center; gap: 3mm; font-size: 9pt; font-weight: 600; }
+  .ventaja .ficha-icono { width: 9mm; height: 9mm; border-radius: 50%; }
+  .aviso-precios { margin: 4mm 0 0; font-size: 7.8pt; color: var(--gris); }
+  .guia { margin-top: 14mm; }
+  .guia h2 { font: 700 19pt/1 var(--display); margin-bottom: 4mm; }
+  .guia__fila { display: grid; grid-template-columns: 34mm 1fr; gap: 4mm; align-items: center; padding: 5mm 0; border-bottom: .25mm solid var(--linea); }
+  .guia__fila strong { font: 700 13pt/1 var(--display); letter-spacing: .01em; }
+  .guia__fila span { font-size: 9.2pt; color: var(--gris); }
+
+  /* ---------- 10. Soporte y contacto ---------- */
+  .soporte { margin-top: 8mm; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+  .soporte .tarjeta { padding: 4.6mm; }
+  .soporte .tarjeta h3 { margin-top: 3mm; }
+  .datos-seguros { margin-top: 4mm; display: grid; grid-template-columns: auto 1fr; gap: 4mm; align-items: center; background: var(--marca-t); border: .25mm solid var(--marca-b); border-radius: 4mm; padding: 4.5mm 5mm; }
+  .datos-seguros h3 { font: 700 10.5pt/1.2 var(--texto); margin: 0 0 1mm; }
+  .datos-seguros p { margin: 0; font-size: 8.8pt; color: #5b3a48; }
+  .contacto { position: absolute; left: 15mm; right: 15mm; bottom: 20mm; height: 92mm; border-radius: 6mm; overflow: hidden; color: var(--blanco);
+              background: radial-gradient(95mm 95mm at 170mm 0mm, #6a0b3c, var(--tinta) 70%);
+              display: grid; grid-template-columns: 1fr 62mm; gap: 8mm; padding: 10mm; }
+  .contacto img { height: 9mm; }
+  .contacto h2 { margin-top: 7mm; font: 700 34pt/.95 var(--display); }
+  .contacto p { margin: 3.5mm 0 0; font-size: 10pt; color: var(--gris-3); max-width: 92mm; }
+  .contacto__boton { display: inline-block; margin-top: 6mm; background: var(--marca); color: var(--blanco); font: 700 9.5pt/1 var(--texto); padding: 3.4mm 5mm; border-radius: 2mm; }
+  .contacto__datos { align-self: center; display: grid; gap: 4.5mm; border-left: .3mm solid var(--noche-3); padding-left: 7mm; }
+  .contacto__dato small { display: block; font: 700 6.8pt/1 var(--texto); letter-spacing: .12em; text-transform: uppercase; color: var(--marca); margin-bottom: 1.4mm; }
+  .contacto__dato span { font-size: 10pt; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-entrada" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/></symbol>
+  <symbol id="i-lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-documento" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8"/></symbol>
+  <symbol id="i-llave" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-recibo" viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8M12 17.5v-11"/></symbol>
+  <symbol id="i-usuarios" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-caja" viewBox="0 0 24 24"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></symbol>
+  <symbol id="i-grafico" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></symbol>
+  <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-servidor" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></symbol>
+  <symbol id="i-nube" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+  <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-rayo" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+  <symbol id="i-candado" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-dispositivos" viewBox="0 0 24 24"><rect x="2" y="4" width="14" height="10" rx="1.5"/><path d="M6 18h6"/><rect x="17" y="8" width="5" height="12" rx="1"/></symbol>
+  <symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76M16.85 11.25a10 10 0 0 1 2.22 1.68M5 13a10 10 0 0 1 5.24-2.76M2 2l20 20"/></symbol>
+  <symbol id="i-euro" viewBox="0 0 24 24"><path d="M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/></symbol>
+  <symbol id="i-formacion" viewBox="0 0 24 24"><path d="M21.42 10.92a1 1 0 0 0-.02-1.84L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.83l8.57 3.91a2 2 0 0 0 1.66 0z"/><path d="M22 10v6M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+  <symbol id="i-soporte" viewBox="0 0 24 24"><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5Zm0 0a9 9 0 1 1 18 0m0 0v5a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3Z"/></symbol>
+  <symbol id="i-actualizar" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="i-prueba" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-salida" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-importar" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-ajustes" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M2 14h4M10 8h4M18 16h4"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+</svg>
+
+<!-- ================= 1. PORTADA ================= -->
+<section class="pagina portada">
+  <div class="portada__raya"></div><div class="portada__raya portada__raya--2"></div>
+  <div class="portada__cabecera">
+    <img src="img/logo-horizontal-claro.png" alt="19 Racing Motorsport">
+    <span class="chip">Software para talleres</span>
+  </div>
+  <div class="portada__texto">
+    <p class="ceja">MotorSport19</p>
+    <h1>Todo tu taller, <em>en un solo programa.</em></h1>
+    <p class="entradilla">Para talleres de coches, motos y furgonetas. De la cita en el mostrador a la factura, pasando por el presupuesto, el almacén y la tablet del técnico. Sin papeles sueltos ni Excel.</p>
+  </div>
+  <div class="portada__ventana ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">MotorSport19 · Panel del taller</span></div><img src="img/panel.jpg" alt=""></div>
+  <div class="portada__tablet tablet"><img src="img/tablet-orden-tecnico.jpg" alt=""></div>
+  <div class="portada__movil movil"><img src="img/movil-panel.jpg" alt=""></div>
+  <div class="portada__datos">
+    <div class="dato"><svg class="icono"><use href="#i-dispositivos"/></svg><div><strong>Ordenador, tablet y móvil</strong>Desde el navegador</div></div>
+    <div class="dato"><svg class="icono"><use href="#i-wifi-off"/></svg><div><strong>Sigue sin internet</strong>El servidor está en tu taller</div></div>
+    <div class="dato"><svg class="icono"><use href="#i-reloj"/></svg><div><strong>Registro de jornada</strong>Se ficha al entrar</div></div>
+    <div class="dato"><svg class="icono"><use href="#i-llave"/></svg><div><strong>Nacido en un taller</strong>No en una oficina</div></div>
+  </div>
+</section>
+
+<!-- ================= 2. EL PROBLEMA ================= -->
+<section class="pagina">
+  <p class="ceja">El punto de partida</p>
+  <h1>¿Te suena alguna de estas frases?</h1>
+  <div class="bocadillos">
+    <div class="bocadillo"><span>«</span>¿Cómo va lo mío?<span>»</span></div>
+    <div class="bocadillo bocadillo--oscuro"><span>«</span>¿Quién dijo que se cambiaba el kit?<span>»</span></div>
+    <div class="bocadillo"><span>«</span>Nos hemos quedado sin pastillas.<span>»</span></div>
+    <div class="bocadillo"><span>«</span>¿Esta hora la cobramos?<span>»</span></div>
+    <div class="bocadillo bocadillo--oscuro"><span>«</span>¿Dónde está la factura de marzo?<span>»</span></div>
+  </div>
+  <p class="nota-bocadillos">Son las frases de un taller que trabaja con agenda de papel, un Excel de clientes, avisos por WhatsApp y una carpeta de facturas. Cada tarea se hace a mano, y en cada paso se puede perder algo.</p>
+
+  <div class="rejilla-3 problemas">
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-calendario"/></svg></div><h3>Citas en papel y WhatsApp</h3><p>Se olvidan, se pisan y nadie sabe qué entra mañana.</p><span class="problema__coste">Huecos sin vender</span></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-usuarios"/></svg></div><h3>Fichas repartidas</h3><p>Clientes y vehículos entre libretas, Excel y la memoria del mostrador.</p><span class="problema__coste">Tiempo buscando</span></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-documento"/></svg></div><h3>Presupuestos de palabra</h3><p>«Te lo dije yo», sin nada escrito: discusiones al entregar el vehículo.</p><span class="problema__coste">Trabajo sin cobrar</span></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-caja"/></svg></div><h3>Almacén a ojo</h3><p>La pieza falta cuando el vehículo ya está desmontado en el elevador.</p><span class="problema__coste">Elevadores ocupados</span></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-recibo"/></svg></div><h3>Facturas a mano</h3><p>Números que se saltan, importes que no cuadran y correcciones borrando.</p><span class="problema__coste">Riesgo con Hacienda</span></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-grafico"/></svg></div><h3>Sin números</h3><p>No sabes qué mes fue bueno, qué se factura de verdad ni de qué vive el taller.</p><span class="problema__coste">Decidir a ciegas</span></div>
+  </div>
+
+  <div class="franja">
+    <div class="franja__grande">¿El resultado?</div>
+    <p><strong>Horas perdidas cada semana, dinero que se escapa</strong> entre la agenda, el almacén y la factura, y un taller que se dirige sin datos.</p>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>2</span></div>
+</section>
+
+<!-- ================= 3. LA SOLUCIÓN ================= -->
+<section class="pagina pagina--blanca">
+  <p class="ceja">La solución</p>
+  <h1>Un solo programa, <em>de la cita a la factura.</em></h1>
+  <p class="entradilla">El vehículo entra por la puerta y sale reparado y cobrado. Cada paso queda apuntado, y lo ve quien lo tiene que ver.</p>
+
+  <div class="flujo">
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-calendario"/></svg></div><span>Cita</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-entrada"/></svg></div><span>Entrada</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-lupa"/></svg></div><span>Diagnóstico</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-documento"/></svg></div><span>Presupuesto</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-llave"/></svg></div><span>Reparación</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><span>Entrega</span></div>
+    <div class="paso-flujo"><div class="ficha-icono"><svg class="icono"><use href="#i-recibo"/></svg></div><span>Factura</span></div>
+  </div>
+
+  <div class="solucion__captura">
+    <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Orden de trabajo OT-2026-00006</span></div><img src="img/r-orden.jpg" alt=""></div>
+    <p class="pie-foto"><strong>Cada orden sabe por dónde va.</strong> Recepción, diagnóstico, presupuesto, aprobación, reparación y entrega, con quién hizo qué y cuándo.</p>
+  </div>
+
+  <div class="equipo">
+    <div class="equipo__titulo"><h2>Pensado para todo el equipo</h2><p>Con un técnico, con varios o con mostrador propio</p></div>
+    <div class="rejilla-3">
+      <div class="rol"><div class="rol__foto"><img src="img/r-informes.jpg" alt=""></div><div class="rol__texto"><span class="rol__quien">Dirección</span><h3>Decide con números</h3><p>Facturación, margen y lo que queda por cobrar, sin montar nada a mano.</p></div></div>
+      <div class="rol"><div class="rol__foto"><img src="img/r-presupuesto.jpg" alt=""></div><div class="rol__texto"><span class="rol__quien">Mostrador</span><h3>Atiende sin buscar papeles</h3><p>Da citas, presupuesta, manda el PDF por WhatsApp y factura.</p></div></div>
+      <div class="rol"><div class="rol__foto"><img src="img/tablet-orden-tecnico.jpg" alt=""></div><div class="rol__texto"><span class="rol__quien">Técnicos</span><h3>Su trabajo, en la tablet</h3><p>Ven sus órdenes y apuntan horas y material. Los precios, no.</p></div></div>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>3</span></div>
+</section>
+
+<!-- ================= 4. FUNCIONES ================= -->
+<section class="pagina">
+  <p class="ceja">Funciones principales</p>
+  <h1>Todo lo que necesita el taller, <em>de serie.</em></h1>
+  <div class="bento">
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-cliente.jpg" alt=""></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-usuarios"/></svg></div><div><h3>Clientes y vehículos</h3><p>Ficha de cada cliente con sus vehículos, kilómetros e historial. El NIF se comprueba al darlo de alta.</p></div></div></div>
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-agenda.jpg" alt=""></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-calendario"/></svg></div><div><h3>Agenda de citas</h3><p>La semana del taller y la carga de cada técnico. Al llegar el vehículo, la cita se convierte en orden.</p></div></div></div>
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-presupuesto.jpg" alt=""></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-documento"/></svg></div><div><h3>Órdenes y presupuestos</h3><p>Mano de obra, piezas y descuentos. Plantillas de trabajo y presupuesto en PDF o por WhatsApp.</p></div></div></div>
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-inventario.jpg" alt=""></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-caja"/></svg></div><div><h3>Almacén y proveedores</h3><p>Las piezas se descuentan al reparar, nunca en negativo, y avisa de lo que baja del mínimo.</p></div></div></div>
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-factura.jpg" alt="" style="object-position: left center"></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-recibo"/></svg></div><div><h3>Facturación</h3><p>Numeración sin huecos, facturas selladas con huella y PDF con código QR. Correcciones con rectificativa.</p></div></div></div>
+    <div class="funcion"><div class="funcion__foto"><img src="img/r-informes.jpg" alt=""></div><div class="funcion__texto"><div class="ficha-icono"><svg class="icono"><use href="#i-grafico"/></svg></div><div><h3>Informes del negocio</h3><p>Facturación por meses, margen, mejores clientes y el trabajo que falta por facturar.</p></div></div></div>
+    <div class="funcion funcion--oscura">
+      <h3>Automatizaciones</h3>
+      <ul class="lista-mini">
+        <li><svg class="icono"><use href="#i-rayo"/></svg><span><strong>Piezas</strong> descontadas al empezar la reparación</span></li>
+        <li><svg class="icono"><use href="#i-rayo"/></svg><span><strong>«Esperando piezas»</strong> con lo que hay que pedir</span></li>
+        <li><svg class="icono"><use href="#i-rayo"/></svg><span><strong>Tasa de neumáticos</strong> que acompaña a cada neumático</span></li>
+        <li><svg class="icono"><use href="#i-rayo"/></svg><span><strong>Todos los puestos</strong> al día en tiempo real</span></li>
+      </ul>
+    </div>
+    <div class="funcion funcion--oscura">
+      <h3>Usuarios, permisos y copias</h3>
+      <ul class="lista-mini">
+        <li><svg class="icono"><use href="#i-candado"/></svg><span><strong>48 permisos</strong> para montar roles a medida</span></li>
+        <li><svg class="icono"><use href="#i-reloj"/></svg><span><strong>Registro de jornada</strong> al entrar en el programa</span></li>
+        <li><svg class="icono"><use href="#i-servidor"/></svg><span><strong>Copia cifrada</strong> cada noche, fuera del taller</span></li>
+        <li><svg class="icono"><use href="#i-salida"/></svg><span><strong>Exportación</strong> para la gestoría: CSV y PDF en ZIP</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>4</span></div>
+</section>
+
+<!-- ================= 5. ASÍ SE VE (1) ================= -->
+<section class="pagina pagina--noche">
+  <span class="sello-real"><i></i>Capturas reales del programa</span>
+  <p class="ceja">Así se ve</p>
+  <h1>Pantallas de verdad, <em>no dibujos.</em></h1>
+  <p class="entradilla">Claras, en español y pensadas para el mostrador, el taller y el móvil. Así se ve con los datos de demostración.</p>
+
+  <div style="margin-top: 8mm">
+    <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Panel del taller</span></div><img src="img/panel.jpg" alt=""></div>
+    <p class="pie-foto"><strong>Panel principal.</strong> Órdenes abiertas, vehículos listos para entregar, piezas bajo mínimo y el trabajo de cada técnico, al abrir el programa.</p>
+  </div>
+
+  <div class="capturas-2">
+    <div>
+      <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Ficha de cliente</span></div><img src="img/r-cliente.jpg" alt=""></div>
+      <p class="pie-foto"><strong>Clientes.</strong> Contacto, datos fiscales comprobados y todos sus vehículos.</p>
+    </div>
+    <div>
+      <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Agenda · semana</span></div><img src="img/r-agenda.jpg" alt=""></div>
+      <p class="pie-foto"><strong>Agenda.</strong> Qué entra cada día y cuánto trabajo tiene cada técnico.</p>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>5</span></div>
+</section>
+
+<!-- ================= 6. ASÍ SE VE (2) ================= -->
+<section class="pagina pagina--noche">
+  <span class="sello-real"><i></i>Capturas reales del programa</span>
+  <p class="ceja">En cada puesto</p>
+  <h1>En el mostrador, en el elevador <em>y en tu bolsillo.</em></h1>
+
+  <div class="lado">
+    <div class="lado__izq">
+      <div>
+        <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Informe de facturación</span></div><img src="img/informes.jpg" alt=""></div>
+        <p class="pie-foto"><strong>Informes.</strong> Cuánto facturas cada mes, tu margen y lo que falta por cobrar.</p>
+      </div>
+      <div>
+        <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Factura A/2026/000001 · Rectificar</span></div><img src="img/rectificar.jpg" alt=""></div>
+        <p class="pie-foto"><strong>Una operación de todos los días: corregir una factura.</strong> Cambias lo que estaba mal y el programa te dice de cuánto será la rectificativa antes de emitirla.</p>
+      </div>
+    </div>
+    <div class="lado__der">
+      <div>
+        <div class="tablet" style="width: 62mm"><img src="img/tablet-orden-tecnico.jpg" alt=""></div>
+        <p class="pie-foto"><strong>La tablet del técnico.</strong><br>Su orden y su trabajo, sin precios.</p>
+      </div>
+      <div>
+        <div class="movil" style="width: 38mm; margin: 0 auto"><img src="img/movil-panel.jpg" alt=""></div>
+        <p class="pie-foto"><strong>En el móvil.</strong><br>El taller, desde donde estés.</p>
+      </div>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>6</span></div>
+</section>
+
+<!-- ================= 7. REGISTRO DE JORNADA ================= -->
+<section class="pagina">
+  <span class="sello-real sello-real--claro"><i></i>Capturas reales del programa</span>
+  <p class="ceja">Registro de jornada</p>
+  <h1>El fichaje, dentro del programa. <em>Sin papeles ni apps aparte.</em></h1>
+  <p class="entradilla">El registro de jornada es obligatorio en cualquier taller con trabajadores. Aquí se ficha al empezar a trabajar, y dirección tiene las horas de todo el equipo, día a día.</p>
+
+  <div class="fichaje">
+    <div class="fichaje__izq">
+      <div>
+        <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Control de horas · este mes</span></div><img src="img/r-horas.jpg" alt=""></div>
+        <p class="pie-foto"><strong>Control de horas.</strong> Las horas de cada trabajador por día, y lo que hizo en cada jornada.</p>
+      </div>
+      <div>
+        <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">Jornadas de Nuria</span></div><img src="img/r-nuria.jpg" alt=""></div>
+        <p class="pie-foto"><strong>Nada se borra.</strong> Una jornada corregida o cerrada a mano queda marcada, con quién lo hizo y por qué.</p>
+      </div>
+    </div>
+    <div class="fichaje__der">
+      <div>
+        <div class="tablet"><img src="img/tablet-fichar-recorte.jpg" alt=""></div>
+        <p class="pie-foto"><strong>Así empieza el día.</strong><br>Sin fichar no se trabaja en el programa.</p>
+      </div>
+      <div class="contador">
+        <img src="img/r-contador.jpg" alt="">
+        <p class="pie-foto"><strong>La jornada, siempre a la vista.</strong> Arriba en la pantalla, con un botón para salir.</p>
+      </div>
+      <div class="a-mano">
+        <strong>¿Te piden el registro?</strong>
+        <p>Lo tienes a mano: la hora de entrada y de salida de cada trabajador, día a día, de los últimos cuatro años.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="rejilla-3 fichaje__claves">
+    <div class="clave"><svg class="icono"><use href="#i-reloj"/></svg><div><h3>Ficha al empezar</h3><p>Sin empezar la jornada no se trabaja. Dirección puede quedar exenta.</p></div></div>
+    <div class="clave"><svg class="icono"><use href="#i-usuarios"/></svg><div><h3>Las horas de todos</h3><p>Por día y por persona: esta semana, este mes o las fechas que elijas.</p></div></div>
+    <div class="clave"><svg class="icono"><use href="#i-llave"/></svg><div><h3>Qué hizo cada uno</h3><p>Diagnósticos, horas, piezas y citas de cada jornada.</p></div></div>
+    <div class="clave"><svg class="icono"><use href="#i-documento"/></svg><div><h3>Correcciones firmadas</h3><p>Lo fichado no se pisa: la corrección va aparte, con su motivo.</p></div></div>
+    <div class="clave"><svg class="icono"><use href="#i-salida"/></svg><div><h3>Salidas olvidadas</h3><p>Quien se fue sin fichar se cierra a mano y queda marcado.</p></div></div>
+    <div class="clave"><svg class="icono"><use href="#i-escudo"/></svg><div><h3>Cuatro años guardado</h3><p>Como pide el art. 34.9 del Estatuto de los Trabajadores.</p></div></div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>7</span></div>
+</section>
+
+<!-- ================= 7. BENEFICIOS ================= -->
+<section class="pagina pagina--blanca">
+  <p class="ceja">Beneficios</p>
+  <h1>Lo que cambia <em>desde la primera semana.</em></h1>
+  <div class="beneficios">
+    <div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>Ahorras horas de papeleo cada semana</h3><p>Cada dato se escribe una vez: pasa de la cita a la orden, al presupuesto y a la factura.</p></div></div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>Menos errores que cuestan dinero</h3><p>NIF comprobados, existencias que nunca bajan de cero y facturas que cuadran al céntimo.</p></div></div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>No se escapa nada sin cobrar</h3><p>Horas y piezas quedan en la orden, y ves los trabajos terminados que aún no tienen factura.</p></div></div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>El almacén, bajo control</h3><p>Sabes qué queda y qué hay que pedir antes de desmontar nada, no a mitad de reparación.</p></div></div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>Cada uno ve lo que le toca</h3><p>El técnico trabaja en su tablet sin ver precios ni márgenes; mostrador y dirección, todo.</p></div></div>
+      <div class="beneficio"><div class="ficha-icono"><svg class="icono"><use href="#i-check"/></svg></div><div><h3>Todo en un único programa</h3><p>Clientes, citas, órdenes, almacén, facturas y fichajes, desde el ordenador, la tablet o el móvil.</p></div></div>
+    </div>
+    <div class="cifras">
+      <div class="cifra"><strong>0</strong><span>huecos en la numeración de tus facturas</span></div>
+      <div class="cifra"><strong>48</strong><span>permisos para decidir quién ve y hace qué</span></div>
+      <div class="cifra"><strong>6 W</strong><span>consume el mini-PC que hace de servidor en tu taller</span></div>
+      <div class="cifra"><strong>4 años</strong><span>de registro de jornada guardado</span></div>
+    </div>
+  </div>
+  <div class="antes-ahora">
+    <div class="antes-ahora__cab"><span></span><span>Antes</span><span>Con MotorSport19</span></div>
+    <div class="antes-ahora__fila"><strong>¿Cómo va una reparación?</strong><span>Ir al elevador a preguntar</span><span>Mirarlo en el panel</span></div>
+    <div class="antes-ahora__fila"><strong>Falta una pieza</strong><span>Se descubre con el vehículo desmontado</span><span>Avisa de lo que hay que pedir</span></div>
+    <div class="antes-ahora__fila"><strong>Factura mal hecha</strong><span>Se borra y se hace otra</span><span>Rectificativa enlazada, la original intacta</span></div>
+    <div class="antes-ahora__fila"><strong>Registro de jornada</strong><span>Una hoja que nadie rellena</span><span>Se ficha al entrar en el programa</span></div>
+    <div class="antes-ahora__fila"><strong>Fin de mes</strong><span>Sumar facturas a mano</span><span>El informe ya está hecho</span></div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>8</span></div>
+</section>
+
+<!-- ================= 8. CÓMO FUNCIONA ================= -->
+<section class="pagina">
+  <p class="ceja">Cómo funciona</p>
+  <h1>En marcha <em>en cuatro pasos.</em></h1>
+  <div class="como">
+    <div class="pasos">
+      <div class="paso"><div class="paso__num">1</div><div><h3>Configuramos tu cuenta</h3><p>Datos fiscales del taller, series de facturas, tarifa por hora, tipos de IVA y usuarios.</p></div></div>
+      <div class="paso"><div class="paso__num">2</div><div><h3>Importamos tus datos</h3><p>Traemos tus clientes y vehículos del programa que usas ahora. Las piezas, o las cargamos o las das de alta sobre la marcha.</p></div></div>
+      <div class="paso"><div class="paso__num">3</div><div><h3>Tu equipo empieza a trabajar</h3><p>Mostrador en el ordenador y técnicos en la tablet, cada uno con su perfil. Por la mañana, cada uno ficha y a trabajar.</p></div></div>
+      <div class="paso"><div class="paso__num">4</div><div><h3>Consultas los resultados</h3><p>Desde el panel y los informes, en el taller o desde el móvil, sin montar nada a mano.</p></div></div>
+    </div>
+    <div>
+      <div class="movil" style="width: 40mm; margin: 0 auto"><img src="img/movil-panel.jpg" alt=""></div>
+      <p class="pie-foto" style="text-align:center"><strong>Y tú, desde el móvil.</strong><br>El panel del taller, estés donde estés.</p>
+    </div>
+  </div>
+
+  <div class="donde">
+    <h2>Tus datos, donde tú decidas</h2>
+    <div class="donde__rejilla">
+      <div class="opcion opcion--destacada">
+        <div class="opcion__cab"><div class="ficha-icono"><svg class="icono"><use href="#i-servidor"/></svg></div><div><small>Recomendado</small><h3>En tu taller</h3></div></div>
+        <ul>
+          <li><svg class="icono"><use href="#i-check"/></svg>Un mini-PC de unos 180 € que consume 6 W</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Si se cae internet, se sigue trabajando</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Copia cifrada cada noche, fuera del local</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Acceso seguro desde el móvil</li>
+        </ul>
+      </div>
+      <div class="opcion">
+        <div class="opcion__cab"><div class="ficha-icono"><svg class="icono"><use href="#i-nube"/></svg></div><div><small>Sin equipo</small><h3>En la nube</h3></div></div>
+        <ul>
+          <li><svg class="icono"><use href="#i-check"/></svg>No tienes que instalar nada en el taller</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Entras desde cualquier sitio con conexión</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Las mismas funciones y los mismos permisos</li>
+          <li><svg class="icono"><use href="#i-check"/></svg>Copias de seguridad del proveedor</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="seguro">
+    <h2>Seguro por diseño</h2>
+    <div class="seguro__rejilla">
+      <div class="seguro__item"><svg class="icono"><use href="#i-candado"/></svg><span><strong>Bloqueo</strong> tras varios intentos de contraseña fallidos</span></div>
+      <div class="seguro__item"><svg class="icono"><use href="#i-euro"/></svg><span><strong>Los precios</strong> no llegan a la pantalla del técnico</span></div>
+      <div class="seguro__item"><svg class="icono"><use href="#i-recibo"/></svg><span><strong>Las facturas</strong> no se pueden modificar ni borrar</span></div>
+      <div class="seguro__item"><svg class="icono"><use href="#i-escudo"/></svg><span><strong>Casi 800</strong> comprobaciones automáticas del programa</span></div>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>9</span></div>
+</section>
+
+<!-- ================= 10. SOPORTE Y CONTACTO ================= -->
+<section class="pagina">
+  <p class="ceja">Soporte y condiciones</p>
+  <h1>Contigo antes, durante <em>y después.</em></h1>
+  <div class="soporte">
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-ajustes"/></svg></div><h3>Instalación y configuración</h3><p>Te lo dejamos instalado, con los datos fiscales del taller y listo para facturar.</p></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-formacion"/></svg></div><h3>Formación del equipo</h3><p>Una sesión para mostrador y técnicos, para empezar desde el primer día.</p></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-soporte"/></svg></div><h3>Soporte técnico</h3><p>Para las dudas e incidencias del día a día, en español.</p></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-actualizar"/></svg></div><h3>Actualizaciones incluidas</h3><p>Las mejoras y correcciones te llegan sin coste adicional.</p></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-prueba"/></svg></div><h3>Periodo de prueba</h3><p>Pruébalo antes de decidir, sin compromiso.</p></div>
+    <div class="tarjeta"><div class="ficha-icono"><svg class="icono"><use href="#i-importar"/></svg></div><h3>Sin permanencia</h3><p>Lo dejas cuando quieras y te llevas tus clientes, vehículos y facturas.</p></div>
+  </div>
+  <div class="datos-seguros">
+    <div class="ficha-icono" style="background:#fff"><svg class="icono"><use href="#i-candado"/></svg></div>
+    <div><h3>Protección de tus datos</h3><p>Tus datos se quedan en tu taller, con acceso por usuario y contraseña, bloqueo tras varios intentos fallidos y una copia de seguridad cifrada cada noche.</p></div>
+  </div>
+
+  <div class="contacto">
+    <div>
+      <img src="img/logo-horizontal-claro.png" alt="19 Racing Motorsport">
+      <h2>¿Lo vemos en tu taller?</h2>
+      <p>Te enseñamos el programa en media hora con datos de ejemplo, y ves si encaja con vuestro día a día.</p>
+      <span class="contacto__boton">Pide tu demostración</span>
+    </div>
+    <div class="contacto__datos">
+      <div class="contacto__dato"><small>Web</small><span>[tu web]</span></div>
+      <div class="contacto__dato"><small>Email</small><span>[tu email]</span></div>
+      <div class="contacto__dato"><small>Teléfono</small><span>[tu teléfono]</span></div>
+    </div>
+  </div>
+  <div class="pie"><span>MotorSport19 — Software de gestión para talleres</span><span>10</span></div>
+</section>
+
+</body>
+</html>

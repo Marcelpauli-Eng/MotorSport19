@@ -77,6 +77,9 @@ class OrdenTrabajoServiceTest {
     /** Por defecto no es tecnico, asi que no se aplica el filtro por asignacion. */
     @Mock private UsuarioActual usuarioActual;
 
+    @Mock
+    private com.motorsport19.taller.fichaje.service.RegistroActividad registroActividad;
+
     @InjectMocks
     private OrdenTrabajoService ordenService;
 
@@ -191,12 +194,13 @@ class OrdenTrabajoServiceTest {
         }
 
         @Test
-        @DisplayName("no deja abrir con menos kilometros de los que ya tiene la moto")
-        void kilometrajeQueRetrocede() {
+        @DisplayName("en la primera visita no deja abrir con menos km de los del alta")
+        void kilometrajeQueRetrocedeEnLaPrimeraVisita() {
             Moto moto = OrdenesDePrueba.moto(OrdenesDePrueba.cliente());   // 24500 km
             ReflectionTestUtils.setField(moto, "id", 1L);
             when(motoService.obtener(1L)).thenReturn(moto);
             when(ordenRepository.contarAbiertasDeMoto(1L)).thenReturn(0L);
+            when(ordenRepository.existsByMotoId(1L)).thenReturn(false);
 
             assertThatThrownBy(() -> ordenService.abrir(1L, "Revision", 20000, null, null, null, null))
                     .isInstanceOf(com.motorsport19.taller.common.error.ReglaNegocioException.class)
@@ -206,6 +210,26 @@ class OrdenTrabajoServiceTest {
             // nada: se rechaza antes de tocar el ejercicio.
             verify(contadorRepository, never()).bloquearEjercicio(any());
             verify(ordenRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("si la moto ya ha venido antes, los km si pueden bajar (cambio de motor)")
+        void kilometrajeQueBajaTrasCambioDeMotor() {
+            Moto moto = OrdenesDePrueba.moto(OrdenesDePrueba.cliente());   // 24500 km
+            ReflectionTestUtils.setField(moto, "id", 1L);
+            when(motoService.obtener(1L)).thenReturn(moto);
+            when(ordenRepository.contarAbiertasDeMoto(1L)).thenReturn(0L);
+            when(ordenRepository.existsByMotoId(1L)).thenReturn(true);
+            when(contadorRepository.bloquearEjercicio(any()))
+                    .thenReturn(Optional.of(ContadorOt.para(2026)));
+            configuracionConTarifa("45.00");
+            when(ordenRepository.save(any(OrdenTrabajo.class))).thenAnswer(i -> i.getArgument(0));
+
+            OrdenTrabajo abierta = ordenService.abrir(1L, "Motor nuevo", 3000, null, null, null, null);
+
+            assertThat(abierta.getKmEntrada()).isEqualTo(3000);
+            // La moto se queda con la lectura del cuentakilometros nuevo.
+            assertThat(moto.getKmActual()).isEqualTo(3000);
         }
     }
 
@@ -635,6 +659,66 @@ class OrdenTrabajoServiceTest {
             ordenService.iniciarDiagnostico(1L, null, null);
 
             assertThat(orden.getTecnico()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Tasa de reciclaje de neumaticos")
+    class TasaDeReciclaje {
+
+        private Pieza pieza(long id, String sku, String familia) {
+            Pieza p = PiezasDePrueba.conStock(id, sku, "50");
+            ReflectionTestUtils.setField(p, "familia", familia);
+            return p;
+        }
+
+        /** Preparada con 2 neumaticos y su linea de tasa de 2, como la deja el alta. */
+        private OrdenTrabajo conDosNeumaticos(Pieza neumatico, Pieza tasa) {
+            ConfiguracionTaller config = ConfiguracionTaller.sinRellenar();
+            config.configurarTasaNeumatico("Neumaticos", tasa);
+            when(configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)).thenReturn(Optional.of(config));
+            sinConsumoPrevio();
+
+            OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
+            orden.preparar(null, null);
+            orden.anadirPieza(neumatico, new BigDecimal("2"), BigDecimal.ZERO, OrdenesDePrueba.IVA_GENERAL);
+            orden.anadirPieza(tasa, new BigDecimal("2"), BigDecimal.ZERO, OrdenesDePrueba.IVA_GENERAL);
+            long id = 500L;
+            for (LineaOT l : orden.getLineas()) {
+                ReflectionTestUtils.setField(l, "id", id++);
+            }
+            dadaLaOrden(orden);
+            return orden;
+        }
+
+        private BigDecimal cantidadDe(OrdenTrabajo orden, Pieza pieza) {
+            return orden.getLineas().stream().filter(l -> l.getPieza() == pieza)
+                    .map(LineaOT::getCantidad).findFirst().orElse(null);
+        }
+
+        @Test
+        @DisplayName("al cambiar los neumaticos de 2 a 4, la tasa pasa a 4")
+        void sigueLaCantidad() {
+            Pieza neumatico = pieza(9L, "NEU-180", "Neumaticos");
+            Pieza tasa = pieza(19L, "TASA-NFU", "Tasas");
+            OrdenTrabajo orden = conDosNeumaticos(neumatico, tasa);
+
+            ordenService.cambiarCantidadDeLinea(orden.getId(), 500L, new BigDecimal("4"));
+
+            assertThat(cantidadDe(orden, tasa)).isEqualByComparingTo("4");
+        }
+
+        @Test
+        @DisplayName("al quitar los neumaticos, la tasa se va con ellos")
+        void seQuitaConElNeumatico() {
+            Pieza neumatico = pieza(9L, "NEU-180", "Neumaticos");
+            Pieza tasa = pieza(19L, "TASA-NFU", "Tasas");
+            OrdenTrabajo orden = conDosNeumaticos(neumatico, tasa);
+
+            ordenService.quitarLinea(orden.getId(), 500L);
+
+            assertThat(cantidadDe(orden, tasa)).isNull();
+            assertThat(orden.getLineas()).isEmpty();
         }
     }
 }

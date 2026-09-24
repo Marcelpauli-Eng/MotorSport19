@@ -116,6 +116,13 @@
           <span class="pequeno silenciado">
             Está {{ o.estadoDescripcion | lowercase }} y ya no admite más cambios.
           </span>
+        } @else if (tareaAhora(); as tarea) {
+          <!-- Lo que toca no es un botón de aquí, sino rellenar una sección de
+               más abajo: se dice cuál y se pinta esa sección en rosa. -->
+          <span class="ahora-toca">
+            <app-icono nombre="flecha-abajo" [tamano]="14" />
+            {{ tarea }}
+          </span>
         } @else {
           <span class="pequeno silenciado">Siguiente paso</span>
         }
@@ -126,9 +133,10 @@
           <button
             type="button"
             class="boton"
-            [class.boton--principal]="a.principal"
+            [class.boton--principal]="a.principal && a.permitida"
             [class.boton--peligro]="a.destino === 'RECHAZADA'"
-            [disabled]="trabajando()"
+            [disabled]="trabajando() || !a.permitida"
+            [title]="a.permitida ? '' : 'No tiene permiso para hacer esto'"
             (click)="ejecutar(a.destino)"
           >
             {{ a.texto }}
@@ -176,6 +184,28 @@
       </div>
     </div>
 
+    <!--
+      La factura que salió de esta orden. Sin esto había que ir a buscarla al
+      listado por su número, que es justo lo que no se sabe cuando llama un
+      cliente preguntando por una moto.
+    -->
+    @if (facturasDeLaOrden().length) {
+      <div class="faltantes facturas-orden">
+        <p class="negrita">Facturada</p>
+        <ul class="pequeno">
+          @for (fa of facturasDeLaOrden(); track fa.id) {
+            <li>
+              <a [routerLink]="['/facturas', fa.id]" class="codigo">{{ fa.numeroCompleto }}</a>
+              · {{ fa.fechaEmision | date: 'dd/MM/yyyy' }}
+              · {{ fa.total | number: '1.2-2' : 'es' }} €
+              @if (fa.tipo === 'RECTIFICATIVA') { <span class="etiqueta etiqueta--ambar">Rectificativa</span> }
+              @else { <a [routerLink]="['/facturas', fa.id]" class="pequeno">ver y rectificar →</a> }
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
     <!-- Un botón deshabilitado sin explicación es lo peor que puede pasar aquí:
          el mostrador lo pulsa, no ocurre nada y no hay forma de saber por qué. -->
     @if (o.facturable && faltaSerie()) {
@@ -209,10 +239,27 @@
           domicilio. Por encima del límite que tengas puesto en Ajustes, el programa te pedirá esos
           datos igualmente, porque ahí ya es obligatorio emitir factura completa.
         </p>
-        <a [routerLink]="['/clientes', o.clienteId]" class="boton boton--pequeno">
-          <app-icono nombre="clientes" [tamano]="14" />
-          Completar la ficha de {{ o.clienteNombre }}
-        </a>
+        <p class="pequeno">
+          Ojo con ese límite: la ley (Reglamento de Facturación, RD 1619/2012, en vigor desde el 1
+          de enero de 2013) marca 400 € IVA incluido con carácter general. Solo algunas actividades
+          concretas —ventas al por menor, hostelería, peluquerías...— tienen ese límite ampliado a
+          3.000 €, y la reparación de vehículos no aparece en esa lista. Confírmalo con tu gestoría
+          y ajústalo si hace falta.
+        </p>
+        <div class="fila">
+          <a [routerLink]="['/clientes', o.clienteId]" class="boton boton--pequeno">
+            <app-icono nombre="clientes" [tamano]="14" />
+            Completar la ficha de {{ o.clienteNombre }}
+          </a>
+          <a
+            [routerLink]="['/ajustes']"
+            fragment="limite-simplificada"
+            class="boton boton--pequeno"
+          >
+            <app-icono nombre="ajustes" [tamano]="14" />
+            Cambiar el límite en Ajustes
+          </a>
+        </div>
       </div>
     }
 
@@ -253,9 +300,12 @@
   <!-- ============ Presupuesto: solo el resumen ============
        El detalle se compone en su propia pantalla. Aquí solo se dice si hay
        algo y cuánto suma, que es lo que se consulta desde la ficha. -->
-  <section class="tarjeta resumen-presupuesto">
+  <section class="tarjeta resumen-presupuesto" [class.zona--activa]="zonaActiva() === 'presupuesto'">
     <div class="tarjeta__titulo">
-      <h2>{{ vePrecios ? 'Presupuesto' : 'Trabajo a realizar' }}</h2>
+      <h2>
+        {{ vePrecios ? 'Presupuesto' : 'Trabajo a realizar' }}
+        @if (zonaActiva() === 'presupuesto') { <span class="marca-ahora">Te toca ahora</span> }
+      </h2>
       <a [routerLink]="['/ordenes', o.id, 'presupuesto']" class="boton boton--principal">
         @if (sinPresupuesto()) {
           <app-icono nombre="mas" [tamano]="16" />
@@ -319,8 +369,13 @@
 
   <!-- ============ Avería, diagnóstico y notas ============ -->
   <div class="rejilla rejilla--dos">
-    <section class="tarjeta">
-      <div class="tarjeta__titulo"><h2>Avería y diagnóstico</h2></div>
+    <section class="tarjeta" [class.zona--activa]="zonaActiva() === 'diagnostico'">
+      <div class="tarjeta__titulo">
+        <h2>
+          Avería y diagnóstico
+          @if (zonaActiva() === 'diagnostico') { <span class="marca-ahora">Te toca ahora</span> }
+        </h2>
+      </div>
       <p class="etiqueta-campo">Lo que cuenta el cliente</p>
       <p class="prosa">{{ o.problemaReportado }}</p>
       <div class="fila prosa__titulo" style="justify-content: space-between">
@@ -428,4 +483,11 @@
       }
     </ol>
   </section>
+} @else {
+  <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
+  <div class="vacio">
+    <span class="vacio__titulo">No se ha podido abrir esta orden</span>
+    <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
+    <a routerLink="/ordenes" class="boton boton--pequeno">Volver a órdenes de trabajo</a>
+  </div>
 }

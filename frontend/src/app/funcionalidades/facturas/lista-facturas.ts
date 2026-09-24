@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, WritableSignal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -94,6 +95,7 @@ export class ListaFacturas {
   });
 
   constructor() {
+    alCambiarDatos(() => this.cargar());
     this.cargar();
   }
 

@@ -25,11 +25,14 @@
 -- ---------------------------------------------------------------------
 -- Usuarios
 -- ---------------------------------------------------------------------
-INSERT INTO usuario (id, username, password_hash, nombre_completo, email, telefono, rol, activo) VALUES
- (1, 'admin',     '$2a$10$iLxAMJPHQbpQkykVuxLKoO037g7b/CIDVP4WgmYKrZtQm3e3mBY4G', 'Dirección del taller', 'admin@motorsport19.example',     '910000001', 'ADMIN',     TRUE),
- (2, 'mostrador', '$2a$10$fTIS2QNdy.lMlKK5iM.59.x69E9ek.7Rddxdf8Aa5GohC4bNNSJVe', 'Laura Vidal Requena',  'mostrador@motorsport19.example', '910000002', 'MOSTRADOR', TRUE),
- (3, 'jortega',   '$2a$10$mrVPaQYZvzCbseG6LJTtIeJVhUUK.eoGChZU0kLB8HN7.naFJmqqS', 'Javier Ortega Marín',  'jortega@motorsport19.example',   '910000003', 'TECNICO',   TRUE),
- (4, 'nsanz',     '$2a$10$UtP8C..J4SAtqM/agJ7fe.AqtyTOo3BuKPdu34EMCHmnvGbaiRt3G', 'Nuria Sanz Belmonte',  'nsanz@motorsport19.example',     '910000004', 'TECNICO',   TRUE);
+-- En una base nueva esta migracion corre DESPUES de todas las de esquema, asi
+-- que tiene que hablar el esquema actual: el rol es rol_id (V14), no el texto
+-- ADMIN/MOSTRADOR/TECNICO de antes. 1 Administracion, 2 Mostrador, 3 Taller.
+INSERT INTO usuario (id, username, password_hash, nombre_completo, email, telefono, rol_id, activo) VALUES
+ (1, 'admin',     '$2a$10$iLxAMJPHQbpQkykVuxLKoO037g7b/CIDVP4WgmYKrZtQm3e3mBY4G', 'Dirección del taller', 'admin@motorsport19.example',     '910000001', 1, TRUE),
+ (2, 'mostrador', '$2a$10$fTIS2QNdy.lMlKK5iM.59.x69E9ek.7Rddxdf8Aa5GohC4bNNSJVe', 'Laura Vidal Requena',  'mostrador@motorsport19.example', '910000002', 2, TRUE),
+ (3, 'jortega',   '$2a$10$mrVPaQYZvzCbseG6LJTtIeJVhUUK.eoGChZU0kLB8HN7.naFJmqqS', 'Javier Ortega Marín',  'jortega@motorsport19.example',   '910000003', 3, TRUE),
+ (4, 'nsanz',     '$2a$10$UtP8C..J4SAtqM/agJ7fe.AqtyTOo3BuKPdu34EMCHmnvGbaiRt3G', 'Nuria Sanz Belmonte',  'nsanz@motorsport19.example',     '910000004', 3, TRUE);
 
 
 -- ---------------------------------------------------------------------
@@ -755,11 +758,14 @@ BEGIN
              DATE '2026-06-23', TIMESTAMPTZ '2026-06-23 17:50:00+02', 100.80::NUMERIC, 21.18::NUMERIC, 121.98::NUMERIC,
              3::BIGINT, 3::BIGINT, NULL::BIGINT, NULL::VARCHAR, NULL::TEXT),
 
-            -- Rectificativa por sustitucion de la A/2026/000003: se facturaron
-            -- 1,5 h de mano de obra cuando el parte del tecnico recogia 1 h.
+            -- Rectificativa por diferencias de la A/2026/000003: se facturaron
+            -- 1,5 h de mano de obra cuando el parte del tecnico recogia 1 h. Como
+            -- las que emite el programa: la linea mala en negativo y la buena en
+            -- positivo. Antes era por sustitucion, que el programa ya no emite
+            -- porque los informes la sumaban junto a la original.
             (4::BIGINT, 2::BIGINT, 'R'::VARCHAR, 1::INTEGER, 'RECTIFICATIVA'::VARCHAR,
-             DATE '2026-06-30', TIMESTAMPTZ '2026-06-30 12:00:00+02', 78.30::NUMERIC, 16.45::NUMERIC, 94.75::NUMERIC,
-             3::BIGINT, 3::BIGINT, 3::BIGINT, 'POR_SUSTITUCION'::VARCHAR,
+             DATE '2026-06-30', TIMESTAMPTZ '2026-06-30 12:00:00+02', -22.50::NUMERIC, -4.73::NUMERIC, -27.23::NUMERIC,
+             3::BIGINT, 3::BIGINT, 3::BIGINT, 'POR_DIFERENCIAS'::VARCHAR,
              'Error en las horas de mano de obra: se facturaron 1,5 h cuando el parte de trabajo recoge 1 h.'::TEXT)
         ) AS t(id, serie_id, serie_codigo, numero, tipo, fecha_emision, ts_emision,
                base, cuota, total, orden_id, cliente_id, rectifica_id, tipo_rect, motivo_rect)
@@ -844,11 +850,9 @@ INSERT INTO linea_factura (factura_id, numero_linea, tipo, descripcion, pieza_sk
  (3, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
  (3, 3, 'PIEZA',        'Filtro de aceite HF204',                        'FIL-ACE-HF204',  1.000,   9.5000, 0, 'GENERAL', 21.00),
  (3, 4, 'PIEZA',        'Lampara faro H4 12V 60/55W',                    'LAM-H4',         1.000,  10.9000, 0, 'GENERAL', 21.00),
- -- R/2026/000001 (sustituye integramente a la A/2026/000003, con 1 h de mano de obra)
- (4, 1, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',              NULL,             1.000,  45.0000, 0, 'GENERAL', 21.00),
- (4, 2, 'PIEZA',        'Aceite motor 10W-40 semisintético 1 L',         'ACE-10W40-1L',   1.000,  12.9000, 0, 'GENERAL', 21.00),
- (4, 3, 'PIEZA',        'Filtro de aceite HF204',                        'FIL-ACE-HF204',  1.000,   9.5000, 0, 'GENERAL', 21.00),
- (4, 4, 'PIEZA',        'Lampara faro H4 12V 60/55W',                    'LAM-H4',         1.000,  10.9000, 0, 'GENERAL', 21.00);
+ -- R/2026/000001 (por diferencias sobre la A/2026/000003: fuera 1,5 h, dentro 1 h)
+ (4, 1, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',              NULL,            -1.500,  45.0000, 0, 'GENERAL', 21.00),
+ (4, 2, 'MANO_DE_OBRA', 'Mantenimiento periodico de flota',              NULL,             1.000,  45.0000, 0, 'GENERAL', 21.00);
 
 
 -- ---------------------------------------------------------------------
@@ -1183,7 +1187,7 @@ INSERT INTO evento_factura (factura_id, tipo_evento, fecha, usuario_id, descripc
  (1, 'GENERACION_PDF',TIMESTAMPTZ '2026-05-15 18:26:00+02', 2, 'Generacion del PDF de la factura A/2026/000001', NULL),
  (2, 'EMISION',       TIMESTAMPTZ '2026-06-05 10:15:00+02', 2, 'Emision de la factura A/2026/000002 desde la OT-2026-00002', '{"origen":"OT-2026-00002","importe":674.94}'),
  (3, 'EMISION',       TIMESTAMPTZ '2026-06-23 17:50:00+02', 2, 'Emision de la factura A/2026/000003 desde la OT-2026-00003', '{"origen":"OT-2026-00003","importe":121.98}'),
- (4, 'RECTIFICACION', TIMESTAMPTZ '2026-06-30 12:00:00+02', 1, 'Emision de la rectificativa R/2026/000001 que sustituye a la A/2026/000003', '{"rectifica":"A/2026/000003","motivo":"horas de mano de obra"}'),
+ (4, 'RECTIFICACION', TIMESTAMPTZ '2026-06-30 12:00:00+02', 1, 'Emision de la rectificativa R/2026/000001 que corrige a A/2026/000003', '{"rectifica":"A/2026/000003","tipo":"POR_DIFERENCIAS","motivo":"horas de mano de obra"}'),
  (NULL, 'VERIFICACION_CADENA', TIMESTAMPTZ '2026-07-01 08:00:00+02', 1, 'Verificacion periodica de la cadena de huellas: sin anomalias', '{"facturas_verificadas":4,"anomalias":0}');
 
 

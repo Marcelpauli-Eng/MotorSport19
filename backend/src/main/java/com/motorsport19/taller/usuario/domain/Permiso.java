@@ -53,6 +53,7 @@ public enum Permiso {
     ORDENES_ESTADO(Grupo.ORDENES, "Mover el estado", "Empezar la reparacion, marcarla lista..."),
     ORDENES_ASIGNAR_TECNICO(Grupo.ORDENES, "Repartir el trabajo", "Asignar la orden a un tecnico"),
     ORDENES_PREPARAR(Grupo.ORDENES, "Preparar trabajo cerrado", "Componerla entera y pasarsela a un tecnico, sin presupuesto ni aprobacion"),
+    ORDENES_PRESUPUESTAR(Grupo.ORDENES, "Pasar a presupuestada", "Dar el presupuesto por terminado para enseñarselo al cliente"),
     ORDENES_APROBAR(Grupo.ORDENES, "Aprobar o rechazar el presupuesto", "Lo que contesta el cliente"),
     ORDENES_ENTREGAR(Grupo.ORDENES, "Entregar la moto al cliente"),
 
@@ -97,6 +98,8 @@ public enum Permiso {
     AJUSTES_VER(Grupo.CONFIGURACION, "Ver los ajustes del taller"),
     AJUSTES_EDITAR(Grupo.CONFIGURACION, "Cambiar los ajustes del taller", "Datos fiscales, tarifa por hora"),
     USUARIOS_GESTIONAR(Grupo.CONFIGURACION, "Gestionar usuarios"),
+    FICHAJES_VER(Grupo.CONFIGURACION, "Ver el registro de jornada", "Las horas de todo el mundo, y corregirlas"),
+    FICHAJE_EXENTO(Grupo.CONFIGURACION, "No tiene que fichar", "Entra al programa sin empezar jornada. Normalmente solo la direccion"),
     ROLES_GESTIONAR(Grupo.CONFIGURACION, "Gestionar roles y permisos");
 
     /** Bloques con los que se agrupan los permisos en la pantalla de roles. */

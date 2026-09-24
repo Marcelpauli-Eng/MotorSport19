@@ -111,6 +111,7 @@ public final class FacturasDePrueba {
                 "1234 JKL", "Yamaha MT-07", "OT-2026-00001",
                 "MotorSport19 Taller", "0.1.0", NIF_TALLER,
                 "https://verifactu.motorsport19.example/verifica",
+                false,
                 1L);
     }
 

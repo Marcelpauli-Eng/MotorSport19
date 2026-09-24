@@ -1,12 +1,16 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
 import { ConfiguracionTaller, Usuario } from '../../nucleo/modelos/configuracion';
+import { Pieza } from '../../nucleo/modelos/taller';
 import { SerieFactura, TipoFactura } from '../../nucleo/modelos/facturacion';
 import { ConfiguracionService } from '../../nucleo/servicios/configuracion.service';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
+import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { GrupoPermisos, Rol, RolesService } from '../../nucleo/servicios/roles.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
@@ -116,12 +120,22 @@ type Pestana = 'empresa' | 'series' | 'roles' | 'usuarios';
 })
 export class Ajustes {
   private readonly configuracion = inject(ConfiguracionService);
+  private readonly inventario = inject(InventarioService);
   private readonly usuariosServicio = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly sesion = inject(SesionService);
+  private readonly ruta = inject(ActivatedRoute);
 
   /** Mostrador consulta los datos de la empresa; solo dirección los cambia. */
-  protected readonly esAdmin = this.sesion.puede('ADMIN');
+  protected readonly esAdmin = this.sesion.tienePermiso('AJUSTES_EDITAR');
+
+  // Cada pestaña con el permiso que pide la API para lo que hay dentro. Todas
+  // colgaban de AJUSTES_EDITAR: un rol a medida con ese permiso abría pestañas
+  // que solo daban avisos de permisos, y uno que solo gestionaba usuarios no
+  // encontraba la suya.
+  protected readonly veSeries = this.sesion.tienePermiso('FACTURAS_SERIES') && this.sesion.tienePermiso('FACTURAS_VER');
+  protected readonly veRoles = this.sesion.tienePermiso('ROLES_GESTIONAR');
+  protected readonly veUsuarios = this.sesion.tienePermiso('USUARIOS_GESTIONAR');
 
   protected readonly pestana = signal<Pestana>('empresa');
   protected readonly cargando = signal(true);
@@ -136,6 +150,13 @@ export class Ajustes {
    * porque la tarifa por hora y los datos fiscales salen de aquí.
    */
   protected readonly sinConfigurar = signal(false);
+
+  // --- Tasa de reciclaje de neumáticos --------------------------------
+  protected readonly familiasPieza = signal<string[]>([]);
+  protected readonly piezasParaTasa = signal<Pieza[]>([]);
+  protected readonly familiaNeumaticos = signal<string>('');
+  protected readonly piezaTasaId = signal<number | null>(null);
+  protected readonly guardandoTasa = signal(false);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly editando = signal<Usuario | null>(null);
   protected readonly creando = signal(false);
@@ -154,18 +175,76 @@ export class Ajustes {
       !!b.codigoPostal?.trim() &&
       !!b.ciudad?.trim() &&
       b.tarifaHoraDefecto > 0 &&
-      b.capacidadDiariaHoras > 0
+      b.capacidadDiariaHoras > 0 &&
+      b.limiteFacturaSimplificada >= 0
     );
   });
 
   constructor() {
+    // Solo las listas ya abiertas. Los datos del taller no: son un formulario
+    // y recargarlos pisaría lo que se esté escribiendo.
+    alCambiarDatos(() => {
+      if (this.usuarios().length) this.cargarUsuarios();
+      if (this.roles().length) this.cargarRoles();
+      if (this.series().length) this.cargarSeries();
+    });
     this.configuracion.obtener().subscribe({
       next: (c) => {
         this.recibir(c);
         this.cargando.set(false);
+        if (this.esAdmin && this.sesion.tienePermiso('ALMACEN_VER')) this.cargarDatosDeLaTasa();
+        this.irAlAncla();
       },
       error: () => this.cargando.set(false),
     });
+  }
+
+  /**
+   * Baja hasta el campo que traiga la URL como fragmento (p.ej. desde el aviso
+   * de la orden que enlaza directo al límite de la factura simplificada).
+   *
+   * El scroll-to-fragment de Angular no sirve aquí: el campo vive detrás de la
+   * carga de `obtener()`, así que hasta que no llega la respuesta el elemento
+   * ni siquiera existe en el DOM. Se espera un tick más para dar tiempo a que
+   * el `@if` de la plantilla lo pinte.
+   */
+  private irAlAncla(): void {
+    const id = this.ruta.snapshot.fragment;
+    if (!id) return;
+    setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+  }
+
+  /**
+   * Carga las familias y las piezas del desplegable de la tasa.
+   *
+   * <p>Solo cuando hace falta: quien entra en Ajustes casi siempre va a otra
+   * cosa, y el almacén no tiene por qué viajar en cada visita.
+   */
+  private cargarDatosDeLaTasa(): void {
+    if (this.familiasPieza().length) return;
+    this.inventario.familias().subscribe((f) => this.familiasPieza.set(f));
+    this.inventario
+      .buscarPiezas('', { tamano: 300 })
+      .subscribe((p) => this.piezasParaTasa.set(p.contenido));
+  }
+
+  protected guardarTasaNeumatico(): void {
+    this.guardandoTasa.set(true);
+    this.configuracion
+      .guardarTasaNeumatico(this.familiaNeumaticos() || null, this.piezaTasaId())
+      .subscribe({
+        next: (c) => {
+          this.guardandoTasa.set(false);
+          this.recibir(c);
+          this.notificaciones.exito(
+            c.familiaNeumaticos
+              ? `Los neumáticos de «${c.familiaNeumaticos}» llevarán su tasa.`
+              : 'Tasa de reciclaje desactivada.',
+          );
+        },
+        // El interceptor ya enseña el motivo que manda el servidor.
+        error: () => this.guardandoTasa.set(false),
+      });
   }
 
   /**
@@ -184,10 +263,13 @@ export class Ajustes {
       ciudad: c.ciudad ?? '',
       tarifaHoraDefecto: c.tarifaHoraDefecto ?? 0,
       capacidadDiariaHoras: c.capacidadDiariaHoras ?? 0,
+      limiteFacturaSimplificada: c.limiteFacturaSimplificada ?? 400,
     };
     this.datos.set(limpia);
     this.borrador.set({ ...limpia });
     this.sinConfigurar.set(!c.configurado);
+    this.familiaNeumaticos.set(c.familiaNeumaticos ?? '');
+    this.piezaTasaId.set(c.piezaTasaNeumaticoId ?? null);
   }
 
   protected cambiarPestana(p: Pestana): void {
@@ -484,6 +566,7 @@ export class Ajustes {
         tarifaHoraDefecto: b.tarifaHoraDefecto,
         tipoIvaDefecto: b.tipoIvaDefecto,
         capacidadDiariaHoras: b.capacidadDiariaHoras,
+        limiteFacturaSimplificada: b.limiteFacturaSimplificada,
       })
       .subscribe({
         next: (c) => {
@@ -507,6 +590,14 @@ export class Ajustes {
   }
 
   protected cambiarEstado(usuario: Usuario): void {
+    // Es un botón rojo pegado a «Editar», y la baja echa a esa persona en el
+    // acto, esté haciendo lo que esté haciendo.
+    if (
+      usuario.activo &&
+      !confirm(`${usuario.nombreCompleto} dejará de poder entrar ahora mismo, aunque esté trabajando. ¿Dar de baja?`)
+    ) {
+      return;
+    }
     const peticion = usuario.activo
       ? this.usuariosServicio.darDeBaja(usuario.id)
       : this.usuariosServicio.reactivar(usuario.id);

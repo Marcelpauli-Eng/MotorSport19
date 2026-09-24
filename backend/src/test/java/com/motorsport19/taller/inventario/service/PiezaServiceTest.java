@@ -40,6 +40,9 @@ class PiezaServiceTest {
     @Mock
     private InventarioService inventarioService;
 
+    @Mock
+    private com.motorsport19.taller.fichaje.service.RegistroActividad registroActividad;
+
     @InjectMocks
     private PiezaService piezaService;
 

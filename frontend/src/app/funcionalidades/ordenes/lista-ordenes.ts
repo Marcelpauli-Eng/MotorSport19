@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -31,8 +32,20 @@ export class ListaOrdenes {
   protected readonly soloAbiertas = signal(true);
   protected readonly mostrarFormulario = signal(false);
 
-  /** Abrir órdenes es cosa de mostrador: es quien recibe la moto. */
-  protected readonly puedeAbrir = inject(SesionService).puede('ADMIN', 'MOSTRADOR');
+  /**
+   * Quien tenga el permiso de abrir órdenes, sea del perfil que sea.
+   *
+   * <p>Antes preguntaba por el perfil (`puede('ADMIN', 'MOSTRADOR')`), que con
+   * el modelo nuevo se traduce a «gestiona roles» o «ve importes». Ninguna de
+   * las dos cosas tiene que ver con recibir una moto: dar a un técnico el
+   * permiso «Abrir órdenes» le dejaba pasar en el servidor —la ruta pide
+   * ORDENES_ABRIR— pero el botón no le aparecía nunca, así que el permiso no
+   * servía de nada.
+   *
+   * <p>Se pregunta por el MISMO permiso que exige la API. Es lo único que hace
+   * que conceder un permiso se note.
+   */
+  protected readonly puedeAbrir = inject(SesionService).tienePermiso('ORDENES_ABRIR');
 
   /** Recién abierta, se va directo a su ficha para empezar a trabajarla. */
   protected trasAbrir(orden: OrdenTrabajo): void {
@@ -63,6 +76,7 @@ export class ListaOrdenes {
   }
 
   constructor() {
+    alCambiarDatos(() => this.cargar(this.pagina()));
     this.cargar();
   }
 

@@ -17,4 +17,15 @@ export class ConfiguracionService {
   guardar(datos: Partial<ConfiguracionTaller>): Observable<ConfiguracionTaller> {
     return this.http.put<ConfiguracionTaller>(this.base, datos);
   }
+
+  /** Configura la tasa de reciclaje de neumáticos, o la desactiva con nulos. */
+  guardarTasaNeumatico(
+    familiaNeumaticos: string | null,
+    piezaTasaId: number | null,
+  ): Observable<ConfiguracionTaller> {
+    return this.http.put<ConfiguracionTaller>(`${this.base}/tasa-neumatico`, {
+      familiaNeumaticos,
+      piezaTasaId,
+    });
+  }
 }

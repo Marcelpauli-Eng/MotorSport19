@@ -3,7 +3,8 @@
 Gestión de clientes, motos, órdenes de trabajo, inventario y facturación para un
 taller de motocicletas en España.
 
-> **Estado: las siete fases completadas.** 232 tests en verde.
+> **Estado: las siete fases completadas.** 408 tests de backend, 41 de frontend
+> y 346 comprobaciones de extremo a extremo (`pruebas/api`) en verde.
 >
 > Clientes, motos, órdenes de trabajo con máquina de estados y consumo de
 > almacén, facturación con numeración sin huecos y cadena de huellas, frontend
@@ -26,14 +27,15 @@ taller de motocicletas en España.
 ## Empezar en dos minutos
 
 ```bash
-docker compose up --build
+cp .env.example .env && docker compose up --build
 ```
 
 Y entrar en **http://localhost:4200** con `admin` / `admin1234`.
 
 Eso levanta PostgreSQL, la API y el frontend, con la base ya poblada de datos de
-demostración. No hace falta configurar nada: el `docker-compose.yml` trae valores
-de desarrollo para todo.
+demostración. El `.env.example` es el que activa el perfil `demo`: sin él,
+`docker-compose.yml` arranca con la base vacía y el `admin` recibe una contraseña
+al azar que se escribe en el log (busca `PRIMER ARRANQUE`).
 
 ---
 
@@ -230,7 +232,7 @@ Se cargan con el perfil `demo` y cubren a propósito los casos interesantes:
 - Tres piezas en **alerta de stock**, una de ellas sin existencias tras un ajuste
   de inventario.
 - Cuatro facturas con **huellas SHA-256 reales y encadenadas**, incluida una
-  rectificativa por sustitución.
+  rectificativa por diferencias.
 
 ### Usuarios de demostración
 
@@ -463,7 +465,8 @@ Al entrar en reparación, la OT consume automáticamente las piezas de sus líne
 | `GET` | `/facturas/{id}` | Factura completa con líneas, desglose y huella |
 | `GET` | `/facturas/{id}/pdf` | PDF con QR y huella impresa |
 | `POST` | `/facturas` | Emite desde una OT `LISTA` o `ENTREGADA` |
-| `POST` | `/facturas/{id}/rectificativas` | Emite una rectificativa |
+| `GET` | `/facturas/{id}/lineas-vigentes` | Lo que vale hoy la factura, con sus rectificativas aplicadas |
+| `POST` | `/facturas/{id}/rectificativas` | Emite una rectificativa, siempre por diferencias: con líneas corrige parte; sin líneas anula lo que quede |
 | `POST` | `/facturas/verificacion` | Verifica la cadena de extremo a extremo |
 | `GET` | `/facturas/exportacion/csv` · `/json` | Exporta el libro registro |
 | `GET` | `/facturacion/eventos` | Registro de eventos |

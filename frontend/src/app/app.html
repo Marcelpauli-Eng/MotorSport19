@@ -1,3 +1,7 @@
+@if (debeFicharYNoHaFichado()) {
+  <app-empezar-jornada />
+}
+
 <div [class.armazon]="sesion.autenticado()" [class.armazon--menu-abierto]="sesion.autenticado() && menuAbierto()" [class.armazon--colapsado]="sesion.autenticado() && menuColapsado()">
   @if (sesion.autenticado()) {
     <aside class="lateral">
@@ -80,15 +84,42 @@
           lista lateral de quince entradas donde no se encuentra nada.
         -->
         <nav class="nav-superior">
-          <a routerLink="/ordenes" routerLinkActive="activo">Órdenes</a>
-          <a routerLink="/clientes" routerLinkActive="activo">Clientes</a>
-          <a routerLink="/inventario" routerLinkActive="activo">Almacén</a>
-          @if (sesion.puede('ADMIN', 'MOSTRADOR')) {
+          @if (sesion.tienePermiso('ORDENES_VER')) {
+            <a routerLink="/ordenes" routerLinkActive="activo">Órdenes</a>
+          }
+          @if (sesion.tienePermiso('CLIENTES_VER')) {
+            <a routerLink="/clientes" routerLinkActive="activo">Clientes</a>
+          }
+          @if (sesion.tienePermiso('ALMACEN_VER')) {
+            <a routerLink="/inventario" routerLinkActive="activo">Almacén</a>
+          }
+          @if (sesion.tienePermiso('FACTURAS_VER')) {
             <a routerLink="/facturas" routerLinkActive="activo">Facturación</a>
           }
         </nav>
 
         <div class="encabezado-global__acciones">
+          <!--
+            El contador de jornada. Va aquí y no escondido en un menú porque
+            fichar la salida se hace todos los días y con prisa: quien acaba a
+            las siete no debería tener que buscar dónde se cierra.
+          -->
+          @if (fichajes.jornada(); as j) {
+            @if (j.abierta) {
+              <button
+                type="button"
+                class="jornada"
+                [disabled]="cerrandoJornada()"
+                (click)="terminarJornada()"
+                title="Terminar la jornada"
+              >
+                <app-icono nombre="reloj" [tamano]="15" />
+                <span class="jornada__horas">{{ jornadaLegible() }}</span>
+                <span class="jornada__accion">{{ cerrandoJornada() ? 'Cerrando…' : 'Salir' }}</span>
+              </button>
+            }
+          }
+
           <!--
             La marca en su versión apilada, que es la que ocupa poco a lo ancho:
             en la esquina derecha el sitio que sobra es alto, no ancho.
@@ -101,6 +132,16 @@
     }
 
     <main [class.contenido]="sesion.autenticado()">
+      @if (tiempoReal.caido() || sinConexion.pendientes().length) {
+        <p class="sin-conexion" role="status">
+          @if (tiempoReal.caido()) {
+            Sin conexión con el servidor: se ven los últimos datos recibidos.
+          }
+          @if (sinConexion.pendientes().length) {
+            {{ sinConexion.pendientes().length }} cambio(s) pendientes de guardar.
+          }
+        </p>
+      }
       <router-outlet />
     </main>
   </div>

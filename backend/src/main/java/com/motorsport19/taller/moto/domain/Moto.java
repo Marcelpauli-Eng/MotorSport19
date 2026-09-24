@@ -122,6 +122,20 @@ public class Moto extends EntidadAuditable {
     }
 
     /**
+     * Guarda la lectura que se tomo al entrar la moto en el taller.
+     *
+     * <p>A diferencia de {@link #registrarKilometraje}, esta <b>si</b> puede
+     * bajar. Un cambio de motor trae su propio cuentakilometros, casi siempre
+     * con menos kilometros que el que salio, y a partir de ahi la moto cuenta
+     * desde ahi. Quien decide si esa bajada es legitima es quien abre la orden,
+     * que tiene la moto delante.
+     */
+    public void anotarLecturaDeVisita(int km) {
+        comprobarActiva();
+        this.kmActual = validarKilometraje(km);
+    }
+
+    /**
      * Comprueba una lectura del cuentakilometros sin llegar a guardarla.
      *
      * <p>Existe aparte de {@link #registrarKilometraje} porque hay que poder

@@ -3,7 +3,6 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Tecnico, Usuario } from '../modelos/configuracion';
-import { Rol } from './sesion.service';
 
 @Injectable({ providedIn: 'root' })
 export class UsuariosService {

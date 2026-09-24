@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -33,8 +34,13 @@ export class Panel {
   private readonly estadisticas = inject(EstadisticasService);
   protected readonly sesion = inject(SesionService);
 
-  /** Facturar es cosa de mostrador y dirección: al técnico ni se le pide. */
-  protected readonly veFacturacion = this.sesion.puede('ADMIN', 'MOSTRADOR');
+  // Cada bloque con el mismo permiso que pide la API para sus datos. Uno solo
+  // para facturas e informes dejaba a un rol con uno de los dos recibiendo el
+  // aviso de permisos cada vez que abría el programa.
+  protected readonly veOrdenes = computed(() => this.sesion.tienePermiso('ORDENES_VER'));
+  protected readonly veAlmacen = computed(() => this.sesion.tienePermiso('ALMACEN_VER'));
+  protected readonly veFacturas = computed(() => this.sesion.tienePermiso('FACTURAS_VER'));
+  protected readonly veInformes = computed(() => this.sesion.tienePermiso('INFORMES_VER'));
 
   protected readonly ordenesAbiertas = signal<OrdenTrabajoResumen[]>([]);
   protected readonly alertas = signal<AlertaStock[]>([]);
@@ -43,17 +49,22 @@ export class Panel {
   protected readonly informe = signal<InformeFacturacion | null>(null);
 
   constructor() {
-    this.ordenes.buscar({ soloAbiertas: true, tamano: 50 }).subscribe((p) => {
-      this.ordenesAbiertas.set(p.contenido);
-      this.totalAbiertas.set(p.totalItems);
-    });
-    this.inventario.alertas().subscribe((a) => this.alertas.set(a));
-    // Sin esta comprobación el panel de un técnico pediría facturas, recibiría
-    // un 403 y le saltaría un aviso de permisos cada vez que abre el programa.
-    if (this.veFacturacion) {
-      this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
-      this.estadisticas.facturacion().subscribe((i) => this.informe.set(i));
+    this.cargar();
+    alCambiarDatos(() => this.cargar());
+  }
+
+  private cargar(): void {
+    if (this.veOrdenes()) {
+      this.ordenes.buscar({ soloAbiertas: true, tamano: 50 }).subscribe((p) => {
+        this.ordenesAbiertas.set(p.contenido);
+        this.totalAbiertas.set(p.totalItems);
+      });
     }
+    if (this.veAlmacen()) this.inventario.alertas().subscribe((a) => this.alertas.set(a));
+    if (this.veFacturas()) {
+      this.facturas.buscar({ tamano: 5 }).subscribe((p) => this.ultimasFacturas.set(p.contenido));
+    }
+    if (this.veInformes()) this.estadisticas.facturacion().subscribe((i) => this.informe.set(i));
   }
 
   /** Fecha de hoy escrita como se lee: «miércoles, 6 de agosto». */
@@ -72,40 +83,43 @@ export class Panel {
    * Se marcan como «atención» solo cuando hay algo que hacer: un cero en piezas
    * pendientes es una buena noticia y no debe pintarse de rojo.
    */
-  protected readonly metricas = computed(() => [
-    {
-      valor: this.totalAbiertas(),
-      texto: 'órdenes abiertas',
-      ruta: '/ordenes',
-      atencion: false,
-    },
-    {
-      // Trabajo ya compuesto por dirección esperando a que alguien lo coja. Un
-      // técnico ve aquí solo el suyo: el backend le filtra el tablero.
-      valor: this.porEstado('PREPARADA').length,
-      texto: 'trabajos por empezar',
-      ruta: '/ordenes',
-      atencion: false,
-    },
-    {
-      valor: this.porEstado('LISTA').length,
-      texto: 'listas para entregar',
-      ruta: '/ordenes',
-      atencion: false,
-    },
-    {
-      valor: this.porEstado('ESPERANDO_PIEZAS').length,
-      texto: 'esperando piezas',
-      ruta: '/ordenes',
-      atencion: this.porEstado('ESPERANDO_PIEZAS').length > 0,
-    },
-    {
-      valor: this.alertas().length,
-      texto: 'piezas bajo mínimo',
-      ruta: '/inventario',
-      atencion: this.alertas().length > 0,
-    },
-  ]);
+  protected readonly metricas = computed(() =>
+    [
+      {
+        valor: this.totalAbiertas(),
+        texto: 'órdenes abiertas',
+        ruta: '/ordenes',
+        atencion: false,
+      },
+      {
+        // Trabajo ya compuesto por dirección esperando a que alguien lo coja. Un
+        // técnico ve aquí solo el suyo: el backend le filtra el tablero.
+        valor: this.porEstado('PREPARADA').length,
+        texto: 'trabajos por empezar',
+        ruta: '/ordenes',
+        atencion: false,
+      },
+      {
+        valor: this.porEstado('LISTA').length,
+        texto: 'listas para entregar',
+        ruta: '/ordenes',
+        atencion: false,
+      },
+      {
+        valor: this.porEstado('ESPERANDO_PIEZAS').length,
+        texto: 'esperando piezas',
+        ruta: '/ordenes',
+        atencion: this.porEstado('ESPERANDO_PIEZAS').length > 0,
+      },
+      {
+        valor: this.alertas().length,
+        texto: 'piezas bajo mínimo',
+        ruta: '/inventario',
+        atencion: this.alertas().length > 0,
+      },
+      // Un cero de lo que no se puede consultar no es un dato: es mentira.
+    ].filter((m) => (m.ruta === '/inventario' ? this.veAlmacen() : this.veOrdenes())),
+  );
 
   /**
    * Facturación de los últimos seis meses.

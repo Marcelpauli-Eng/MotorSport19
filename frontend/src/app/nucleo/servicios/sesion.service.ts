@@ -3,15 +3,6 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
-/**
- * Los tres roles de siempre.
- *
- * Ya no son los únicos: el administrador compone los que quiera. Se conserva el
- * tipo porque muchas pantallas todavía preguntan por él a través de `puede()`,
- * que ahora traduce cada uno al permiso que de verdad lo definía.
- */
-export type Rol = 'ADMIN' | 'MOSTRADOR' | 'TECNICO';
-
 /** Un permiso del catálogo. La lista buena vive en el enum del backend. */
 export type Permiso = string;
 
@@ -75,35 +66,6 @@ export class SesionService {
     return permisos.some((p) => concedidos.includes(p));
   }
 
-  /**
-   * ¿Encaja el usuario en alguno de los tres perfiles de siempre?
-   *
-   * Se conserva porque muchas pantallas todavía preguntan así, pero ya no
-   * compara nombres de rol —que ahora los pone el taller y pueden ser
-   * cualquiera— sino el permiso que definía a cada perfil:
-   *
-   * - ADMIN, quien reparte permisos.
-   * - MOSTRADOR, quien ve el dinero.
-   * - TECNICO, quien solo ve las órdenes que tiene asignadas.
-   *
-   * Las pantallas nuevas deberían usar `tienePermiso()` directamente, que dice
-   * lo que de verdad se está comprobando.
-   */
-  puede(...roles: Rol[]): boolean {
-    return roles.some((rol) => {
-      switch (rol) {
-        case 'ADMIN':
-          return this.tienePermiso('ROLES_GESTIONAR');
-        case 'MOSTRADOR':
-          return this.tienePermiso('IMPORTES_VER');
-        case 'TECNICO':
-          return this.autenticado() && !this.tienePermiso('ORDENES_VER_TODAS');
-        default:
-          return false;
-      }
-    });
-  }
-
   entrar(username: string, password: string): Observable<RespuestaLogin> {
     return this.http
       .post<RespuestaLogin>(`${this.base}/login`, { username, password })
@@ -117,9 +79,15 @@ export class SesionService {
    * montada y el usuario solo se enteraría al pulsar algo y ver un error.
    */
   revalidar(): Observable<UsuarioSesion> {
-    return this.http
-      .get<UsuarioSesion>(`${this.base}/yo`)
-      .pipe(tap((usuario) => this.guardar(this._token()!, usuario)));
+    const token = this._token();
+    return this.http.get<UsuarioSesion>(`${this.base}/yo`).pipe(
+      tap((usuario) => {
+        // Solo si la sesión sigue siendo la misma. Si entretanto se salió, se
+        // guardaba el texto «null» como token; y si entró otra persona en el
+        // mismo puesto, se quedaba con los permisos de la anterior.
+        if (token && token === this._token()) this.guardar(token, usuario);
+      }),
+    );
   }
 
   cambiarPassword(passwordActual: string, passwordNueva: string): Observable<void> {

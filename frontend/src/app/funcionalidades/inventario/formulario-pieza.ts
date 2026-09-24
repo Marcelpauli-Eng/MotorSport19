@@ -26,6 +26,49 @@ function aCentimos(valor: number): number {
  * estantería y eso genera una entrada de almacén. Después solo cambia con
  * entradas, salidas y ajustes.
  */
+/**
+ * Lo que se puso en el alta anterior, para no volver a escribirlo.
+ *
+ * <p>Se guarda en el propio equipo y no en el servidor: es la ayuda de quien
+ * está metiendo un albarán en esta mesa, no un dato del taller.
+ */
+const ULTIMA_ALTA = 'motorsport19.ultimaAlta';
+
+interface UltimaAlta {
+  familia?: string;
+  ubicacion?: string;
+  unidadMedida?: string;
+  proveedorId?: number | null;
+}
+
+function leerUltimaAlta(): UltimaAlta {
+  try {
+    return JSON.parse(localStorage.getItem(ULTIMA_ALTA) ?? '{}') as UltimaAlta;
+  } catch {
+    // Un localStorage lleno de basura no puede impedir dar de alta una pieza.
+    return {};
+  }
+}
+
+function anotarUltimaAlta(datos: UltimaAlta): void {
+  try {
+    localStorage.setItem(ULTIMA_ALTA, JSON.stringify(datos));
+  } catch {
+    /* Modo privado o cuota llena: la ayuda se pierde, el alta no. */
+  }
+}
+
+/**
+ * Lo escrito, o lo del alta anterior si se dejó en gris.
+ *
+ * <p>Es toda la regla del recordatorio: el valor anterior se enseña de gris en
+ * el hueco del campo y solo se usa si nadie escribe encima. Así no hay que ir
+ * borrando lo que la pantalla haya dejado puesto.
+ */
+export function oUltimo(escrito: string, ultimo: string | undefined): string | null {
+  return escrito.trim() || ultimo?.trim() || null;
+}
+
 @Component({
   selector: 'app-formulario-pieza',
   standalone: true,
@@ -41,7 +84,12 @@ export class FormularioPieza {
   readonly pieza = input<Pieza | null>(null);
 
   readonly cerrar = output<void>();
-  readonly guardado = output<void>();
+
+  /** La pieza recién creada, para que quien abrió el formulario pueda usarla. */
+  readonly guardado = output<Pieza | null>();
+
+  /** Lo que se puso en el alta anterior. Se enseña de gris, no escrito. */
+  protected readonly ultima: UltimaAlta = leerUltimaAlta();
 
   protected readonly enviando = signal(false);
   protected readonly familias = signal<string[]>([]);
@@ -105,7 +153,12 @@ export class FormularioPieza {
     // El valor de `input()` no está puesto todavía cuando corre el constructor.
     queueMicrotask(() => {
       const p = this.pieza();
-      if (!p) return;
+      if (!p) {
+        // El proveedor es un desplegable: ahí no hay nada que borrar, así que
+        // se deja elegido el del alta anterior en vez de enseñarlo de gris.
+        if (this.ultima.proveedorId !== undefined) this.proveedorId.set(this.ultima.proveedorId);
+        return;
+      }
       this.sku.set(p.sku);
       this.descripcion.set(p.descripcion);
       this.marca.set(p.marca ?? '');
@@ -139,22 +192,35 @@ export class FormularioPieza {
 
   protected guardar(): void {
     if (!this.puedeGuardar()) return;
+    // Se deja, que una liquidación existe, pero no sin preguntar: casi siempre es
+    // un cero de menos al teclear el precio.
+    if (
+      this.precioVenta() < this.precioCoste() &&
+      !confirm(
+        `El precio de venta (${this.precioVenta()} €) es menor que el coste (${this.precioCoste()} €): cada unidad se venderá con pérdidas. ¿Guardar igualmente?`,
+      )
+    )
+      return;
     this.enviando.set(true);
+
+    const existente = this.pieza();
+    // Solo un alta hereda lo gris del alta anterior. En una edición, un campo
+    // vacío es que se quiere vaciar, y rellenarlo solo sería cambiar la ficha
+    // por detrás.
+    const ultima: UltimaAlta = existente ? {} : this.ultima;
 
     const datos = {
       sku: this.sku().trim().toUpperCase(),
       descripcion: this.descripcion().trim(),
       marca: this.marca().trim() || null,
-      familia: this.familia().trim() || null,
-      ubicacion: this.ubicacion().trim() || null,
+      familia: oUltimo(this.familia(), ultima.familia),
+      ubicacion: oUltimo(this.ubicacion(), ultima.ubicacion),
       stockMinimo: this.stockMinimo(),
       tipoIva: this.tipoIva(),
       proveedorId: this.proveedorId(),
-      unidadMedida: this.unidadMedida().trim().toUpperCase() || 'UD',
+      unidadMedida: (oUltimo(this.unidadMedida(), ultima.unidadMedida) ?? 'UD').toUpperCase(),
       observaciones: this.observaciones().trim() || null,
     };
-
-    const existente = this.pieza();
     if (!existente) {
       this.servicio
         .crearPieza({
@@ -164,7 +230,15 @@ export class FormularioPieza {
           stockInicial: this.stockInicial() || undefined,
         })
         .subscribe({
-          next: (creada) => this.terminar(`${creada.sku} dada de alta.`),
+          next: (creada) => {
+            anotarUltimaAlta({
+              familia: datos.familia ?? undefined,
+              ubicacion: datos.ubicacion ?? undefined,
+              unidadMedida: datos.unidadMedida,
+              proveedorId: datos.proveedorId,
+            });
+            this.terminar(`${creada.sku} dada de alta.`, creada);
+          },
           error: () => this.enviando.set(false),
         });
       return;
@@ -192,9 +266,9 @@ export class FormularioPieza {
     });
   }
 
-  private terminar(mensaje: string): void {
+  private terminar(mensaje: string, creada: Pieza | null = null): void {
     this.enviando.set(false);
     this.notificaciones.exito(mensaje);
-    this.guardado.emit();
+    this.guardado.emit(creada);
   }
 }

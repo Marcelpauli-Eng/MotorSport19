@@ -1,0 +1,19 @@
+[
+ {"nombre":"panel","ruta":"/panel"},
+ {"nombre":"ordenes","ruta":"/ordenes"},
+ {"nombre":"orden","ruta":"/ordenes/6"},
+ {"nombre":"presupuesto","ruta":"/ordenes/8/presupuesto"},
+ {"nombre":"clientes","ruta":"/clientes"},
+ {"nombre":"cliente","ruta":"/clientes/1"},
+ {"nombre":"agenda","ruta":"/agenda"},
+ {"nombre":"inventario","ruta":"/inventario"},
+ {"nombre":"factura","ruta":"/facturas/1"},
+ {"nombre":"rectificar","ruta":"/facturas/1","espera":1800,
+  "antes":"(async()=>{const e=(ms)=>new Promise(r=>setTimeout(r,ms)); [...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Rectificar').click(); await e(1800); const q=document.querySelector('.correccion input[aria-label=\"Cantidad\"]'); q.value='2'; q.dispatchEvent(new Event('input',{bubbles:true})); await e(200); [...document.querySelectorAll('.correccion button')].filter(b=>b.textContent.trim()==='Quitar')[3].click(); await e(200); const m=document.getElementById('motivoRect'); m.value='Se cobraron 2,5 h en vez de 2 h y una bujía que no se montó'; m.dispatchEvent(new Event('input',{bubbles:true})); await e(300); document.activeElement.blur(); })()"},
+ {"nombre":"informes","ruta":"/informes"},
+ {"nombre":"horas","ruta":"/horas"},
+ {"nombre":"movil-panel","ruta":"/panel","ancho":390,"alto":844,"movil":true},
+ {"nombre":"tablet-fichar","ruta":"/panel","ancho":834,"alto":1194,"usuario":["jortega","tecnico1234"]},
+ {"nombre":"tablet-orden-tecnico","ruta":"/ordenes/7","ancho":834,"alto":1194,"usuario":["jortega","tecnico1234"],
+  "antes":"(async()=>{const b=[...document.querySelectorAll('button')].find(b=>/empezar/i.test(b.textContent)); if (b) { b.click(); await new Promise(r=>setTimeout(r,2500)); location.reload(); } })()","espera":4000}
+]

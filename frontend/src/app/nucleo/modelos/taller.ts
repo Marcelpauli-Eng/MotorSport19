@@ -271,6 +271,8 @@ export interface OrdenTrabajoResumen {
   fechaEstimadaSalida: string | null;
   fechaRealSalida: string | null;
   problemaReportado: string;
+  /** Los km con los que entró la moto en esta visita. */
+  kmEntrada: number;
 }
 
 export interface PiezaFaltante {

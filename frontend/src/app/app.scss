@@ -280,6 +280,53 @@
   margin-left: auto;
 }
 
+/* ---------- Contador de jornada ----------
+   Enseña las horas que se llevan y hace de botón de salida. Va en la barra
+   superior porque fichar la salida se hace todos los días y con prisa: quien
+   acaba a las siete no debería tener que buscar dónde se cierra. */
+.jornada {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: 6px var(--e2);
+  border: var(--borde);
+  border-radius: var(--radio);
+  background: var(--blanco);
+  color: var(--gris-700);
+  font: inherit;
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primario);
+    color: var(--primario);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.jornada__horas {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Separado del contador por una línea: son dos cosas distintas, lo que llevas
+   trabajado y la acción de irte. */
+.jornada__accion {
+  padding-left: var(--e2);
+  border-left: var(--borde);
+  color: var(--gris-500);
+}
+
+.jornada:hover:not(:disabled) .jornada__accion {
+  color: var(--primario);
+}
+
 /* ---------- Marca de la esquina ----------
    La cabecera crece a 72 px por esto: el logotipo apilado necesita alto para
    que «RACING MOTORSPORT» se lea, y a cambio ocupa poquísimo a lo ancho, que
@@ -481,4 +528,13 @@
 @media (prefers-reduced-motion: reduce) {
   .armazon,
   .lateral { transition: none; }
+}
+
+.sin-conexion {
+  margin: 0 0 var(--e3);
+  padding: var(--e2) var(--e3);
+  border-left: 4px solid var(--ambar);
+  background: var(--ambar-claro);
+  border-radius: 6px;
+  font-size: 0.9rem;
 }

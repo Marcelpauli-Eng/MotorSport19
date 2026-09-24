@@ -23,6 +23,7 @@ export type NombreIcono =
   | 'reloj'
   | 'flecha-derecha'
   | 'flecha-izquierda'
+  | 'flecha-abajo'
   | 'documento'
   | 'llave'
   | 'caja'
@@ -87,6 +88,7 @@ const TRAZOS: Record<NombreIcono, string> = {
   reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5.2l3.2 2"/>',
   'flecha-derecha': '<path d="M4 12h15"/><path d="m13 6 6 6-6 6"/>',
   'flecha-izquierda': '<path d="M20 12H5"/><path d="m11 6-6 6 6 6"/>',
+  'flecha-abajo': '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>',
   documento:
     '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
   informes:

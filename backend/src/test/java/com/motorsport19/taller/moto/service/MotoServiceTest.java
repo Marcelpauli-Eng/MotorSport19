@@ -36,6 +36,9 @@ class MotoServiceTest {
     @Mock
     private ClienteService clienteService;
 
+    @Mock
+    private com.motorsport19.taller.fichaje.service.RegistroActividad registroActividad;
+
     @InjectMocks
     private MotoService motoService;
 

@@ -17,6 +17,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -24,6 +27,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Cita de entrada al taller.
@@ -104,6 +109,11 @@ public class Cita extends EntidadAuditable {
     @Column(name = "motivo_cancelacion", length = 300)
     private String motivoCancelacion;
 
+    /** Quien la movio, cuando y por que. Append-only: no se reescribe. */
+    @OneToMany(mappedBy = "cita", cascade = CascadeType.ALL)
+    @OrderBy("fecha ASC, id ASC")
+    private List<CambioEstadoCita> historialEstados = new ArrayList<>();
+
     // ------------------------------------------------------------------
     // Creacion
     // ------------------------------------------------------------------
@@ -116,11 +126,12 @@ public class Cita extends EntidadAuditable {
     public static Cita agendar(Instant fechaHora, BigDecimal duracionEstimada, Moto moto,
                                Cliente cliente, String contactoNombre, String contactoTelefono,
                                String descripcionMoto, String motivo, Usuario tecnico,
-                               String observaciones) {
+                               String observaciones, Usuario quienLoHace) {
         Cita cita = new Cita();
         cita.aplicarDatos(fechaHora, duracionEstimada, moto, cliente, contactoNombre, contactoTelefono,
                 descripcionMoto, motivo, tecnico, observaciones);
         cita.estado = EstadoCita.PENDIENTE;
+        cita.historialEstados.add(CambioEstadoCita.alta(cita, quienLoHace));
         return cita;
     }
 
@@ -144,13 +155,16 @@ public class Cita extends EntidadAuditable {
      * <p>Va aparte de {@link #actualizar} porque es lo que mas pasa —el cliente
      * llama para cambiar el dia— y no hay que obligar a reenviar la ficha entera.
      */
-    public void reprogramar(Instant nuevaFechaHora) {
+    public void reprogramar(Instant nuevaFechaHora, Usuario quienLoHace) {
         exigirViva();
+        Instant anterior = this.fechaHora;
         this.fechaHora = exigirFecha(nuevaFechaHora);
+        historialEstados.add(CambioEstadoCita.reprogramacion(
+                this, quienLoHace, "Movida del %s al %s".formatted(anterior, this.fechaHora)));
     }
 
-    public void confirmar() {
-        cambiarEstado(EstadoCita.CONFIRMADA);
+    public void confirmar(Usuario quienLoHace) {
+        cambiarEstado(EstadoCita.CONFIRMADA, quienLoHace, null);
     }
 
     /**
@@ -159,23 +173,23 @@ public class Cita extends EntidadAuditable {
      * <p>Es la unica forma de llegar a ATENDIDA, y exige la OT: la base de datos
      * tiene una restriccion que impide que una cosa vaya sin la otra.
      */
-    public void atender(OrdenTrabajo orden) {
+    public void atender(OrdenTrabajo orden, Usuario quienLoHace) {
         if (orden == null) {
             throw new ReglaNegocioException(
                     "Para dar por atendida una cita hay que abrir su orden de trabajo.");
         }
-        cambiarEstado(EstadoCita.ATENDIDA);
+        cambiarEstado(EstadoCita.ATENDIDA, quienLoHace, "Entro con la orden " + orden.codigoVisible());
         this.ordenTrabajo = orden;
     }
 
-    public void cancelar(String motivo) {
-        cambiarEstado(EstadoCita.CANCELADA);
+    public void cancelar(String motivo, Usuario quienLoHace) {
+        cambiarEstado(EstadoCita.CANCELADA, quienLoHace, motivo);
         this.motivoCancelacion = textoONulo(motivo);
     }
 
     /** El cliente no aparecio. Se distingue de cancelar: el hueco se perdio. */
-    public void marcarNoPresentado(String motivo) {
-        cambiarEstado(EstadoCita.NO_PRESENTADO);
+    public void marcarNoPresentado(String motivo, Usuario quienLoHace) {
+        cambiarEstado(EstadoCita.NO_PRESENTADO, quienLoHace, motivo);
         this.motivoCancelacion = textoONulo(motivo);
     }
 
@@ -262,13 +276,16 @@ public class Cita extends EntidadAuditable {
         this.observaciones = textoONulo(observaciones);
     }
 
-    private void cambiarEstado(EstadoCita destino) {
+    private void cambiarEstado(EstadoCita destino, Usuario quienLoHace, String motivo) {
         if (!estado.puedeTransitarA(destino)) {
             throw new ConflictoException(
                     "Una cita %s no puede pasar a %s."
                             .formatted(estado.getDescripcion().toLowerCase(),
                                     destino.getDescripcion().toLowerCase()));
         }
+        // La anotacion se hace ANTES de mover el estado: necesita saber de donde
+        // venia, y despues ya no habria manera de averiguarlo.
+        historialEstados.add(CambioEstadoCita.transicion(this, estado, destino, quienLoHace, motivo));
         this.estado = destino;
     }
 

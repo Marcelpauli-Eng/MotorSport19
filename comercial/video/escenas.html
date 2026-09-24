@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>MotorSport19 · Escenas del vídeo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tinta: #0a0c11; --noche: #14171f; --noche-2: #1c212b; --noche-3: #262c38;
+    --marca: #ff006d; --marca-f: #d9005c; --gris: #6d7686; --gris-2: #9aa2b1; --gris-3: #cbd1da; --blanco: #fff;
+    --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+    --texto: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: transparent; }
+  body { font-family: var(--texto); color: var(--blanco); }
+  .escena { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .escena.activa { display: block; }
+
+  /* Fondo común: noche con el resplandor magenta de la portada del folleto */
+  .noche { background: radial-gradient(1100px 900px at 1560px 180px, #4d0a2e, var(--tinta) 70%); }
+  .raya { position: absolute; top: -120px; width: 70px; height: 1400px; background: #9a0045; transform: skewX(-22deg); }
+  .raya--2 { width: 24px; background: #6a0332; }
+
+  /* Animaciones: todas empiezan en pausa y el renderizador las mueve fotograma a fotograma */
+  @keyframes sube { from { opacity: 0; transform: translateY(46px); } to { opacity: 1; transform: none; } }
+  @keyframes aparece { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes entra-izq { from { opacity: 0; transform: translateX(-120px); } to { opacity: 1; transform: none; } }
+  @keyframes entra-der { from { opacity: 0; transform: translateX(120px); } to { opacity: 1; transform: none; } }
+  @keyframes raya-cae { from { transform: translateY(-1500px) skewX(-22deg); } to { transform: translateY(0) skewX(-22deg); } }
+  @keyframes crece { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @keyframes funde-negro { from { opacity: 0; } to { opacity: 1; } }
+  .anim { animation-fill-mode: both; animation-timing-function: cubic-bezier(.2,.8,.2,1); }
+
+  .logo { height: 64px; display: block; }
+  .ceja { font: 700 22px/1 var(--texto); letter-spacing: .16em; text-transform: uppercase; color: var(--marca); }
+  h1 { font: 800 132px/.9 var(--display); letter-spacing: -.005em; }
+  h1 em { font-style: normal; color: var(--marca); }
+  h2 { font: 800 96px/.92 var(--display); }
+  h2 em { font-style: normal; color: var(--marca); }
+  .entradilla { font: 400 34px/1.4 var(--texto); color: var(--gris-3); }
+
+  /* ---------- Portada ---------- */
+  #intro .raya { right: 360px; animation: raya-cae 1.1s cubic-bezier(.2,.8,.2,1) both; }
+  #intro .raya--2 { right: 300px; animation-delay: .12s; }
+  #intro .logo { position: absolute; top: 90px; left: 150px; animation: aparece .8s .2s both; }
+  #intro .chip { position: absolute; top: 102px; right: 150px; font: 600 20px/1 var(--texto); letter-spacing: .1em; text-transform: uppercase;
+    color: var(--gris-3); background: var(--tinta); border: 2px solid var(--noche-3); border-radius: 40px; padding: 14px 24px; z-index: 1; animation: aparece .8s .3s both; }
+  #intro .bloque { position: absolute; left: 150px; top: 330px; width: 1250px; }
+  #intro .ceja { animation: sube .9s .45s both; }
+  #intro h1 { margin-top: 30px; animation: sube 1s .6s both; }
+  #intro .entradilla { margin-top: 40px; max-width: 1050px; animation: sube 1s .95s both; }
+  #intro .linea { position: absolute; left: 150px; bottom: 150px; width: 1620px; height: 2px; background: var(--noche-3); transform-origin: left; animation: crece 1.2s 1.2s both; }
+  #intro .pasos { position: absolute; left: 150px; bottom: 82px; display: flex; gap: 46px; font: 600 24px/1 var(--texto); color: var(--gris-2); }
+  #intro .pasos span { animation: sube .7s both; }
+  #intro .pasos b { color: var(--marca); font-weight: 700; margin-right: 10px; }
+
+  /* ---------- Tablet y móvil ---------- */
+  #puestos .raya { right: -40px; } #puestos .raya--2 { right: 60px; }
+  #puestos .cabeza { position: absolute; left: 150px; top: 96px; width: 760px; }
+  #puestos .cabeza .ceja { animation: sube .8s .1s both; }
+  #puestos h2 { margin-top: 24px; animation: sube .9s .25s both; }
+  #puestos .cabeza .entradilla { margin-top: 30px; font-size: 30px; animation: sube .9s .45s both; }
+  .ventajas { position: absolute; left: 150px; top: 560px; width: 720px; display: grid; gap: 26px; }
+  .ventaja { display: flex; gap: 22px; align-items: flex-start; animation: sube .8s both; }
+  .ventaja i { flex: none; width: 54px; height: 54px; border-radius: 15px; background: #2c0a1e; color: var(--marca); display: grid; place-items: center; font: 800 28px/1 var(--display); font-style: normal; }
+  .ventaja strong { display: block; font: 700 28px/1.2 var(--texto); }
+  .ventaja span { display: block; margin-top: 6px; font: 400 23px/1.35 var(--texto); color: var(--gris-2); }
+  .tablet { position: absolute; left: 990px; top: 110px; width: 590px; height: 850px; background: #0b0d12; border: 3px solid #2a303c; border-radius: 44px; padding: 20px;
+    box-shadow: 0 40px 90px rgba(0,0,0,.55); animation: entra-der 1.1s .35s both; }
+  .pantalla { width: 100%; height: 100%; border-radius: 26px; overflow: hidden; position: relative; background: #f4f6f9; }
+  .pantalla img { display: block; width: 100%; }
+  .tablet .pantalla img, .movil .pantalla img { transform-origin: 50% 0; animation: acerca 8s 1.2s cubic-bezier(.45,0,.2,1) both; }
+  @keyframes acerca { from { transform: scale(1); } to { transform: scale(1.05); } }
+  .movil { position: absolute; left: 1520px; top: 330px; width: 300px; height: 640px; background: #0b0d12; border: 3px solid #2a303c; border-radius: 48px; padding: 13px;
+    box-shadow: 0 40px 90px rgba(0,0,0,.6); animation: entra-der 1.1s .7s both; }
+  .movil .pantalla { border-radius: 36px; }
+  .etiqueta { position: absolute; font: 600 21px/1 var(--texto); color: var(--blanco); background: var(--marca); padding: 11px 18px; border-radius: 30px; animation: sube .7s both; box-shadow: 0 10px 30px rgba(255,0,109,.35); }
+
+  /* ---------- Cierre ---------- */
+  #cierre .raya { right: 360px; } #cierre .raya--2 { right: 300px; }
+  #cierre .logo { position: absolute; top: 90px; left: 150px; animation: aparece .8s both; }
+  #cierre .bloque { position: absolute; left: 150px; top: 250px; width: 1300px; }
+  #cierre .ceja { animation: sube .8s .15s both; }
+  #cierre h2 { margin-top: 26px; font-size: 118px; animation: sube .9s .3s both; }
+  .condiciones { position: absolute; left: 150px; top: 590px; display: grid; grid-template-columns: repeat(3, 500px); gap: 22px 40px; }
+  .condicion { display: flex; gap: 16px; align-items: center; font: 600 27px/1.2 var(--texto); color: var(--gris-3); animation: sube .7s both; }
+  .condicion::before { content: ""; flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--marca)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center/20px no-repeat; }
+  .llamada { position: absolute; left: 150px; bottom: 120px; display: flex; align-items: center; gap: 44px; animation: sube .9s 1.5s both; }
+  .boton { font: 700 36px/1 var(--texto); background: var(--marca); color: #fff; padding: 30px 46px; border-radius: 18px; box-shadow: 0 20px 50px rgba(255,0,109,.35); }
+  .contacto { font: 500 30px/1.45 var(--texto); color: var(--gris-3); }
+  .contacto b { color: #fff; font-weight: 600; }
+  #cierre .negro { position: absolute; inset: 0; background: #000; animation: funde-negro .9s 7.1s both; animation-timing-function: linear; }
+
+  /* ---------- Marco de la aplicación (fondo de la toma principal) ---------- */
+  #fondo .raya { right: -50px; opacity: .5; } #fondo .raya--2 { right: 50px; opacity: .5; }
+  .ventana { position: absolute; left: 190px; top: 26px; width: 1540px; height: 904px; border-radius: 16px; background: var(--noche);
+    border: 2px solid #2a303c; box-shadow: 0 30px 80px rgba(0,0,0,.6); overflow: hidden; }
+  .ventana__barra { height: 38px; display: flex; align-items: center; gap: 9px; padding: 0 18px; }
+  .ventana__barra i { width: 12px; height: 12px; border-radius: 50%; background: #3a4150; }
+  .ventana__barra i:nth-child(1) { background: #ff5f57; } .ventana__barra i:nth-child(2) { background: #febc2e; } .ventana__barra i:nth-child(3) { background: #28c840; }
+  .ventana__url { margin-left: 22px; font: 500 15px/1 var(--texto); color: var(--gris-2); background: var(--noche-3); border-radius: 8px; padding: 6px 60px; }
+  #fondo .logo { position: absolute; right: 190px; bottom: 50px; height: 50px; opacity: .95; }
+
+  /* ---------- Rótulo (se pinta sobre la toma, fondo transparente) ---------- */
+  #rotulo .caja { position: absolute; left: 190px; top: 950px; width: 1250px; }
+  #rotulo .ceja { font-size: 19px; }
+  #rotulo .texto { margin-top: 12px; font: 600 38px/1.15 var(--texto); color: #fff; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<section id="intro" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
+  <div class="chip">Software para talleres</div>
+  <div class="bloque">
+    <p class="ceja">MotorSport19 · Gestión del taller</p>
+    <h1>Todo tu taller,<br><em>en un solo programa.</em></h1>
+    <p class="entradilla">De la cita en el mostrador a la factura, pasando por el presupuesto, el almacén y la tablet del técnico.</p>
+  </div>
+  <div class="linea"></div>
+  <div class="pasos">
+    <span style="animation-delay:1.5s"><b>01</b>Cita</span>
+    <span style="animation-delay:1.65s"><b>02</b>Orden de trabajo</span>
+    <span style="animation-delay:1.8s"><b>03</b>Presupuesto</span>
+    <span style="animation-delay:1.95s"><b>04</b>Reparación</span>
+    <span style="animation-delay:2.1s"><b>05</b>Factura</span>
+    <span style="animation-delay:2.25s"><b>06</b>Informes</span>
+  </div>
+</section>
+
+<section id="puestos" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <div class="cabeza">
+    <p class="ceja">En cada puesto</p>
+    <h2>Mostrador, taller<br>y <em>tu bolsillo.</em></h2>
+    <p class="entradilla">Funciona en el navegador del ordenador, la tablet y el móvil. Sin instalar nada en cada equipo.</p>
+  </div>
+  <div class="ventajas">
+    <div class="ventaja" style="animation-delay:1.3s"><i>1</i><div><strong>El técnico, en la tablet</strong><span>Ve sus órdenes y apunta horas y material. Los precios, no.</span></div></div>
+    <div class="ventaja" style="animation-delay:1.6s"><i>2</i><div><strong>Registro de jornada</strong><span>Se ficha al entrar en el programa y se guarda cuatro años.</span></div></div>
+    <div class="ventaja" style="animation-delay:1.9s"><i>3</i><div><strong>La dirección, en el móvil</strong><span>El panel del taller, estés donde estés.</span></div></div>
+  </div>
+  <div class="tablet"><div class="pantalla"><img src="img/tablet-orden-tecnico.jpg" alt=""></div></div>
+  <div class="movil"><div class="pantalla"><img src="img/movil-panel.jpg" alt=""></div></div>
+  <div class="etiqueta" style="left:1030px; top:66px; animation-delay:1.4s">Tablet del técnico</div>
+  <div class="etiqueta" style="left:1560px; top:284px; animation-delay:1.7s">Móvil de dirección</div>
+</section>
+
+<section id="cierre" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
+  <div class="bloque">
+    <p class="ceja">¿Lo vemos en tu taller?</p>
+    <h2>Menos papeles.<br><em>Más taller.</em></h2>
+  </div>
+  <div class="condiciones">
+    <div class="condicion" style="animation-delay:.7s">Instalación y configuración</div>
+    <div class="condicion" style="animation-delay:.8s">Formación del equipo</div>
+    <div class="condicion" style="animation-delay:.9s">Soporte en español</div>
+    <div class="condicion" style="animation-delay:1.0s">Actualizaciones incluidas</div>
+    <div class="condicion" style="animation-delay:1.1s">Prueba sin compromiso</div>
+    <div class="condicion" style="animation-delay:1.2s">Sin permanencia</div>
+  </div>
+  <div class="llamada">
+    <div class="boton">Pide tu demostración</div>
+    <div class="contacto" id="contacto"></div>
+  </div>
+  <div class="negro"></div>
+</section>
+
+<section id="fondo" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <div class="ventana"><div class="ventana__barra"><i></i><i></i><i></i><span class="ventana__url">MotorSport19 · Gestión del taller</span></div></div>
+  <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
+</section>
+
+<section id="rotulo" class="escena">
+  <div class="caja"><p class="ceja" id="rCeja"></p><p class="texto" id="rTexto"></p></div>
+</section>
+
+<script>
+  const q = new URLSearchParams(location.search);
+  document.getElementById(q.get('escena') || 'intro').classList.add('activa');
+  document.getElementById('rCeja').textContent = q.get('ceja') || '';
+  document.getElementById('rTexto').textContent = q.get('texto') || '';
+  // Contacto opcional: ?contacto=Tel%3A...|Email%3A...  (líneas separadas por |)
+  const c = q.get('contacto');
+  if (c) document.getElementById('contacto').innerHTML = c.split('|').map((l) => l.replace(/^([^:]+:)/, '<b>$1</b>')).join('<br>');
+  document.querySelectorAll('.pasos span, .ventaja, .condicion, .etiqueta').forEach((el) => el.classList.add('anim'));
+</script>
+</body>
+</html>

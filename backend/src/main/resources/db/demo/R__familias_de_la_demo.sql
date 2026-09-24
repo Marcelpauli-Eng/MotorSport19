@@ -1,15 +1,11 @@
 -- =====================================================================
 -- Familias del catalogo de demostracion
 --
--- Va como migracion REPETIBLE y no dentro de V900 por dos motivos:
---
---   1. Las repetibles corren DESPUES de todas las versionadas, asi que esta
---      alcanza a las piezas que inserta V900. La V9, que es la que anadio la
---      columna y la rellena por prefijo de SKU, corre antes que V900 en una
---      instalacion nueva: no encuentra ninguna pieza y la demo se quedaria sin
---      grupos, que es justo lo que se quiere enseñar.
---   2. Tocar V900 cambiaria su checksum y Flyway se negaria a arrancar contra
---      una base que ya la tenia aplicada.
+-- Va como migracion REPETIBLE y no dentro de V900: las repetibles corren
+-- DESPUES de todas las versionadas, asi que esta alcanza a las piezas que
+-- inserta V900. La V9, que es la que anadio la columna y la rellena por prefijo
+-- de SKU, corre antes que V900 en una instalacion nueva: no encuentra ninguna
+-- pieza y la demo se quedaria sin grupos, que es justo lo que se quiere enseñar.
 --
 -- Solo rellena huecos (WHERE familia IS NULL): si alguien reagrupa una pieza a
 -- mano, este fichero no se la vuelve a cambiar.

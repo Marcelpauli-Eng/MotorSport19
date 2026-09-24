@@ -316,6 +316,32 @@ public class Factura {
         return tipo == TipoFactura.RECTIFICATIVA;
     }
 
+    /**
+     * Lo que vale hoy esta factura: sus lineas con las rectificativas aplicadas.
+     *
+     * <p>Una rectificativa por sustitucion reemplaza todo lo anterior; una por
+     * diferencias se suma. Cada linea que es otra en negativo se lleva a esa otra
+     * en vez de dejar las dos. No se juntan cantidades del mismo concepto: al
+     * recalcular el redondeo sobre la suma, la lista dejaria de cuadrar al
+     * centimo con lo que dice el libro.
+     *
+     * @param rectificativas las de esta factura, en el orden en que se emitieron
+     */
+    public List<LineaAFacturar> lineasVigentes(List<Factura> rectificativas) {
+        List<LineaAFacturar> vigentes = new ArrayList<>(lineas.stream().map(LineaAFacturar::copiaDe).toList());
+        for (Factura rectificativa : rectificativas) {
+            if (rectificativa.tipoRectificativa == TipoRectificativa.POR_SUSTITUCION) {
+                vigentes.clear();
+            }
+            for (LineaFactura linea : rectificativa.lineas) {
+                LineaAFacturar copia = LineaAFacturar.copiaDe(linea);
+                vigentes.stream().filter(copia::anula).findFirst()
+                        .ifPresentOrElse(vigentes::remove, () -> vigentes.add(copia));
+            }
+        }
+        return List.copyOf(vigentes);
+    }
+
     /** Recalcula la huella desde la cadena almacenada y la compara con la guardada. */
     public boolean huellaEsCoherente() {
         return CalculadoraHuella.huellaCoincide(cadenaHuella, huella);

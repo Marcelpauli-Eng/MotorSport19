@@ -1,0 +1,327 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Control de horas</h1>
+    <p class="pagina-cabecera__sub">
+      Registro de jornada del taller. Se conserva cuatro años y cada trabajador puede consultar
+      el suyo.
+    </p>
+  </div>
+</div>
+
+<div class="apilado">
+  <!--
+    Dos cosas distintas salen de la misma consulta y por eso van separadas:
+    quien esta trabajando AHORA (informacion, no hay nada que hacer) y quien se
+    dejo la jornada de otro dia sin cerrar (un problema: le bloquea la de hoy y
+    le falsea las horas). Juntas, la direccion no sabe cual de las dos mira.
+  -->
+  @if (trabajandoAhora().length) {
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>En el taller ahora ({{ trabajandoAhora().length }})</h2>
+        <span class="pequeno silenciado">El contador va en directo</span>
+      </div>
+
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Trabajador</th>
+              <th>Entró</th>
+              <th>Lleva</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of trabajandoAhora(); track f.id) {
+              <tr>
+                <td>{{ f.usuarioNombre }}</td>
+                <td>{{ f.inicio | date: 'HH:mm' : undefined : 'es' }}</td>
+                <td class="horas horas--vivo">{{ transcurrido(f) }}</td>
+                <td style="text-align: right">
+                  <button type="button" class="boton" (click)="abrirCierre(f)">Cerrar a mano</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  @if (olvidadas().length) {
+    <section class="tarjeta">
+      <div class="tarjeta__titulo">
+        <h2>Jornadas sin cerrar de días anteriores ({{ olvidadas().length }})</h2>
+      </div>
+      <p class="pequeno silenciado">
+        Alguien se fue sin fichar la salida. Mientras siga abierta no puede empezar la jornada
+        de hoy, y sus horas no cuadran.
+      </p>
+
+      <div class="tabla-envoltorio">
+        <table>
+          <thead>
+            <tr>
+              <th>Trabajador</th>
+              <th>Empezó</th>
+              <th>Lleva</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of olvidadas(); track f.id) {
+              <tr>
+                <td>{{ f.usuarioNombre }}</td>
+                <td>{{ f.inicio | date: "d MMM 'a las' HH:mm" : undefined : 'es' }}</td>
+                <td class="horas horas--alerta">{{ transcurrido(f) }}</td>
+                <td style="text-align: right">
+                  <button type="button" class="boton" (click)="abrirCierre(f)">Cerrar a mano</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <section class="tarjeta">
+    <div class="tarjeta__titulo">
+      <h2>Horas por trabajador</h2>
+    </div>
+
+    <div class="fila" style="gap: var(--e2); flex-wrap: wrap; align-items: flex-end">
+      <div class="fila" style="gap: 4px">
+        <button
+          type="button"
+          class="boton"
+          [class.boton--principal]="rango() === 'semana'"
+          (click)="elegirRango('semana')"
+        >
+          Esta semana
+        </button>
+        <button
+          type="button"
+          class="boton"
+          [class.boton--principal]="rango() === 'mes'"
+          (click)="elegirRango('mes')"
+        >
+          Este mes
+        </button>
+      </div>
+
+      <div class="campo">
+        <label for="desde">Desde</label>
+        <input
+          id="desde"
+          type="date"
+          [ngModel]="desde()"
+          (ngModelChange)="desde.set($event); elegirRango('personalizado')"
+        />
+      </div>
+      <div class="campo">
+        <label for="hasta">Hasta</label>
+        <input
+          id="hasta"
+          type="date"
+          [ngModel]="hasta()"
+          (ngModelChange)="hasta.set($event); elegirRango('personalizado')"
+        />
+      </div>
+      <div class="campo">
+        <label for="quien">Trabajador</label>
+        <select id="quien" [ngModel]="usuarioId()" (ngModelChange)="usuarioId.set($event ? +$event : null)">
+          <option [ngValue]="null">Todos</option>
+          @for (u of usuarios(); track u.id) {
+            <option [ngValue]="u.id">{{ u.nombreCompleto }}</option>
+          }
+        </select>
+      </div>
+      <button type="button" class="boton boton--principal" (click)="cargar()">Ver</button>
+    </div>
+
+    @if (cargando()) {
+      <app-cargando mensaje="Cargando las horas…" />
+    } @else if (resumen(); as r) {
+      <div class="resumen" style="margin-top: var(--e3)">
+        <div class="dato">
+          <div class="dato__valor">{{ totalLegible() }}</div>
+          <div class="dato__pie">Total del periodo</div>
+        </div>
+        <div class="dato">
+          <div class="dato__valor">{{ r.jornadas }}</div>
+          <div class="dato__pie">Jornadas</div>
+        </div>
+        <div class="dato">
+          <div class="dato__valor">{{ r.trabajadores.length }}</div>
+          <div class="dato__pie">Trabajadores</div>
+        </div>
+      </div>
+
+      @if (!r.trabajadores.length) {
+        <p class="silenciado" style="margin-top: var(--e3)">
+          No hay ninguna jornada fichada en esas fechas.
+        </p>
+      } @else {
+        <div class="tabla-envoltorio" style="margin-top: var(--e3)">
+          <table>
+            <thead>
+              <tr>
+                <th>Trabajador</th>
+                <th>Jornadas</th>
+                <th>Horas</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (t of r.trabajadores; track t.usuarioId) {
+                <tr class="fila-trabajador" (click)="alternar(t.usuarioId)">
+                  <td>{{ t.usuarioNombre }}</td>
+                  <td>{{ t.jornadas }}</td>
+                  <td class="horas">{{ totalDe(t) }}</td>
+                  <td style="text-align: right">
+                    <app-icono
+                      nombre="flecha-abajo"
+                      [tamano]="15"
+                      [class.girada]="desplegado() === t.usuarioId"
+                    />
+                  </td>
+                </tr>
+
+                @if (desplegado() === t.usuarioId) {
+                  @for (f of t.detalle; track f.id) {
+                    <tr class="detalle fila-jornada" (click)="alternarActividad(f)">
+                      <td>{{ f.inicio | date: "EEE d MMM" : undefined : 'es' }}</td>
+                      <td colspan="2">
+                        {{ f.inicio | date: 'HH:mm' : undefined : 'es' }} –
+                        {{ f.fin ? (f.fin | date: 'HH:mm' : undefined : 'es') : '…' }}
+                        <span class="horas" [class.horas--vivo]="f.abierta">
+                          {{ transcurrido(f) }}
+                        </span>
+
+                        @if (f.abierta) {
+                          <span class="marca marca--abierta">Sin cerrar</span>
+                        }
+                        @if (f.cerradaPorOlvido) {
+                          <span class="marca marca--olvido" [title]="f.motivoCorreccion ?? ''">
+                            Cerrada a mano
+                          </span>
+                        }
+                        @if (f.corregida) {
+                          <!-- Lo que se fichó de verdad, para poder comparar. -->
+                          <span
+                            class="marca marca--corregida"
+                            [title]="
+                              'Se fichó ' +
+                              (f.inicioFichado | date: 'HH:mm' : undefined : 'es') +
+                              ' – ' +
+                              (f.finFichado ? (f.finFichado | date: 'HH:mm' : undefined : 'es') : '…') +
+                              '. ' + (f.motivoCorreccion ?? '')
+                            "
+                          >
+                            Corregida
+                          </span>
+                        }
+                      </td>
+                      <td style="text-align: right">
+                        <app-icono
+                          nombre="flecha-abajo"
+                          [tamano]="13"
+                          [class.girada]="jornadaAbierta() === f.id"
+                        />
+                      </td>
+                    </tr>
+
+                    <!--
+                      Lo que hizo en esa jornada. Se pide al desplegar y no al
+                      cargar la tabla: son seis tablas por jornada, y de un mes
+                      entero normalmente se mira una.
+                    -->
+                    @if (jornadaAbierta() === f.id) {
+                      <tr class="detalle">
+                        <td></td>
+                        <td colspan="3">
+                          @if (cargandoActividad()) {
+                            <span class="silenciado pequeno">Buscando…</span>
+                          } @else if (!actividad().length) {
+                            <span class="silenciado pequeno">
+                              No quedó registrado nada en esta jornada.
+                            </span>
+                          } @else {
+                            <ol class="actividad">
+                              @for (a of actividad(); track $index) {
+                                <li>
+                                  <span class="actividad__hora">
+                                    {{ a.momento | date: 'HH:mm:ss' : undefined : 'es' }}
+                                  </span>
+                                  <span class="marca marca--tipo">{{ a.tipo }}</span>
+                                  @if (a.enlaceTipo && a.enlaceId) {
+                                    <a
+                                      [routerLink]="rutaDe(a)"
+                                      [queryParams]="parametrosDe(a)"
+                                      (click)="$event.stopPropagation()"
+                                    >
+                                      {{ a.texto }}
+                                    </a>
+                                  } @else {
+                                    {{ a.texto }}
+                                  }
+                                </li>
+                              }
+                            </ol>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  }
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  </section>
+</div>
+
+<!-- Cierre a mano de una jornada olvidada -->
+@if (cerrando(); as f) {
+  <app-dialogo
+    [titulo]="'Cerrar la jornada de ' + f.usuarioNombre"
+    [subtitulo]="subtituloCierre()"
+    (cerrar)="cancelarCierre()"
+  >
+    <div class="campo">
+      <label for="fin-manual">Hora de salida</label>
+      <input
+        id="fin-manual"
+        type="datetime-local"
+        [ngModel]="finManual()"
+        (ngModelChange)="finManual.set($event)"
+      />
+    </div>
+
+    <div class="campo">
+      <label for="motivo-manual">Motivo <span class="silenciado">(obligatorio)</span></label>
+      <input
+        id="motivo-manual"
+        [ngModel]="motivoManual()"
+        (ngModelChange)="motivoManual.set($event)"
+        placeholder="Se fue sin fichar la salida"
+      />
+    </div>
+
+    <ng-container pie>
+      <button type="button" class="boton" (click)="cancelarCierre()">Cancelar</button>
+      <button
+        type="button"
+        class="boton boton--principal"
+        [disabled]="!motivoManual().trim() || !finManual() || guardandoCierre()"
+        (click)="confirmarCierre()"
+      >
+        {{ guardandoCierre() ? 'Cerrando…' : 'Cerrar jornada' }}
+      </button>
+    </ng-container>
+  </app-dialogo>
+}

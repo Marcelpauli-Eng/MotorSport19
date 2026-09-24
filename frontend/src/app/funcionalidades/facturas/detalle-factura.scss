@@ -121,3 +121,36 @@
 }
 
 .totales__fila--ahorro { color: var(--verde); font-weight: 600; }
+
+/* Bloque de rectificación: no es una alarma —no hay nada roto— pero sí una
+   acción seria, así que se separa del resto y no compite con los importes. */
+.rectificar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--e3);
+}
+
+.rectificar p { margin: 0; }
+.rectificar .pequeno { max-width: 62ch; }
+
+/* ---------- Corregir conceptos ---------- */
+
+.correccion td { vertical-align: middle; }
+
+.correccion .celda-input {
+  width: 72px;
+  padding: 2px var(--e2);
+  text-align: right;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.correccion .correccion__descripcion,
+.correccion .correccion__tipo { width: 100%; min-width: 160px; text-align: left; }
+.correccion .correccion__tipo { margin-bottom: 4px; }
+
+.correccion__quitada td { color: var(--gris-500); text-decoration: line-through; }
+.correccion__resumen { margin: 0; font-variant-numeric: tabular-nums; }
+.correccion__problema { color: var(--rojo); }

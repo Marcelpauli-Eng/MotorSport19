@@ -5,6 +5,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import jakarta.servlet.DispatcherType;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -21,6 +22,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import com.motorsport19.taller.fichaje.FiltroJornadaAbierta;
+import com.motorsport19.taller.fichaje.repository.FichajeRepository;
 import com.motorsport19.taller.usuario.repository.UsuarioRepository;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -87,7 +90,8 @@ public class ConfiguracionSeguridad {
 
     @Bean
     public SecurityFilterChain cadenaDeFiltros(HttpSecurity http,
-                                              UsuarioRepository usuarioRepository) throws Exception {
+                                              UsuarioRepository usuarioRepository,
+                                              FichajeRepository fichajeRepository) throws Exception {
         http
             // La API no usa cookies de sesion, solo el token de la cabecera
             // Authorization, asi que no hay superficie para CSRF.
@@ -99,6 +103,9 @@ public class ConfiguracionSeguridad {
                 // ----- Publico -----
                 .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // El canal de avisos (/eventos) sigue abierto en un hilo aparte;
+                // quien lo abrió ya pasó el control de token al conectarse.
+                .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                 // Las peticiones de sondeo del navegador (CORS) van sin token.
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
@@ -109,13 +116,24 @@ public class ConfiguracionSeguridad {
                 // usa el alta de proveedores y la ficha del propio taller.
                 .requestMatchers(HttpMethod.GET, "/codigos-postales/**").authenticated()
 
+                // ----- Registro de jornada -----
+                // Fichar y ver lo propio no lleva permiso: es lo que tiene que
+                // poder hacer cualquiera que entre, y ver las horas de uno
+                // mismo es un derecho del trabajador, no una concesion.
+                .requestMatchers("/fichajes/jornada", "/fichajes/jornada/**").authenticated()
+                .requestMatchers(HttpMethod.GET, "/fichajes/mias").authenticated()
+                // Lo demas es el registro de todo el taller.
+                .requestMatchers("/fichajes/**").hasAuthority(p(Permiso.FICHAJES_VER))
+
                 // ----- Usuarios y roles -----
                 // El listado de quien puede recibir trabajo lo necesita quien
                 // reparte ordenes, no solo quien administra el programa.
                 .requestMatchers(HttpMethod.GET, "/usuarios/tecnicos").hasAuthority(p(Permiso.ORDENES_ASIGNAR_TECNICO))
                 .requestMatchers(HttpMethod.GET, "/roles/permisos").hasAuthority(p(Permiso.ROLES_GESTIONAR))
-                // El desplegable de rol del alta de usuarios necesita la lista.
-                .requestMatchers(HttpMethod.GET, "/roles/**").hasAuthority(p(Permiso.USUARIOS_GESTIONAR))
+                // El desplegable de rol del alta de usuarios necesita la lista, y
+                // quien gestiona roles tambien: sin ella su pestaña no cargaba.
+                .requestMatchers(HttpMethod.GET, "/roles/**")
+                        .hasAnyAuthority(p(Permiso.USUARIOS_GESTIONAR), p(Permiso.ROLES_GESTIONAR))
                 .requestMatchers("/roles/**").hasAuthority(p(Permiso.ROLES_GESTIONAR))
                 .requestMatchers("/usuarios/**").hasAuthority(p(Permiso.USUARIOS_GESTIONAR))
 
@@ -194,6 +212,7 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.POST, "/ordenes").hasAuthority(p(Permiso.ORDENES_ABRIR))
                 .requestMatchers("/ordenes/*/preparacion").hasAuthority(p(Permiso.ORDENES_PREPARAR))
                 .requestMatchers("/ordenes/*/entrega").hasAuthority(p(Permiso.ORDENES_ENTREGAR))
+                .requestMatchers(HttpMethod.POST, "/ordenes/*/presupuesto").hasAuthority(p(Permiso.ORDENES_PRESUPUESTAR))
                 .requestMatchers("/ordenes/*/aprobacion").hasAuthority(p(Permiso.ORDENES_APROBAR))
                 .requestMatchers("/ordenes/*/rechazo").hasAuthority(p(Permiso.ORDENES_APROBAR))
                 .requestMatchers(HttpMethod.PUT, "/ordenes/*/diagnostico").hasAuthority(p(Permiso.ORDENES_DIAGNOSTICAR))
@@ -217,6 +236,12 @@ public class ConfiguracionSeguridad {
             // siguiente peticion y no cuando caduque el token.
             .addFilterAfter(new FiltroSesionViva(usuarioRepository),
                             BearerTokenAuthenticationFilter.class)
+
+            // Detras del anterior a proposito: para saber si alguien tiene que
+            // fichar hay que saber antes quien es, y eso lo resuelve el filtro
+            // de sesion viva leyendo su ficha de la base.
+            .addFilterAfter(new FiltroJornadaAbierta(fichajeRepository),
+                            FiltroSesionViva.class)
 
             // Respuestas en JSON, con el mismo formato que el resto de errores,
             // en vez de la pagina de login de Spring.
@@ -293,7 +318,7 @@ public class ConfiguracionSeguridad {
         }
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Cliente", "X-Id-Peticion"));
         config.setExposedHeaders(List.of("Content-Disposition"));
         config.setMaxAge(3600L);
 

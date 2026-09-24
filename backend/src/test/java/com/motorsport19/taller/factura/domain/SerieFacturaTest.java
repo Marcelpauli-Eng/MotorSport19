@@ -28,7 +28,7 @@ class SerieFacturaTest {
         @Test
         @DisplayName("nace activa y con el contador a cero")
         void naceVacia() {
-            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA);
+            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA, false);
 
             assertThat(serie.getCodigo()).isEqualTo("A");
             assertThat(serie.getEjercicio()).isEqualTo(2026);
@@ -42,14 +42,14 @@ class SerieFacturaTest {
         @Test
         @DisplayName("el codigo se guarda en mayusculas")
         void codigoEnMayusculas() {
-            assertThat(SerieFactura.crear("  a  ", 2026, null, TipoFactura.ORDINARIA).getCodigo())
+            assertThat(SerieFactura.crear("  a  ", 2026, null, TipoFactura.ORDINARIA, false).getCodigo())
                     .isEqualTo("A");
         }
 
         @Test
         @DisplayName("sin descripcion se compone una que identifica la serie")
         void descripcionPorDefecto() {
-            SerieFactura serie = SerieFactura.crear("R", 2026, "   ", TipoFactura.RECTIFICATIVA);
+            SerieFactura serie = SerieFactura.crear("R", 2026, "   ", TipoFactura.RECTIFICATIVA, false);
 
             assertThat(serie.getDescripcion()).isEqualTo("Serie R de 2026");
         }
@@ -58,7 +58,7 @@ class SerieFacturaTest {
         @ValueSource(strings = {"", "   ", "ESTECODIGOESLARGUISIMO"})
         @DisplayName("rechaza codigos vacios o demasiado largos")
         void codigosInvalidos(String codigo) {
-            assertThatThrownBy(() -> SerieFactura.crear(codigo, 2026, null, TipoFactura.ORDINARIA))
+            assertThatThrownBy(() -> SerieFactura.crear(codigo, 2026, null, TipoFactura.ORDINARIA, false))
                     .isInstanceOf(ReglaNegocioException.class);
         }
 
@@ -66,14 +66,14 @@ class SerieFacturaTest {
         @ValueSource(ints = {1999, 2201})
         @DisplayName("rechaza ejercicios que no son un año")
         void ejerciciosInvalidos(int ejercicio) {
-            assertThatThrownBy(() -> SerieFactura.crear("A", ejercicio, null, TipoFactura.ORDINARIA))
+            assertThatThrownBy(() -> SerieFactura.crear("A", ejercicio, null, TipoFactura.ORDINARIA, false))
                     .isInstanceOf(ReglaNegocioException.class);
         }
 
         @Test
         @DisplayName("exige decir si es ordinaria o rectificativa")
         void exigeTipo() {
-            assertThatThrownBy(() -> SerieFactura.crear("A", 2026, null, null))
+            assertThatThrownBy(() -> SerieFactura.crear("A", 2026, null, null, false))
                     .isInstanceOf(ReglaNegocioException.class);
         }
     }
@@ -85,7 +85,7 @@ class SerieFacturaTest {
         @Test
         @DisplayName("cerrarla no toca la numeracion ya emitida")
         void cerrarConservaLaNumeracion() {
-            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA);
+            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA, false);
 
             serie.desactivar();
 
@@ -99,7 +99,7 @@ class SerieFacturaTest {
         @Test
         @DisplayName("la descripcion no puede quedar vacia")
         void descripcionObligatoria() {
-            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA);
+            SerieFactura serie = SerieFactura.crear("A", 2026, "Serie general", TipoFactura.ORDINARIA, false);
 
             assertThatThrownBy(() -> serie.renombrar("  "))
                     .isInstanceOf(ReglaNegocioException.class);

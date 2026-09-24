@@ -5,6 +5,7 @@ import com.motorsport19.taller.cliente.service.ClienteService;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.common.util.Matriculas;
+import com.motorsport19.taller.fichaje.service.RegistroActividad;
 import com.motorsport19.taller.moto.domain.Moto;
 import com.motorsport19.taller.moto.repository.MotoRepository;
 import org.springframework.data.domain.Page;
@@ -20,10 +21,13 @@ public class MotoService {
     private final MotoRepository motoRepository;
     private final ClienteService clienteService;
     private final com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
+    private final RegistroActividad registroActividad;
 
     public MotoService(MotoRepository motoRepository, ClienteService clienteService,
-                       com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository) {
+                       com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository,
+                       RegistroActividad registroActividad) {
         this.ordenRepository = ordenRepository;
+        this.registroActividad = registroActividad;
         this.motoRepository = motoRepository;
         this.clienteService = clienteService;
     }
@@ -93,6 +97,7 @@ public class MotoService {
         moto.actualizarDatos(matricula, marca, modelo, anio, cilindrada, color, numeroBastidor, observaciones);
         comprobarBastidorLibre(moto.getNumeroBastidor(), id);
 
+        registroActividad.anotar("EDICION", "moto", id, "Editó la moto " + moto.getMatricula());
         return moto;
     }
 
@@ -118,6 +123,8 @@ public class MotoService {
                             .formatted(nuevo.nombreCompleto()));
         }
         moto.cambiarPropietario(nuevo);
+        registroActividad.anotar("MOTO", "moto", id,
+                "Cambió el propietario de %s a %s".formatted(moto.getMatricula(), nuevo.nombreCompleto()));
         return moto;
     }
 

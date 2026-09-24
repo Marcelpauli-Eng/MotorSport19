@@ -4,3 +4,7 @@ dist
 .git
 Dockerfile
 .dockerignore
+
+# Copias que crea macOS/iCloud al sincronizar («Fichero 2.java»). Dentro de la
+# imagen son clases duplicadas y el compilador se planta; fuera solo estorban.
+* [0-9].*

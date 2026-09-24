@@ -2,7 +2,11 @@ package com.motorsport19.taller.configuracion.domain;
 
 import com.motorsport19.taller.common.domain.EntidadAuditable;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.inventario.domain.Pieza;
 import jakarta.persistence.Column;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
@@ -102,7 +106,28 @@ public class ConfiguracionTaller extends EntidadAuditable {
      * general— y puede cambiar por ley. Quien lo sabe es la gestoria.
      */
     @Column(name = "limite_factura_simplificada", nullable = false, precision = 12, scale = 2)
-    private BigDecimal limiteFacturaSimplificada;
+    private BigDecimal limiteFacturaSimplificada = LIMITE_SIMPLIFICADA_POR_DEFECTO;
+
+    /**
+     * Familia de pieza que se considera neumatico, o nulo si no se cobra tasa.
+     *
+     * <p>Se guarda la familia y no una lista de piezas porque el almacen ya esta
+     * ordenado asi: dar de alta un neumatico nuevo no puede obligar a acordarse
+     * de apuntarlo tambien aqui, que es como se acaba facturando uno sin tasa.
+     */
+    @Column(name = "familia_neumaticos", length = 60)
+    private String familiaNeumaticos;
+
+    /**
+     * La pieza que se cobra como tasa por cada neumatico.
+     *
+     * <p>Es una pieza corriente del almacen y no un importe suelto: asi su
+     * precio y su IVA se cambian donde se cambian los de todo lo demas, y
+     * cuando la tasa suba no hay que tocar el programa.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pieza_tasa_neumatico_id")
+    private Pieza piezaTasaNeumatico;
 
     @Column(name = "software_nombre", nullable = false, length = 100)
     private String softwareNombre;
@@ -144,6 +169,44 @@ public class ConfiguracionTaller extends EntidadAuditable {
      * <p>Cambiar estos datos NO afecta a las facturas antiguas: cada una lleva
      * dentro una copia de como estaba el taller el dia que se emitio.
      */
+    /**
+     * Deja configurada la tasa de reciclaje de neumaticos, o la desactiva.
+     *
+     * <p>Va aparte de {@link #actualizar} a proposito: aquello son los datos
+     * fiscales del taller y esto es una regla de cobro. Mezclarlas obligaria a
+     * mandar los trece campos de la empresa para tocar un desplegable.
+     *
+     * <p>Con cualquiera de las dos cosas a nulo, la tasa queda desactivada: sin
+     * saber que es un neumatico o cuanto se cobra no hay nada que anadir, y un
+     * taller que no vende neumaticos no tiene por que configurar nada.
+     */
+    public void configurarTasaNeumatico(String familiaNeumaticos, Pieza piezaTasa) {
+        String familia = textoONulo(familiaNeumaticos);
+        if (familia == null || piezaTasa == null) {
+            this.familiaNeumaticos = null;
+            this.piezaTasaNeumatico = null;
+            return;
+        }
+        // Si la propia tasa fuera de la familia de los neumaticos, anadirla
+        // dispararia otra tasa, y esa otra. Se corta aqui y no en el servicio:
+        // aqui es donde se decide, y asi no depende de por donde se llame.
+        if (familia.equalsIgnoreCase(textoONulo(piezaTasa.getFamilia()))) {
+            throw new ReglaNegocioException(
+                    ("La pieza de la tasa no puede estar en la familia «%s»: cada neumatico "
+                     + "anadiria su tasa, y la tasa otra tasa.").formatted(familia));
+        }
+        this.familiaNeumaticos = familia;
+        this.piezaTasaNeumatico = piezaTasa;
+    }
+
+    /** Si esta pieza lleva tasa de reciclaje. Falso si la tasa no esta configurada. */
+    public boolean llevaTasaDeReciclaje(Pieza pieza) {
+        return piezaTasaNeumatico != null
+                && familiaNeumaticos != null
+                && pieza != null
+                && familiaNeumaticos.equalsIgnoreCase(textoONulo(pieza.getFamilia()));
+    }
+
     public void actualizar(String razonSocial, String nif, String direccion, String codigoPostal,
                            String ciudad, String provincia, String pais, String telefono,
                            String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
@@ -163,12 +226,17 @@ public class ConfiguracionTaller extends EntidadAuditable {
         // Se acepta lo que diga la gestoria, pero no un numero absurdo: un limite
         // negativo dejaria el taller sin poder emitir ninguna simplificada sin
         // que nadie entendiera por que.
+        if (limiteFacturaSimplificada != null && limiteFacturaSimplificada.signum() < 0) {
+            throw new ReglaNegocioException(
+                    "El limite de la factura simplificada no puede ser negativo.");
+        }
+        // Sin valor se conserva el que hubiera. Nunca se queda a nulo: la columna
+        // no lo admite, y un taller recien instalado guardaba sus datos por
+        // primera vez con este campo vacio y se estrellaba contra la base.
         if (limiteFacturaSimplificada != null) {
-            if (limiteFacturaSimplificada.signum() < 0) {
-                throw new ReglaNegocioException(
-                        "El limite de la factura simplificada no puede ser negativo.");
-            }
             this.limiteFacturaSimplificada = limiteFacturaSimplificada;
+        } else if (this.limiteFacturaSimplificada == null) {
+            this.limiteFacturaSimplificada = LIMITE_SIMPLIFICADA_POR_DEFECTO;
         }
 
         if (tarifaHoraDefecto == null || tarifaHoraDefecto.signum() <= 0) {
@@ -183,6 +251,11 @@ public class ConfiguracionTaller extends EntidadAuditable {
                     "La capacidad diaria del taller tiene que ser mayor que cero.");
         }
         this.capacidadDiariaHoras = capacidadDiariaHoras;
+    }
+
+    /** El texto sin espacios sobrantes, o nulo si no habia nada. */
+    private static String textoONulo(String valor) {
+        return valor == null || valor.isBlank() ? null : valor.trim();
     }
 
     private static String exigir(String valor, String mensaje) {

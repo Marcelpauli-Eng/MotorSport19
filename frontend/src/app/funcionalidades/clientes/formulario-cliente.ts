@@ -150,6 +150,24 @@ export class FormularioCliente {
 
   protected guardar(): void {
     if (!this.puedeGuardar()) return;
+
+    const existente = this.cliente();
+    // Al editar solo cuenta lo que se ha cambiado: mandar siempre los datos
+    // fiscales hacía fallar el cambio de un teléfono si la dirección estaba a
+    // medias, o si el rol no tenía permiso para datos fiscales.
+    const tocaFiscales = existente
+      ? this.cambiaronDatosFiscales(existente)
+      : !!this.tipoDocumento() ||
+        [this.documento(), this.direccion(), this.codigoPostal(), this.ciudad(), this.provincia()].some((v) => v.trim());
+    // El servidor solo guarda la dirección junto con el documento, y el resto lo
+    // descartaba sin avisar: el cliente quedaba dado de alta sin su dirección.
+    if (tocaFiscales && !this.hayDatosFiscales()) {
+      this.notificaciones.error(
+        'Sin número de documento no se guardan los datos fiscales. Escriba el NIF, CIF o NIE, o deje la dirección en blanco.',
+      );
+      return;
+    }
+
     this.enviando.set(true);
     this.error.set(null);
 
@@ -167,7 +185,6 @@ export class FormularioCliente {
       observaciones: vacioANulo(this.observaciones()),
     };
 
-    const existente = this.cliente();
     const peticion = existente
       ? this.servicio.actualizarContacto(existente.id, datos)
       : this.servicio.crear(datos);
@@ -177,7 +194,7 @@ export class FormularioCliente {
         // Al editar, el contacto y los datos fiscales son dos llamadas: el
         // backend los separa porque cambiar un NIF no es lo mismo que cambiar
         // un teléfono.
-        if (existente && this.hayDatosFiscales()) {
+        if (existente && tocaFiscales) {
           this.servicio
             .actualizarDatosFiscales(existente.id, {
               tipoDocumento: datos.tipoDocumento,
@@ -202,6 +219,12 @@ export class FormularioCliente {
 
   private hayDatosFiscales(): boolean {
     return this.documento().trim().length > 0;
+  }
+
+  private cambiaronDatosFiscales(c: Cliente): boolean {
+    const antes = [c.tipoDocumento, c.documento, c.direccion, c.codigoPostal, c.ciudad, c.provincia];
+    const ahora = [this.tipoDocumento(), this.documento(), this.direccion(), this.codigoPostal(), this.ciudad(), this.provincia()];
+    return ahora.some((valor, i) => valor.trim() !== (antes[i] ?? '').trim());
   }
 
   private terminar(c: Cliente): void {

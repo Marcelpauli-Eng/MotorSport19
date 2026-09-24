@@ -5,6 +5,7 @@ import com.motorsport19.taller.orden.domain.LineaOT;
 import com.motorsport19.taller.orden.domain.TipoLinea;
 
 import java.math.BigDecimal;
+import java.util.Objects;
 
 /**
  * Linea que va a copiarse a una factura.
@@ -59,10 +60,34 @@ public record LineaAFacturar(
                 linea.getPorcentajeIva());
     }
 
+    /** Una linea ya emitida, para volver a partir de ella al rectificar. */
+    public static LineaAFacturar copiaDe(LineaFactura linea) {
+        return new LineaAFacturar(linea.getTipo(), linea.getDescripcion(), linea.getPiezaSku(),
+                linea.getCantidad(), linea.getPrecioUnitario(), linea.getDescuentoPct(),
+                linea.getTipoIva(), linea.getPorcentajeIva());
+    }
+
     /** La misma linea con la cantidad cambiada de signo, para rectificar. */
     public LineaAFacturar negada() {
         return new LineaAFacturar(tipo, descripcion, piezaSku, cantidad.negate(), precioUnitario,
                 descuentoPct, tipoIva, porcentajeIva);
+    }
+
+    /**
+     * Si esta linea es la otra en negativo, concepto por concepto.
+     *
+     * <p>Compara los numeros por valor y no con {@code equals}: 1 y 1.000 son la
+     * misma cantidad aunque lleguen con distinta escala.
+     */
+    public boolean anula(LineaAFacturar otra) {
+        return tipo == otra.tipo
+                && descripcion.equals(otra.descripcion)
+                && Objects.equals(piezaSku, otra.piezaSku)
+                && cantidad.negate().compareTo(otra.cantidad) == 0
+                && precioUnitario.compareTo(otra.precioUnitario) == 0
+                && descuentoPct.compareTo(otra.descuentoPct) == 0
+                && Objects.equals(tipoIva, otra.tipoIva)
+                && porcentajeIva.compareTo(otra.porcentajeIva) == 0;
     }
 
     public ImporteLinea importes() {

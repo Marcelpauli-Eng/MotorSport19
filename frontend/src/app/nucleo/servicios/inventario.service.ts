@@ -5,6 +5,27 @@ import { environment } from '../../../environments/environment';
 import { Pagina } from '../modelos/comunes';
 import { AlertaStock, MovimientoStock, Pieza, Proveedor } from '../modelos/taller';
 
+/**
+ * El almacén partido por grupos, para que el desplegable no sea un chorro.
+ *
+ * Con un grupo elegido sale uno solo; con «Todos» salen todos separados, que
+ * es como está el almacén de verdad. Sin esto, «todos» eran cientos de
+ * referencias seguidas sin ninguna divisoria.
+ */
+export function porGrupo(piezas: Pieza[]): { grupo: string; piezas: Pieza[] }[] {
+  const grupos = new Map<string, Pieza[]>();
+  for (const p of piezas) {
+    const grupo = p.familia?.trim() || 'Sin grupo';
+    (grupos.get(grupo) ?? grupos.set(grupo, []).get(grupo)!).push(p);
+  }
+  return [...grupos]
+    .sort(([a], [b]) => a.localeCompare(b, 'es'))
+    .map(([grupo, piezas]) => ({
+      grupo,
+      piezas,
+    }));
+}
+
 @Injectable({ providedIn: 'root' })
 export class InventarioService {
   private readonly http = inject(HttpClient);
@@ -77,7 +98,12 @@ export class InventarioService {
 
   registrarEntrada(
     piezaId: number,
-    datos: { cantidad: number; documentoProveedor?: string; precioCosteUnitario?: number; motivo?: string },
+    datos: {
+      cantidad: number;
+      documentoProveedor?: string;
+      precioCosteUnitario?: number;
+      motivo?: string;
+    },
   ): Observable<MovimientoStock> {
     return this.http.post<MovimientoStock>(
       `${this.baseInventario}/piezas/${piezaId}/entradas`,

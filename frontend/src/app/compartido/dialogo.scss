@@ -21,7 +21,8 @@
   box-shadow: var(--sombra-g);
 }
 
-.dialogo--ancho { max-width: 720px; }
+/* La clase va en <app-dialogo>, fuera de esta plantilla: sin :host no llegaba. */
+:host(.dialogo--ancho) .dialogo { max-width: 720px; }
 
 .dialogo__cabecera {
   display: flex;

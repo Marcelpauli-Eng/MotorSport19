@@ -6,6 +6,7 @@ import com.motorsport19.taller.cliente.repository.ClienteRepository;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.common.util.ValidadorDocumento;
+import com.motorsport19.taller.fichaje.service.RegistroActividad;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,10 +17,13 @@ public class ClienteService {
 
     private final ClienteRepository clienteRepository;
     private final com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
+    private final RegistroActividad registroActividad;
 
     public ClienteService(ClienteRepository clienteRepository,
-                          com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository) {
+                          com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository,
+                          RegistroActividad registroActividad) {
         this.ordenRepository = ordenRepository;
+        this.registroActividad = registroActividad;
         this.clienteRepository = clienteRepository;
     }
 
@@ -43,8 +47,9 @@ public class ClienteService {
     @Transactional
     public Cliente crear(String nombre, String apellidos, String telefono, String email,
                          TipoDocumento tipoDocumento, String documento, String direccion,
-                         String codigoPostal, String ciudad, String provincia, String pais) {
-        Cliente cliente = Cliente.registrar(nombre, apellidos, telefono, email);
+                         String codigoPostal, String ciudad, String provincia, String pais,
+                         String observaciones) {
+        Cliente cliente = Cliente.registrar(nombre, apellidos, telefono, email, observaciones);
 
         String normalizado = ValidadorDocumento.normalizar(documento);
         if (normalizado != null) {
@@ -60,6 +65,7 @@ public class ClienteService {
                                       String email, String observaciones) {
         Cliente cliente = obtener(id);
         cliente.actualizarContacto(nombre, apellidos, telefono, email, observaciones);
+        registroActividad.anotar("EDICION", "cliente", id, "Editó el contacto de " + cliente.nombreCompleto());
         return cliente;
     }
 
@@ -73,6 +79,7 @@ public class ClienteService {
             comprobarDocumentoLibre(normalizado, id);
         }
         cliente.asignarDatosFiscales(tipoDocumento, documento, direccion, codigoPostal, ciudad, provincia, pais);
+        registroActividad.anotar("EDICION", "cliente", id, "Editó los datos fiscales de " + cliente.nombreCompleto());
         return cliente;
     }
 

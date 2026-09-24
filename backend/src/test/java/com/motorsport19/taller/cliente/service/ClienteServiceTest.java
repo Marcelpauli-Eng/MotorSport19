@@ -34,6 +34,9 @@ class ClienteServiceTest {
     @Mock
     private com.motorsport19.taller.orden.repository.OrdenTrabajoRepository ordenRepository;
 
+    @Mock
+    private com.motorsport19.taller.fichaje.service.RegistroActividad registroActividad;
+
     @InjectMocks
     private ClienteService clienteService;
 
@@ -52,11 +55,22 @@ class ClienteServiceTest {
             guardarDevuelveElArgumento();
 
             Cliente cliente = clienteService.crear("Rocio", "Almansa Gil", "600100107",
-                    "rocio@correo.example", null, null, null, null, null, null, null);
+                    "rocio@correo.example", null, null, null, null, null, null, null, null);
 
             assertThat(cliente.nombreCompleto()).isEqualTo("Rocio Almansa Gil");
             // La ficha existe pero todavia no se le puede facturar.
             assertThat(cliente.tieneDatosFiscalesCompletos()).isFalse();
+        }
+
+        @Test
+        @DisplayName("guarda las observaciones que se escriben en el alta")
+        void altaConObservaciones() {
+            guardarDevuelveElArgumento();
+
+            Cliente cliente = clienteService.crear("Paula", null, "600555111", null,
+                    null, null, null, null, null, null, null, "Llamar por la tarde");
+
+            assertThat(cliente.getObservaciones()).isEqualTo("Llamar por la tarde");
         }
 
         @Test
@@ -67,7 +81,7 @@ class ClienteServiceTest {
 
             Cliente cliente = clienteService.crear("Carlos", "Nunez Prieto", "600100101", null,
                     TipoDocumento.NIF, " 12345678-z ", "Calle de Alcala 145", "28009", "Madrid",
-                    "Madrid", "Espana");
+                    "Madrid", "Espana", null);
 
             assertThat(cliente.getDocumento()).isEqualTo("12345678Z");
             assertThat(cliente.tieneDatosFiscalesCompletos()).isTrue();
@@ -79,7 +93,7 @@ class ClienteServiceTest {
             when(clienteRepository.existeConDocumento("12345678A")).thenReturn(false);
 
             assertThatThrownBy(() -> clienteService.crear("Carlos", "Nunez", "600100101", null,
-                    TipoDocumento.NIF, "12345678A", "Calle X", "28009", "Madrid", "Madrid", "Espana"))
+                    TipoDocumento.NIF, "12345678A", "Calle X", "28009", "Madrid", "Madrid", "Espana", null))
                     .isInstanceOf(ReglaNegocioException.class)
                     .hasMessageContaining("digito de control");
 
@@ -94,7 +108,7 @@ class ClienteServiceTest {
                     .thenReturn(Optional.of(Cliente.registrar("Carlos", "Nunez Prieto", null, null)));
 
             assertThatThrownBy(() -> clienteService.crear("Otro", "Cliente", null, null,
-                    TipoDocumento.NIF, "12345678Z", "Calle X", "28009", "Madrid", "Madrid", "Espana"))
+                    TipoDocumento.NIF, "12345678Z", "Calle X", "28009", "Madrid", "Madrid", "Espana", null))
                     .isInstanceOf(ConflictoException.class)
                     .hasMessageContaining("Carlos Nunez Prieto");
         }
@@ -103,7 +117,7 @@ class ClienteServiceTest {
         @DisplayName("exige el nombre")
         void nombreObligatorio() {
             assertThatThrownBy(() -> clienteService.crear("   ", null, null, null,
-                    null, null, null, null, null, null, null))
+                    null, null, null, null, null, null, null, null))
                     .isInstanceOf(ReglaNegocioException.class)
                     .hasMessageContaining("nombre");
         }
@@ -132,6 +146,19 @@ class ClienteServiceTest {
 
             assertThat(cliente.getTipoDocumento()).isEqualTo(TipoDocumento.CIF);
             assertThat(cliente.tieneDatosFiscalesCompletos()).isTrue();
+        }
+
+        @Test
+        @DisplayName("corregir la direccion sin mandar el pais conserva el que tenia")
+        void conservaElPais() {
+            Cliente cliente = Cliente.registrar("Joao", "Silva", null, null);
+            cliente.asignarDatosFiscales(TipoDocumento.PASAPORTE, "P1234567", "Rua Augusta 10",
+                    "1100-053", "Lisboa", "Lisboa", "Portugal");
+
+            cliente.asignarDatosFiscales(TipoDocumento.PASAPORTE, "P1234567", "Rua Augusta 12",
+                    "1100-053", "Lisboa", "Lisboa", null);
+
+            assertThat(cliente.getPais()).isEqualTo("Portugal");
         }
     }
 

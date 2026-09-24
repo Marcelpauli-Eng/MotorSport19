@@ -8,6 +8,7 @@ import {
   Factura,
   FacturaResumen,
   InformeVerificacion,
+  LineaRectificativa,
   SerieFactura,
   TipoFactura,
   TipoRectificativa,
@@ -45,6 +46,11 @@ export class FacturasService {
     if (filtro.conIva != null) params = params.set('conIva', filtro.conIva);
 
     return this.http.get<Pagina<FacturaResumen>>(this.base, { params });
+  }
+
+  /** Facturas que han salido de una orden: su ordinaria y sus rectificativas. */
+  deLaOrden(ordenId: number): Observable<FacturaResumen[]> {
+    return this.http.get<FacturaResumen[]>(`${this.base}/orden/${ordenId}`);
   }
 
   obtener(id: number): Observable<Factura> {
@@ -96,16 +102,23 @@ export class FacturasService {
     return this.http.post<Factura>(this.base, { ordenTrabajoId, serieId, fechaEmision });
   }
 
+  /** Sin líneas y por diferencias, el servidor anula lo que la factura vale hoy. */
   rectificar(
     facturaId: number,
     serieId: number,
     tipoRectificativa: TipoRectificativa,
     motivo: string,
+    lineas: LineaRectificativa[] = [],
   ): Observable<Factura> {
     return this.http.post<Factura>(
       `${this.base}/${facturaId}/rectificativas`,
-      { serieId, tipoRectificativa, motivo, lineas: [] },
+      { serieId, tipoRectificativa, motivo, lineas },
     );
+  }
+
+  /** Lo que vale hoy la factura, con sus rectificativas aplicadas. */
+  lineasVigentes(facturaId: number): Observable<LineaRectificativa[]> {
+    return this.http.get<LineaRectificativa[]>(`${this.base}/${facturaId}/lineas-vigentes`);
   }
 
   /** Recorre el registro comprobando la cadena de huellas de extremo a extremo. */

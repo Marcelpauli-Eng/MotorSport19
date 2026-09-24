@@ -33,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Emision de facturas.
@@ -123,8 +124,26 @@ public class FacturacionService {
     }
 
     @Transactional(readOnly = true)
+    public List<Factura> deOrden(Long ordenId) {
+        return facturaRepository.buscarDeOrden(ordenId);
+    }
+
+    @Transactional(readOnly = true)
     public List<Factura> rectificativasDe(Long facturaId) {
         return facturaRepository.buscarRectificativasDe(facturaId);
+    }
+
+    /**
+     * Lo que vale hoy una factura, con sus rectificativas aplicadas.
+     *
+     * <p>Es de donde parte quien corrige solo una parte. Pedido sobre una
+     * rectificativa, responde por la factura que corrige.
+     */
+    @Transactional(readOnly = true)
+    public List<LineaAFacturar> lineasVigentes(Long facturaId) {
+        Factura factura = obtener(facturaId);
+        Factura original = factura.esRectificativa() ? factura.getFacturaRectificada() : factura;
+        return original.lineasVigentes(facturaRepository.buscarRectificativasDe(original.getId()));
     }
 
     @Transactional(readOnly = true)
@@ -246,17 +265,24 @@ public class FacturacionService {
      * <p>Es el UNICO mecanismo para corregir una factura: la original no se toca
      * ni se anula, se queda donde esta y la rectificativa la referencia.
      *
-     * @param tipoRectificativa POR_SUSTITUCION si las lineas sustituyen a las
-     *                          originales; POR_DIFERENCIAS si recogen solo el ajuste
-     * @param lineas            lineas corregidas. Si van vacias en una rectificativa
-     *                          por diferencias, se genera el negativo exacto de la
-     *                          original (anulacion completa)
+     * @param tipoRectificativa solo se admite POR_DIFERENCIAS
+     * @param lineas            lo que cambia. Si van vacias, se genera el negativo de
+     *                          lo que la factura vale hoy (anulacion completa)
      */
     @Transactional
     public Factura emitirRectificativa(Long facturaOriginalId, Long serieId,
                                        TipoRectificativa tipoRectificativa, String motivo,
                                        List<LineaAFacturar> lineas, LocalDate fechaEmision,
                                        Long usuarioId) {
+        // Solo por diferencias. Los informes suman cada rectificativa tal cual, y una
+        // por sustitucion lleva la factura entera en positivo: se contaria junto a la
+        // original. Las facturas por sustitucion que ya existan se siguen leyendo.
+        if (tipoRectificativa != TipoRectificativa.POR_DIFERENCIAS) {
+            throw new ReglaNegocioException(
+                    "Las rectificativas se emiten por diferencias: indique solo lo que cambia, "
+                    + "o ninguna linea para anular la factura.");
+        }
+
         Factura original = obtener(facturaOriginalId);
 
         if (original.esRectificativa()) {
@@ -268,18 +294,32 @@ public class FacturacionService {
             throw new ReglaNegocioException("Una rectificativa debe explicar el motivo de la correccion.");
         }
 
+        // El bloqueo de la emision se toma ANTES de mirar lo que vale la factura:
+        // si no, dos anulaciones a la vez la veian las dos sin anular y la dejaban
+        // en negativo.
+        contadorRepository.bloquear();
+        List<LineaAFacturar> vigentes = original.lineasVigentes(
+                facturaRepository.buscarRectificativasDe(original.getId()));
+
         List<LineaAFacturar> lineasFinales = lineas;
         if (lineasFinales == null || lineasFinales.isEmpty()) {
-            if (tipoRectificativa != TipoRectificativa.POR_DIFERENCIAS) {
-                throw new ReglaNegocioException(
-                        "Una rectificativa por sustitucion debe indicar las lineas corregidas.");
+            if (vigentes.isEmpty()) {
+                throw new ConflictoException(
+                        "La factura %s ya esta anulada: no queda nada que rectificar."
+                                .formatted(original.numeroVisible()));
             }
-            // Anulacion completa: el negativo exacto de la original.
-            lineasFinales = original.getLineas().stream()
-                    .map(l -> new LineaAFacturar(l.getTipo(), l.getDescripcion(), l.getPiezaSku(),
-                            l.getCantidad().negate(), l.getPrecioUnitario(), l.getDescuentoPct(),
-                            l.getTipoIva(), l.getPorcentajeIva()))
-                    .toList();
+            // Anulacion completa: el negativo exacto de lo que vale hoy, contando
+            // las correcciones que ya tuviera. Con el de la original, anular una
+            // factura ya corregida la dejaba por debajo de cero.
+            lineasFinales = vigentes.stream().map(LineaAFacturar::negada).toList();
+        }
+
+        BigDecimal queda = Stream.concat(vigentes.stream(), lineasFinales.stream())
+                .map(l -> l.importes().baseImponible()).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (queda.signum() < 0) {
+            throw new ReglaNegocioException(
+                    "La correccion deja la factura %s por debajo de cero: no se puede devolver mas de lo que se facturo."
+                            .formatted(original.numeroVisible()));
         }
 
         // Una rectificativa corrige a su original: si aquella iba sin datos del

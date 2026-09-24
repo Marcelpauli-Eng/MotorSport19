@@ -1,12 +1,13 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { EstadoOT, OrdenTrabajo, ResultadoConsumo } from '../../nucleo/modelos/taller';
-import { SerieFactura } from '../../nucleo/modelos/facturacion';
+import { SerieFactura, FacturaResumen } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
@@ -19,6 +20,8 @@ interface Accion {
   destino: EstadoOT;
   texto: string;
   principal: boolean;
+  /** Sin permiso el botón se enseña en gris y no se puede pulsar. */
+  permitida: boolean;
 }
 
 /** Un hito del recorrido de la orden por el taller. */
@@ -29,6 +32,15 @@ interface Paso {
   hecho: boolean;
   actual: boolean;
 }
+
+/**
+ * La zona de la pantalla en la que hay que trabajar ahora mismo.
+ *
+ * `pasos` es la propia tarjeta del recorrido: hay estados en los que lo único
+ * que toca es pulsar un botón (aprobar, entrar en reparación, entregar), y ese
+ * botón vive ahí.
+ */
+type Zona = 'pasos' | 'diagnostico' | 'presupuesto';
 
 /**
  * Ficha de una orden de trabajo: por dónde va y qué toca hacer ahora.
@@ -63,7 +75,29 @@ export class DetalleOrden {
   protected readonly orden = signal<OrdenTrabajo | null>(null);
   protected readonly trabajando = signal(false);
   protected readonly resultadoConsumo = signal<ResultadoConsumo | null>(null);
-  protected readonly serieOrdinaria = signal<SerieFactura | null>(null);
+  /** Todas las series abiertas: la de facturas completas y la de simplificadas. */
+  protected readonly series = signal<SerieFactura[]>([]);
+
+  /**
+   * La serie que le toca a esta orden.
+   *
+   * <p>Sin ficha fiscal del cliente saldrá una simplificada, y esas van en su
+   * propia serie. Elegir «la primera ordinaria activa», como se hacía cuando
+   * solo había una, ahora acierta o falla según el orden en que lleguen: el
+   * servidor rechaza la factura si la serie no corresponde.
+   */
+  protected readonly serieOrdinaria = computed<SerieFactura | null>(() => {
+    const o = this.orden();
+    if (!o) return null;
+    const necesitaSimplificada = !o.clienteFacturable;
+    return (
+      this.series().find(
+        (s) => s.tipo === 'ORDINARIA' && s.activa && !!s.simplificada === necesitaSimplificada,
+      ) ?? null
+    );
+  });
+  /** Facturas que han salido de esta orden, para poder ir a ellas. */
+  protected readonly facturasDeLaOrden = signal<FacturaResumen[]>([]);
 
   private static readonly TEXTOS: Record<EstadoOT, string> = {
     RECIBIDA: 'Volver a recibida',
@@ -78,9 +112,16 @@ export class DetalleOrden {
     RECHAZADA: 'El cliente rechaza',
   };
 
-  /** Facturar y ver importes es cosa de mostrador y dirección. */
-  protected readonly puedeFacturar = this.sesion.puede('ADMIN', 'MOSTRADOR');
-  protected readonly vePrecios = this.puedeFacturar;
+  /**
+   * Los mismos permisos que pide la API, no uno parecido.
+   *
+   * <p>Facturar necesita además ver las series (y la factura al terminar). Con
+   * solo FACTURAS_EMITIR, un rol a medida pedía las series, recibía un 403 y le
+   * saltaban ventanas de permiso nada más abrir cualquier orden.
+   */
+  protected readonly puedeFacturar =
+    this.sesion.tienePermiso('FACTURAS_EMITIR') && this.sesion.tienePermiso('FACTURAS_VER');
+  protected readonly vePrecios = this.sesion.tienePermiso('IMPORTES_VER');
 
   /**
    * ¿Puede el usuario en curso trabajar esta orden?
@@ -93,7 +134,7 @@ export class DetalleOrden {
   protected readonly puedeTrabajarla = computed(() => {
     const o = this.orden();
     if (!o) return false;
-    if (!this.sesion.puede('TECNICO')) return true;
+    if (this.sesion.tienePermiso('ORDENES_VER_TODAS')) return true;
     return o.tecnicoId === null || o.tecnicoId === this.sesion.usuario()?.id;
   });
 
@@ -111,14 +152,18 @@ export class DetalleOrden {
   ];
 
   /**
-   * Adelantar una orden es solo de dirección, no de mostrador.
+   * Desde la ficha no se prepara una orden.
    *
-   * <p>Se salta el paso en el que el cliente aprueba, así que lo firma quien
-   * responde de haberlo cerrado antes por su cuenta. El backend lo exige igual
-   * ({@code /ordenes/*&#47;preparacion} pide ADMIN); esto es solo para no
-   * enseñar un botón que va a devolver 403.
+   * <p>Preparar se saltaba el diagnóstico, el presupuesto y la aprobación de
+   * una vez, y con el botón ahí al lado del de diagnosticar acababa pulsándose
+   * en órdenes normales: la moto entraba a taller sin que nadie hubiera mirado
+   * qué le pasa ni el cliente hubiera dicho que sí. Toda orden abierta aquí
+   * recorre los seis pasos.
+   *
+   * <p>Las que ya estén preparadas siguen su curso: lo que se retira es la
+   * transición, no el estado.
    */
-  private static readonly SOLO_DIRECCION: EstadoOT[] = ['PREPARADA'];
+  private static readonly NO_SE_OFRECE: EstadoOT[] = ['PREPARADA'];
 
   /**
    * La orden admite cambios, pero ninguno lo puede hacer este usuario.
@@ -138,11 +183,10 @@ export class DetalleOrden {
     const o = this.orden();
     if (!o || !this.puedeTrabajarla()) return [];
 
-    const esTecnico = this.sesion.puede('TECNICO');
-    const esDireccion = this.sesion.puede('ADMIN');
+    const esTecnico = !this.sesion.tienePermiso('ORDENES_VER_TODAS');
     return o.estadosPosibles
       .filter((destino) => !esTecnico || !DetalleOrden.SOLO_MOSTRADOR.includes(destino))
-      .filter((destino) => esDireccion || !DetalleOrden.SOLO_DIRECCION.includes(destino))
+      .filter((destino) => !DetalleOrden.NO_SE_OFRECE.includes(destino))
       .map((destino) => ({
         destino,
         // Desde una orden preparada no se «entra en reparación»: se empieza el
@@ -153,6 +197,7 @@ export class DetalleOrden {
             ? 'Empezar el trabajo'
             : (DetalleOrden.TEXTOS[destino] ?? destino),
         principal: destino !== 'RECHAZADA' && destino !== 'ESPERANDO_PIEZAS',
+        permitida: destino !== 'PRESUPUESTADA' || this.sesion.tienePermiso('ORDENES_PRESUPUESTAR'),
       }));
   });
 
@@ -177,17 +222,30 @@ export class DetalleOrden {
   );
 
   constructor() {
-    queueMicrotask(() => this.cargar());
+    alCambiarDatos(() => this.cargar());
+    // Con otro id en la misma ruta (atrás/adelante) Angular reutiliza la pantalla:
+    // cargando solo al construirla se quedaba a la vista la orden anterior.
+    effect(() => {
+      this.id();
+      untracked(() => {
+        this.orden.set(null);
+        this.resultadoConsumo.set(null);
+        this.cargando.set(true);
+        this.cargar();
+      });
+    });
     // Un técnico no puede consultar las series ni el listado de técnicos:
     // pedirlas le provocaría un aviso de permisos nada más abrir cualquier orden.
     if (this.puedeFacturar) {
       this.facturas.series().subscribe({
         next: (series) => {
-          this.serieOrdinaria.set(series.find((s) => s.tipo === 'ORDINARIA' && s.activa) ?? null);
+          this.series.set(series);
           this.seriesCargadas.set(true);
         },
         error: () => this.seriesCargadas.set(true),
       });
+    }
+    if (this.puedeReasignar) {
       this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
     }
   }
@@ -210,63 +268,58 @@ export class DetalleOrden {
   });
 
   /**
-   * ¿Va por la vía corta?
+   * El recorrido, siempre el mismo y siempre completo.
    *
-   * Una orden preparada por dirección no pasa por diagnóstico, presupuesto ni
-   * aprobación: el trabajo ya venía cerrado con el cliente. Enseñarle esos tres
-   * pasos como pendientes para siempre sería mentir sobre lo que falta.
+   * <p>Son estos seis pasos pase lo que pase. Una orden preparada por dirección
+   * se salta el diagnóstico, el presupuesto y la aprobación porque el trabajo ya
+   * venía cerrado con el cliente, pero enseñar entonces un recorrido más corto
+   * cambiaba el dibujo debajo de las manos del técnico justo cuando pulsaba
+   * «Preparar el trabajo»: el mismo taller pasaba a tener dos mapas distintos y
+   * había que volver a leerlos. Los pasos que se salta se dan por hechos, que es
+   * lo que son.
    */
-  protected readonly viaPreparada = computed(() => this.visitados().has('PREPARADA'));
+  private static readonly RECORRIDO: { titulo: string; detalle: string; estados: EstadoOT[] }[] = [
+    { titulo: 'Recepción', detalle: 'La moto entra en el taller', estados: ['RECIBIDA'] },
+    {
+      titulo: 'Diagnóstico',
+      detalle: 'El técnico mira qué le pasa',
+      estados: ['EN_DIAGNOSTICO'],
+    },
+    {
+      titulo: 'Presupuesto',
+      detalle: 'Se compone y se le pasa al cliente',
+      estados: ['PRESUPUESTADA'],
+    },
+    {
+      // PREPARADA entra aquí: adelantar una orden es traerla con el trabajo ya
+      // hablado y aceptado, de modo que el siguiente paso es ponerse con ella.
+      titulo: 'Aprobación',
+      detalle: 'El cliente dice que sí o que no',
+      estados: ['APROBADA', 'RECHAZADA', 'PREPARADA'],
+    },
+    {
+      titulo: 'Reparación',
+      detalle: 'Se trabaja y se consume el material',
+      estados: ['EN_REPARACION', 'ESPERANDO_PIEZAS'],
+    },
+    { titulo: 'Entrega', detalle: 'Lista y entregada al cliente', estados: ['LISTA', 'ENTREGADA'] },
+  ];
 
   protected readonly pasos = computed<Paso[]>(() => {
     const o = this.orden();
     if (!o) return [];
 
-    const definicion: { titulo: string; detalle: string; estados: EstadoOT[] }[] = this.viaPreparada()
-      ? [
-          { titulo: 'Recepción', detalle: 'La moto entra en el taller', estados: ['RECIBIDA'] },
-          {
-            titulo: 'Preparación',
-            detalle: 'Dirección compone el trabajo y lo asigna',
-            estados: ['PREPARADA'],
-          },
-          {
-            titulo: 'Reparación',
-            detalle: 'El técnico la trabaja y consume el material',
-            estados: ['EN_REPARACION', 'ESPERANDO_PIEZAS'],
-          },
-          { titulo: 'Entrega', detalle: 'Lista y entregada al cliente', estados: ['LISTA', 'ENTREGADA'] },
-        ]
-      : [
-          { titulo: 'Recepción', detalle: 'La moto entra en el taller', estados: ['RECIBIDA'] },
-          {
-            titulo: 'Diagnóstico',
-            detalle: 'El técnico mira qué le pasa',
-            estados: ['EN_DIAGNOSTICO'],
-          },
-          {
-            titulo: 'Presupuesto',
-            detalle: 'Se compone y se le pasa al cliente',
-            estados: ['PRESUPUESTADA'],
-          },
-          {
-            titulo: 'Aprobación',
-            detalle: 'El cliente dice que sí o que no',
-            estados: ['APROBADA', 'RECHAZADA'],
-          },
-          {
-            titulo: 'Reparación',
-            detalle: 'Se trabaja y se consume el material',
-            estados: ['EN_REPARACION', 'ESPERANDO_PIEZAS'],
-          },
-          { titulo: 'Entrega', detalle: 'Lista y entregada al cliente', estados: ['LISTA', 'ENTREGADA'] },
-        ];
-
     const visitados = this.visitados();
-    return definicion.map((paso) => ({
+    const definicion = DetalleOrden.RECORRIDO;
+    const actual = definicion.findIndex((paso) => paso.estados.includes(o.estado));
+
+    return definicion.map((paso, i) => ({
       ...paso,
-      actual: paso.estados.includes(o.estado),
-      hecho: paso.estados.some((e) => visitados.has(e)) && !paso.estados.includes(o.estado),
+      actual: i === actual,
+      // Por dónde ha pasado, más lo que se haya saltado para llegar hasta aquí:
+      // un paso que queda por detrás del punto actual ya no está pendiente,
+      // aunque la orden no llegara a pisarlo.
+      hecho: i !== actual && (paso.estados.some((e) => visitados.has(e)) || (actual >= 0 && i < actual)),
     }));
   });
 
@@ -300,6 +353,62 @@ export class DetalleOrden {
 
   /** El paso en el que está ahora mismo, para titular la tarjeta de acciones. */
   protected readonly pasoActual = computed(() => this.pasos().find((p) => p.actual) ?? null);
+
+  /**
+   * Qué sección de la pantalla toca ahora.
+   *
+   * <p>La ficha es larga y en cada paso solo se trabaja en un sitio: el técnico
+   * que la abre a media reparación no tiene por qué acordarse de si le faltaba
+   * el diagnóstico o las horas. La sección que devuelve esto se pinta en rosa,
+   * igual que la tarjeta del recorrido, y el resto se queda en blanco.
+   *
+   * <p>Devuelve null cuando no hay nada que hacer aquí: orden de otro técnico,
+   * entregada o rechazada. Pintar una sección entonces sería mandar a alguien a
+   * un sitio donde no puede tocar nada.
+   */
+  protected readonly zonaActiva = computed<Zona | null>(() => {
+    const o = this.orden();
+    if (!o || !this.puedeTrabajarla()) return null;
+
+    switch (o.estado) {
+      case 'EN_DIAGNOSTICO':
+        // Primero qué le pasa a la moto, después qué se le va a hacer. En ese
+        // orden: el presupuesto se compone a partir del diagnóstico.
+        if (!o.diagnostico) return 'diagnostico';
+        return this.sinPresupuesto() ? 'presupuesto' : 'pasos';
+
+      case 'EN_REPARACION':
+        // Mientras se trabaja, lo que se rellena son las horas y el material.
+        return 'presupuesto';
+
+      default:
+        // El resto de pasos se resuelven con un botón, y los botones están en
+        // la tarjeta del recorrido.
+        return this.acciones().length > 0 || (o.facturable && this.puedeFacturar) ? 'pasos' : null;
+    }
+  });
+
+  /**
+   * La frase que dice qué toca, para el hueco de «Siguiente paso».
+   *
+   * <p>Solo cuando lo que toca es rellenar algo más abajo: si el siguiente paso
+   * es un botón que está justo al lado, ponerle un cartel encima sobra.
+   */
+  protected readonly tareaAhora = computed<string | null>(() => {
+    const o = this.orden();
+    if (!o) return null;
+
+    switch (this.zonaActiva()) {
+      case 'diagnostico':
+        return 'Escribe qué le pasa a la moto en «Avería y diagnóstico».';
+      case 'presupuesto':
+        return o.estado === 'EN_REPARACION'
+          ? 'Apunta las horas y el material en «' + (this.vePrecios ? 'Presupuesto' : 'Trabajo a realizar') + '».'
+          : 'Compón el trabajo en «' + (this.vePrecios ? 'Presupuesto' : 'Trabajo a realizar') + '».';
+      default:
+        return null;
+    }
+  });
 
   // ==================================================================
   // Resumen del presupuesto
@@ -337,15 +446,16 @@ export class DetalleOrden {
    * único que puede es cogerse una orden que todavía no es de nadie, y eso se
    * ofrece aparte.
    */
-  protected readonly puedeReasignar = this.puedeFacturar;
+  protected readonly puedeReasignar =
+    this.sesion.tienePermiso('ORDENES_ASIGNAR_TECNICO') && this.sesion.tienePermiso('ORDENES_VER_TODAS');
 
   protected readonly puedeCogerLaOrden = computed(
-    () => this.sesion.puede('TECNICO') && this.orden()?.tecnicoId === null,
+    () => !this.sesion.tienePermiso('ORDENES_VER_TODAS') && this.orden()?.tecnicoId === null,
   );
 
   protected asignarTecnico(tecnicoId: number | null): void {
     const o = this.orden();
-    if (!o || tecnicoId === o.tecnicoId) return;
+    if (!o || tecnicoId === o.tecnicoId || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio.asignarTecnico(o.id, tecnicoId).subscribe({
@@ -382,7 +492,7 @@ export class DetalleOrden {
   protected guardarDiagnostico(): void {
     const o = this.orden();
     const texto = this.borradorDiagnostico().trim();
-    if (!o || !texto) return;
+    if (!o || !texto || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio.registrarDiagnostico(o.id, texto).subscribe({
@@ -406,7 +516,7 @@ export class DetalleOrden {
 
   protected guardarObservaciones(): void {
     const o = this.orden();
-    if (!o) return;
+    if (!o || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.servicio
@@ -431,7 +541,9 @@ export class DetalleOrden {
 
   protected ejecutar(destino: EstadoOT): void {
     const o = this.orden();
-    if (!o) return;
+    // El botón se desactiva al repintar, y un doble clic rápido llega antes: salían
+    // dos peticiones, una chocaba (409) y se veían a la vez un error y un éxito.
+    if (!o || this.trabajando()) return;
 
     this.trabajando.set(true);
     this.resultadoConsumo.set(null);
@@ -513,7 +625,7 @@ export class DetalleOrden {
   protected facturar(): void {
     const o = this.orden();
     const serie = this.serieOrdinaria();
-    if (!o || !serie) return;
+    if (!o || !serie || this.trabajando()) return;
 
     if (!confirm(`Se emitirá una factura en la serie ${serie.codigo}. Una factura emitida no se puede modificar. ¿Continuar?`)) {
       return;
@@ -530,6 +642,13 @@ export class DetalleOrden {
   }
 
   private cargar(): void {
+    // La factura que salió de esta orden, si ya se emitió. Sin permiso para
+    // ver facturas la petición daría un 403 y su aviso parecería que ha
+    // fallado lo último que se ha pulsado.
+    if (this.sesion.tienePermiso('FACTURAS_VER')) this.facturas.deLaOrden(Number(this.id())).subscribe({
+      next: (fs) => this.facturasDeLaOrden.set(fs),
+      error: () => this.facturasDeLaOrden.set([]),
+    });
     this.servicio.obtener(Number(this.id())).subscribe({
       next: (o) => {
         this.orden.set(o);

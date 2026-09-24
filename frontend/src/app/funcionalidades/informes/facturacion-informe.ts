@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -35,6 +36,7 @@ export class FacturacionInforme {
   protected readonly ejercicio = signal(new Date().getFullYear());
 
   constructor() {
+    alCambiarDatos(() => this.cargar());
     this.cargar();
   }
 

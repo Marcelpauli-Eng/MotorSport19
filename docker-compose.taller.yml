@@ -128,7 +128,9 @@ services:
   # Con Cloudflare Access delante, además, nadie llega a la aplicación sin
   # pasar antes por un login por email.
   tunel:
-    image: cloudflare/cloudflared:latest
+    # Version fija: con «latest» cada `docker compose pull` podia cambiar el
+    # tunel sin que nadie lo decidiera. Para actualizar, subir el numero a mano.
+    image: cloudflare/cloudflared:2026.9.1
     container_name: motorsport19-tunel
     restart: always
     depends_on:

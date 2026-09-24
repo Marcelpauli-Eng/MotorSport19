@@ -3,6 +3,7 @@ package com.motorsport19.taller.inventario.service;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
+import com.motorsport19.taller.fichaje.service.RegistroActividad;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.domain.Proveedor;
 import com.motorsport19.taller.inventario.repository.PiezaRepository;
@@ -26,15 +27,18 @@ public class PiezaService {
     private final ProveedorService proveedorService;
     private final TipoIvaRepository tipoIvaRepository;
     private final InventarioService inventarioService;
+    private final RegistroActividad registroActividad;
 
     public PiezaService(PiezaRepository piezaRepository,
                         ProveedorService proveedorService,
                         TipoIvaRepository tipoIvaRepository,
-                        InventarioService inventarioService) {
+                        InventarioService inventarioService,
+                        RegistroActividad registroActividad) {
         this.piezaRepository = piezaRepository;
         this.proveedorService = proveedorService;
         this.tipoIvaRepository = tipoIvaRepository;
         this.inventarioService = inventarioService;
+        this.registroActividad = registroActividad;
     }
 
     @Transactional(readOnly = true)
@@ -107,6 +111,7 @@ public class PiezaService {
 
         pieza.actualizarDatos(sku, descripcion, marca, ubicacion, familia, stockMinimo, tipoIva, proveedor,
                 unidadMedida, observaciones);
+        registroActividad.anotar("EDICION", "inventario", id, "Editó la pieza " + pieza.getSku());
         return pieza;
     }
 
@@ -118,6 +123,10 @@ public class PiezaService {
     public Pieza actualizarPrecios(Long id, BigDecimal precioCoste, BigDecimal precioVenta) {
         Pieza pieza = obtener(id);
         pieza.actualizarPrecios(precioCoste, precioVenta);
+        registroActividad.anotar("ALMACEN", "inventario", id,
+                "Cambió los precios de %s: coste %s €, venta %s €".formatted(pieza.getSku(),
+                        precioCoste == null ? "-" : precioCoste.toPlainString(),
+                        precioVenta == null ? "-" : precioVenta.toPlainString()));
         return pieza;
     }
 

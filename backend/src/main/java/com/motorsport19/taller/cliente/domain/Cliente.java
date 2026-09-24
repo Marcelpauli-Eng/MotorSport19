@@ -96,8 +96,13 @@ public class Cliente extends EntidadAuditable {
      * completan despues con {@link #asignarDatosFiscales}.
      */
     public static Cliente registrar(String nombre, String apellidos, String telefono, String email) {
+        return registrar(nombre, apellidos, telefono, email, null);
+    }
+
+    public static Cliente registrar(String nombre, String apellidos, String telefono, String email,
+                                    String observaciones) {
         Cliente cliente = new Cliente();
-        cliente.aplicarContacto(nombre, apellidos, telefono, email, null);
+        cliente.aplicarContacto(nombre, apellidos, telefono, email, observaciones);
         cliente.pais = PAIS_POR_DEFECTO;
         cliente.activo = true;
         return cliente;
@@ -149,7 +154,13 @@ public class Cliente extends EntidadAuditable {
         this.codigoPostal = textoONulo(codigoPostal);
         this.ciudad = textoONulo(ciudad);
         this.provincia = textoONulo(provincia);
-        this.pais = textoONulo(pais) != null ? textoONulo(pais) : PAIS_POR_DEFECTO;
+        // Sin pais se conserva el que tuviera: la pantalla no lo manda, y corregir
+        // una direccion no puede mudar a un cliente extranjero a Espana.
+        if (textoONulo(pais) != null) {
+            this.pais = textoONulo(pais);
+        } else if (this.pais == null) {
+            this.pais = PAIS_POR_DEFECTO;
+        }
     }
 
     /**

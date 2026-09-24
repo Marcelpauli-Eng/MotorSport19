@@ -44,6 +44,9 @@ class BusquedaDeMatriculaTest {
     @Mock
     private com.motorsport19.taller.cliente.service.ClienteService clienteService;
 
+    @Mock
+    private com.motorsport19.taller.fichaje.service.RegistroActividad registroActividad;
+
     @InjectMocks
     private MotoService motoService;
 

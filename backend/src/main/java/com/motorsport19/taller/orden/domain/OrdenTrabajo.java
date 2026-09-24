@@ -253,12 +253,11 @@ public class OrdenTrabajo extends EntidadAuditable {
     }
 
     public void aprobar(String aprobadoPor, Usuario usuario) {
-        cambiarEstado(EstadoOT.APROBADA, usuario,
-                aprobadoPor == null ? null : "Aprobado por " + aprobadoPor);
+        // Con el nombre en blanco el historial decia «Aprobado por » y nada mas.
+        String quien = textoONulo(aprobadoPor);
+        cambiarEstado(EstadoOT.APROBADA, usuario, quien == null ? null : "Aprobado por " + quien);
         this.fechaAprobacion = Instant.now();
-        this.aprobadoPor = textoONulo(aprobadoPor) != null
-                ? textoONulo(aprobadoPor)
-                : cliente.nombreCompleto();
+        this.aprobadoPor = quien != null ? quien : cliente.nombreCompleto();
     }
 
     /** El cliente no acepta el presupuesto: la moto vuelve sin reparar. */

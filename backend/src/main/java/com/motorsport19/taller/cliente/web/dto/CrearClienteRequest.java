@@ -43,6 +43,9 @@ public record CrearClienteRequest(
         String provincia,
 
         @Size(max = 60, message = "El pais no puede superar los 60 caracteres")
-        String pais
+        String pais,
+
+        // Sin este campo las notas del formulario de alta se perdian sin avisar.
+        String observaciones
 ) {
 }

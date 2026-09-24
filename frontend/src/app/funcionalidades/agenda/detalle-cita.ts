@@ -36,7 +36,7 @@ export class DetalleCita {
   readonly editar = output<void>();
   readonly cambiada = output<void>();
 
-  protected readonly gestionaAgenda = this.sesion.puede('ADMIN', 'MOSTRADOR');
+  protected readonly gestionaAgenda = this.sesion.tienePermiso('AGENDA_GESTIONAR');
   protected readonly trabajando = signal(false);
 
   /** Formulario de entrada, que aparece al pulsar «Ha llegado». */
@@ -112,14 +112,18 @@ export class DetalleCita {
   }
 
   protected noSePresento(): void {
-    const motivo = prompt('¿Algo que apuntar? (opcional)') ?? undefined;
+    const motivo = prompt('¿Algo que apuntar? (opcional)');
+    // «Cancelar» cancela. Antes seguía adelante y la cita quedaba cerrada como
+    // no presentada, un estado del que ya no se sale.
+    if (motivo === null) return;
     this.ejecutar(
-      this.servicio.marcarNoPresentado(this.cita().id, motivo),
+      this.servicio.marcarNoPresentado(this.cita().id, motivo.trim() || undefined),
       'Anotado: no se presentó.',
     );
   }
 
   private ejecutar(peticion: ReturnType<CitasService['confirmar']>, mensaje: string): void {
+    if (this.trabajando()) return;
     this.trabajando.set(true);
     peticion.subscribe({
       next: () => {

@@ -1,3 +1,4 @@
+import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -30,7 +31,7 @@ export class Inventario {
   private readonly sesion = inject(SesionService);
 
   /** Entradas y ajustes de almacen los reserva la API para direccion. */
-  protected readonly gestionaAlmacen = this.sesion.puede('ADMIN');
+  protected readonly gestionaAlmacen = this.sesion.tienePermiso('ALMACEN_MOVER');
 
   /**
    * ¿Se le enseñan los precios del catálogo?
@@ -39,7 +40,7 @@ export class Inventario {
    * tiene a un clic aquí. El servidor tampoco se los manda —llegan a nulo—, así
    * que esto solo evita pintar dos columnas de guiones.
    */
-  protected readonly vePrecios = this.sesion.puede('ADMIN', 'MOSTRADOR');
+  protected readonly vePrecios = this.sesion.tienePermiso('IMPORTES_VER');
 
   protected readonly pestana = signal<Pestana>('catalogo');
   protected readonly cargando = signal(true);
@@ -55,6 +56,7 @@ export class Inventario {
   protected readonly editando = signal<Pieza | null>(null);
 
   constructor() {
+    alCambiarDatos(() => this.cambiarPestana(this.pestana()));
     this.cargarCatalogo();
     this.servicio.alertas().subscribe((a) => this.alertas.set(a));
     this.servicio.familias().subscribe((f) => this.familias.set(f));
@@ -105,8 +107,13 @@ export class Inventario {
 
   /** Entrada de mercancía por compra a proveedor. */
   protected registrarEntrada(pieza: Pieza): void {
-    const cantidad = Number(prompt(`Unidades que entran de ${pieza.sku}:`, '1'));
-    if (!cantidad || cantidad <= 0) return;
+    const texto = prompt(`Unidades que entran de ${pieza.sku}:`, '1');
+    if (texto === null) return;
+    const cantidad = numeroTecleado(texto);
+    if (!(cantidad > 0)) {
+      this.notificaciones.error(`«${texto}» no es una cantidad válida. Escriba un número mayor que cero, por ejemplo 2 o 1,5.`);
+      return;
+    }
 
     const documento = prompt('Albarán o factura del proveedor (opcional):') ?? undefined;
 
@@ -123,13 +130,20 @@ export class Inventario {
 
   /** Ajuste tras inventario físico. La cantidad lleva signo y el motivo es obligatorio. */
   protected registrarAjuste(pieza: Pieza): void {
-    const cantidad = Number(
-      prompt(`Ajuste para ${pieza.sku} (negativo si faltan unidades):`, '-1'),
-    );
-    if (!cantidad) return;
+    const texto = prompt(`Ajuste para ${pieza.sku} (negativo si faltan unidades):`, '-1');
+    if (texto === null) return;
+    const cantidad = numeroTecleado(texto);
+    if (!Number.isFinite(cantidad) || cantidad === 0) {
+      this.notificaciones.error(`«${texto}» no es un ajuste válido. Escriba las unidades con su signo, por ejemplo -1 o 2,5.`);
+      return;
+    }
 
     const motivo = prompt('Motivo del ajuste (obligatorio):');
-    if (!motivo) return;
+    if (motivo === null) return;
+    if (!motivo.trim()) {
+      this.notificaciones.error('El ajuste necesita un motivo: sin él no se registra.');
+      return;
+    }
 
     this.servicio.registrarAjuste(pieza.id, { cantidad, motivo }).subscribe({
       next: (m) => {
@@ -141,4 +155,10 @@ export class Inventario {
       },
     });
   }
+}
+
+/** «1,5» es como se escribe aquí, y `Number` solo entiende «1.5»: lo daba por nada. */
+export function numeroTecleado(texto: string): number {
+  const limpio = texto.trim().replace(',', '.');
+  return limpio === '' ? NaN : Number(limpio);
 }

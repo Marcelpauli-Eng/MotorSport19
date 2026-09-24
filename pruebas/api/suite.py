@@ -201,10 +201,11 @@ def s2_datos_maestros(admin: Api) -> dict:
                                   "precioCoste": "-5", "precioVenta": "10"})
     caso("un precio de coste negativo se rechaza", pneg.codigo == 400)
 
+    # Se admite a proposito (una liquidacion existe); quien avisa es el formulario,
+    # que pregunta antes de guardar una pieza que se vende con perdidas.
     pperdida = admin.post("/piezas", {"sku": sku(), "descripcion": "Se vende con perdida",
                                       "stockMinimo": "1", "precioCoste": "50", "precioVenta": "10"})
-    if pperdida.ok:
-        aviso("deja dar de alta una pieza que se vende por debajo del coste (50 -> 10) sin decir nada")
+    caso("se puede dar de alta una pieza por debajo del coste (liquidaciones)", pperdida.ok, f"HTTP {pperdida.codigo}")
 
     # --- proveedores
     prov = admin.post("/proveedores", {"nombre": "Recambios del Baix S.L.", "nif": nif(),
@@ -1530,6 +1531,153 @@ def s16_bajas(admin: Api) -> None:
 
 
 # =====================================================================
+# 17. Lo que encontro la auditoria: que no vuelva
+# =====================================================================
+
+def s17_auditoria(admin: Api, datos: dict) -> None:
+    seccion("17. Fallos de la auditoria: jornada, tasa de neumaticos y datos que se perdian")
+
+    # --- el fichaje obligatorio
+    rol_tec = next(r["id"] for r in admin.get("/roles").cuerpo if r["nombre"] == "Taller")
+    u = admin.post("/usuarios", {"username": f"sinfichar{SELLO}", "password": "tecnico1234",
+                                 "nombreCompleto": "Sin Fichar", "rolId": rol_tec})
+    sin = Api(quien="sinfichar")
+    sin.token = sin.post("/auth/login", {"username": u["username"], "password": "tecnico1234"})["token"]
+    bloqueado = sin.get("/ordenes")
+    caso("sin empezar la jornada el programa responde 423, no 403", bloqueado.codigo == 423,
+         f"HTTP {bloqueado.codigo}")
+    caso("pero puede ver como esta su jornada", sin.get("/fichajes/jornada").ok)
+    dos = [sin.post("/fichajes/jornada") for _ in range(2)]
+    caso("fichar dos veces deja una sola jornada", sorted(r.codigo for r in dos) == [200, 409],
+         str([r.codigo for r in dos]))
+    caso("y con la jornada empezada ya trabaja", sin.get("/ordenes").ok)
+    caso("terminar la jornada funciona", sin.post("/fichajes/jornada/cierre").ok)
+
+    # --- parametros y textos que antes daban 500 o mensajes en ingles
+    falta = admin.get("/fichajes/mias")
+    caso("un parametro obligatorio que falta da 400 y dice cual, no 500",
+         falta.codigo == 400 and "desde" in falta.mensaje, f"HTTP {falta.codigo}: {falta.mensaje[:60]}")
+
+    cita = admin.post("/citas", {"fechaHora": iso(6, 9), "duracionEstimada": 1, "motoId": datos["moto"]["id"],
+                                 "motivo": "Cita para cancelar con un motivo larguisimo"})
+    largo = admin.post(f"/citas/{cita['id']}/cancelacion", {"motivo": "No puede venir. " * 30})
+    caso("un motivo mas largo que la columna da 400 en espanol, no 409 de PostgreSQL",
+         largo.codigo == 400 and "varying" not in largo.mensaje, f"HTTP {largo.codigo}: {largo.mensaje[:70]}")
+
+    facturada = admin.get(f"/facturas/orden/{datos['orden_cualquiera']}")
+    caso("la orden encuentra su factura sin cargar el libro entero",
+         facturada.ok and len(facturada.cuerpo) >= 1
+         and all(f["codigoOt"] == facturada.cuerpo[0]["codigoOt"] for f in facturada.cuerpo),
+         str([f["numeroCompleto"] for f in facturada.cuerpo]) if facturada.ok else f"HTTP {facturada.codigo}")
+    caso("y una orden sin facturas devuelve la lista vacia", admin.get("/facturas/orden/999999").cuerpo == [])
+
+    obs = admin.post("/clientes", {"nombre": "Con notas", "observaciones": "Llamar por la tarde"})
+    caso("las observaciones del alta de cliente se guardan", obs.get("observaciones") == "Llamar por la tarde",
+         str(obs.get("observaciones")))
+
+    # --- tasa de reciclaje: tantas tasas como neumaticos
+    neumatico = pieza_con_stock(admin, unidades=20, familia=f"Neumaticos {SELLO}")
+    tasa = pieza_con_stock(admin, unidades=100, venta="1.50", familia="Tasas")
+    admin.put("/configuracion/tasa-neumatico", {"familiaNeumaticos": neumatico["familia"],
+                                                "piezaTasaId": tasa["id"]})
+    cli = cliente_facturable(admin, "Neumaticos")
+    moto = moto_de(admin, cli["id"])
+    oid = admin.post("/ordenes", {"motoId": moto["id"], "kmEntrada": 10,
+                                  "problemaReportado": "Cambio de neumaticos"})["id"]
+    admin.post(f"/ordenes/{oid}/preparacion")
+    admin.post(f"/ordenes/{oid}/lineas/piezas", {"piezaId": neumatico["id"], "cantidad": "2"})
+
+    def cantidad(pieza_id):
+        return next((float(l["cantidad"]) for l in admin.get(f"/ordenes/{oid}/lineas").cuerpo
+                     if l["piezaId"] == pieza_id), None)
+
+    caso("dos neumaticos llevan dos tasas", cantidad(tasa["id"]) == 2.0, str(cantidad(tasa["id"])))
+    linea = next(l for l in admin.get(f"/ordenes/{oid}/lineas").cuerpo if l["piezaId"] == neumatico["id"])
+    admin.put(f"/ordenes/{oid}/lineas/{linea['id']}/cantidad", {"cantidad": "4"})
+    caso("al pasar a cuatro neumaticos la tasa sube a cuatro", cantidad(tasa["id"]) == 4.0,
+         str(cantidad(tasa["id"])))
+    admin.delete(f"/ordenes/{oid}/lineas/{linea['id']}")
+    caso("sin neumaticos no se cobra tasa", cantidad(tasa["id"]) is None, str(cantidad(tasa["id"])))
+    admin.put("/configuracion/tasa-neumatico", {"familiaNeumaticos": None, "piezaTasaId": None})
+
+    # --- corregir solo una parte de una factura, y no anularla dos veces
+    cli = cliente_facturable(admin, "Corrige")
+    moto = moto_de(admin, cli["id"])
+    oid = admin.post("/ordenes", {"motoId": moto["id"], "kmEntrada": 10,
+                                  "problemaReportado": "Factura que hay que corregir"})["id"]
+    admin.post(f"/ordenes/{oid}/preparacion")
+    admin.post(f"/ordenes/{oid}/lineas/mano-de-obra", {"descripcion": "Revision", "horas": "1.5"})
+    admin.post(f"/ordenes/{oid}/lineas/mano-de-obra", {"descripcion": "Ajuste de frenos", "horas": "1"})
+    admin.post(f"/ordenes/{oid}/presupuesto")
+    admin.post(f"/ordenes/{oid}/aprobacion", {"aprobadoPor": "Cliente"})
+    admin.post(f"/ordenes/{oid}/reparacion")
+    admin.post(f"/ordenes/{oid}/lista")
+    fac = admin.post("/facturas", {"ordenTrabajoId": oid, "serieId": datos["serie"]["id"]})
+    serie_r = next(s["id"] for s in admin.get("/facturas/series").cuerpo
+                   if s["tipo"] == "RECTIFICATIVA" and s["ejercicio"] == HOY.year)
+
+    def rectificar(lineas, motivo="Correccion de prueba"):
+        return admin.post(f"/facturas/{fac['id']}/rectificativas", {
+            "serieId": serie_r, "tipoRectificativa": "POR_DIFERENCIAS", "motivo": motivo, "lineas": lineas})
+
+    def vigentes():
+        return sorted((l["descripcion"], float(l["cantidad"]))
+                      for l in admin.get(f"/facturas/{fac['id']}/lineas-vigentes").cuerpo)
+
+    caso("sin corregir, la factura vale lo que dicen sus lineas",
+         vigentes() == [("Ajuste de frenos", 1.0), ("Revision", 1.5)], str(vigentes()))
+    revision = next(l for l in admin.get(f"/facturas/{fac['id']}/lineas-vigentes").cuerpo
+                    if l["descripcion"] == "Revision")
+    parcial = rectificar([{**revision, "cantidad": -revision["cantidad"]}, {**revision, "cantidad": 1}],
+                         "La revision fue 1 h")
+    caso("se corrige un solo concepto de la factura", parcial.ok, f"HTTP {parcial.codigo}: {parcial.mensaje[:70]}")
+    caso("y lo que vale hoy ya lleva la correccion, con el resto intacto",
+         vigentes() == [("Ajuste de frenos", 1.0), ("Revision", 1.0)], str(vigentes()))
+
+    anula = rectificar([], "Anulada tras corregirla")
+    caso("anular una factura ya corregida la deja a cero, no en negativo",
+         anula.ok and abs(float(fac["total"]) + float(parcial["total"]) + float(anula["total"])) < 0.005,
+         f"{fac['total']} {parcial.get('total')} {anula.get('total')}")
+    otra = rectificar([], "Otra vez")
+    caso("anularla otra vez se rechaza y lo explica", otra.codigo == 409 and "anulada" in otra.mensaje,
+         f"HTTP {otra.codigo}: {otra.mensaje[:70]}")
+    de_mas = rectificar([{**revision, "cantidad": -1}], "Devolver de mas")
+    caso("no deja devolver mas de lo que se facturo", de_mas.codigo == 422,
+         f"HTTP {de_mas.codigo}: {de_mas.mensaje[:70]}")
+    sust = admin.post(f"/facturas/{fac['id']}/rectificativas", {
+        "serieId": serie_r, "tipoRectificativa": "POR_SUSTITUCION", "motivo": "Sustituir",
+        "lineas": [{**revision, "cantidad": 1}]})
+    caso("una rectificativa por sustitucion se rechaza: los informes la contarian dos veces",
+         sust.codigo == 422 and "diferencias" in sust.mensaje, f"HTTP {sust.codigo}: {sust.mensaje[:70]}")
+
+    # Cinco «Anular» a la vez sobre otra factura: sin el bloqueo, todas la veian sin anular.
+    moto2 = moto_de(admin, cliente_facturable(admin, "AnulaAlaVez")["id"])
+    oid2 = admin.post("/ordenes", {"motoId": moto2["id"], "kmEntrada": 20,
+                                   "problemaReportado": "Anulacion a la vez"})["id"]
+    for paso, cuerpo in [("preparacion", None), ("lineas/mano-de-obra", {"descripcion": "Trabajo", "horas": "1"}),
+                         ("presupuesto", None), ("aprobacion", {"aprobadoPor": "Cliente"}),
+                         ("reparacion", None), ("lista", None)]:
+        admin.post(f"/ordenes/{oid2}/{paso}", cuerpo)
+    fac2 = admin.post("/facturas", {"ordenTrabajoId": oid2, "serieId": datos["serie"]["id"]})
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as ex:
+        res = list(ex.map(lambda _: admin.post(f"/facturas/{fac2['id']}/rectificativas", {
+            "serieId": serie_r, "tipoRectificativa": "POR_DIFERENCIAS", "motivo": "A la vez", "lineas": []}),
+            range(5)))
+    caso("cinco anulaciones a la vez emiten una sola rectificativa",
+         sum(r.ok for r in res) == 1 and all(r.codigo == 409 for r in res if not r.ok),
+         str(sorted(r.codigo for r in res)))
+
+    # --- quien gestiona roles tiene que poder ver la lista de roles
+    rol = admin.post("/roles", {"nombre": f"Solo roles {SELLO}", "permisos": ["ROLES_GESTIONAR", "FICHAJE_EXENTO"]})
+    usu = admin.post("/usuarios", {"username": f"soloroles{SELLO}", "password": "soloroles1234",
+                                   "nombreCompleto": "Solo Roles", "rolId": rol["id"]})
+    gestor = entrar(usu["username"], "soloroles1234")
+    caso("quien solo gestiona roles ve la lista de roles (su pestaña cargaba vacia)",
+         gestor.get("/roles").ok, f"HTTP {gestor.get('/roles').codigo}")
+    caso("pero no la de usuarios", gestor.get("/usuarios").codigo == 403)
+
+
+# =====================================================================
 
 def main() -> int:
     admin = entrar(*ADMIN)
@@ -1548,9 +1696,11 @@ def main() -> int:
     global TECNICO_ID
     TECNICO_ID = creado["id"]
 
+    # Recibe trabajo quien puede moverlo, tambien direccion: en un taller pequeño
+    # el dueño repara, y hay talleres con ordenes asignadas al administrador.
     disponibles = admin.get("/usuarios/tecnicos")
-    if any(u["nombreCompleto"] == "Administrador" for u in (disponibles.cuerpo or [])):
-        aviso("la lista para asignar ordenes a un tecnico incluye al administrador")
+    caso("el tecnico nuevo sale en la lista para asignar ordenes",
+         any(u["id"] == TECNICO_ID for u in (disponibles.cuerpo or [])), f"HTTP {disponibles.codigo}")
 
     base = s1_arranque(admin)
     datos = s2_datos_maestros(admin)
@@ -1570,6 +1720,7 @@ def main() -> int:
     datos["orden_cualquiera"] = larga["orden"]
     s15_robustez(admin, datos)
     s16_bajas(admin)
+    s17_auditoria(admin, datos)
 
     return resumen()
 
