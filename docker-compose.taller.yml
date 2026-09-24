@@ -89,6 +89,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      # Tambien la API: es quien aplica las migraciones. Sin esto, sobre una
+      # base recien creada la copia inicial se lanza antes de que existan las
+      # tablas y falla con "El volcado no contiene la tabla factura".
+      api:
+        condition: service_healthy
     environment:
       PGHOST: db
       PGUSER: ${POSTGRES_USER:-taller}
