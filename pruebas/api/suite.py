@@ -35,6 +35,7 @@ import concurrent.futures
 import datetime as dt
 import time
 import io
+import urllib.parse
 import zipfile
 
 from arnes import (
@@ -1679,6 +1680,115 @@ def s17_auditoria(admin: Api, datos: dict) -> None:
 
 # =====================================================================
 
+# =====================================================================
+# 18. Importar ficheros: clientes, motos y piezas en bloque
+# =====================================================================
+
+def s18_importacion(admin: Api, tecnico: Api) -> None:
+    seccion("18. Importar clientes, motos y piezas desde un fichero")
+
+    def filas_rechazadas(r) -> list:
+        return [x["fila"] for x in r.get("rechazadas", [])]
+
+    # --- clientes: cada fila con las reglas del alta normal
+    def ficha(texto: str) -> dict:
+        encontrados = admin.get("/clientes?texto=" + urllib.parse.quote(texto)).filas
+        return admin.get(f"/clientes/{encontrados[0]['id']}").cuerpo if len(encontrados) == 1 else {}
+
+    doc = nif()
+    sin_doc = f"Importada{SELLO}"
+    empresa = f"TALLER PRUEBA {SELLO} SL"
+    clientes = [
+        # La razon social coincide con nombre y apellidos: es una persona.
+        {"razonSocial": f"Lucia  Importada {SELLO}", "nombre": "Lucia", "apellidos": f"Importada {SELLO}",
+         "documento": doc, "direccion": "Calle Luna 4", "codigoPostal": "28001", "ciudad": "Madrid",
+         "provincia": "Madrid"},
+        {"nombre": sin_doc, "telefono": "600123123"},
+        {"nombre": f"NIF malo {SELLO}", "documento": "12345678A"},
+        {"nombre": f"Email malo {SELLO}", "email": "sin-arroba"},
+        {"nombre": "Tipo malo", "tipoDocumento": "DNI", "documento": nif()},
+        # No coincide: es una empresa y su persona de contacto.
+        {"razonSocial": empresa, "nombre": "Carlos", "apellidos": "Vidal", "documento": f"FR{SELLO}00001"},
+    ]
+    r = admin.post("/clientes/importacion", clientes)
+    caso("una fila mala no tumba a las buenas: entran 5 y solo se rechaza el tipo de documento ilegible",
+         r.ok and r.get("creadas") == 5 and filas_rechazadas(r) == [5]
+         and "NIF, CIF, NIE" in r["rechazadas"][0]["motivo"], str(r.cuerpo)[:300])
+    caso("el NIF y el email que no valen no dejan fuera al cliente: entran con aviso",
+         [x["fila"] for x in r.get("avisos", [])] == [3, 4], str(r.get("avisos"))[:300])
+    nif_malo = ficha(f"NIF malo {SELLO}")
+    caso("el NIF que no vale no se guarda como documento, pero queda en observaciones",
+         nif_malo.get("documento") is None and "12345678A" in (nif_malo.get("observaciones") or ""),
+         str(nif_malo)[:200])
+    caso("la empresa entra con su razon social y la persona queda como contacto",
+         ficha(empresa).get("apellidos") is None and "Contacto: Carlos Vidal" in (ficha(empresa).get("observaciones") or ""),
+         str(ficha(empresa))[:200])
+    caso("si la razon social es el nombre de la persona, se respeta partido en nombre y apellidos",
+         ficha(doc).get("nombre") == "Lucia" and ficha(doc).get("apellidos") == f"Importada {SELLO}",
+         str(ficha(doc))[:200])
+
+    otra = admin.post("/clientes/importacion", clientes)
+    caso("reimportar el mismo fichero no duplica a nadie: ni con NIF, ni sin el, ni con el NIF apartado",
+         otra.ok and otra.get("creadas") == 0 and not otra.get("avisos"), str(otra.cuerpo)[:300])
+    caso("el cliente sin NIF sigue estando una sola vez",
+         len(admin.get(f"/clientes?texto={sin_doc}").filas) == 1)
+
+    # --- motos: el propietario llega por su NIF o por su nombre
+    con_nif = admin.get(f"/clientes?texto={doc}").filas[0]["id"]
+    sin_nif = admin.get(f"/clientes?texto={sin_doc}").filas[0]["id"]
+    mat1, mat2 = matricula(), matricula()
+    motos = admin.post("/motos/importacion", [
+        {"cliente": doc, "matricula": mat1, "marca": "Yamaha", "modelo": "MT-07", "anio": "2021",
+         "kmActual": "12000"},
+        # Sin apellidos y en mayusculas: la ficha dice «Importada…».
+        {"cliente": sin_doc.upper(), "matricula": mat2, "marca": "Honda", "modelo": "PCX"},
+        {"cliente": "Nadie Que Exista", "matricula": matricula(), "marca": "X", "modelo": "Y"},
+        {"cliente": doc, "matricula": mat1, "marca": "Yamaha", "modelo": "MT-07"},
+        {"cliente": doc, "matricula": matricula(), "marca": "Yamaha", "modelo": "R1", "anio": "abc"},
+    ])
+    caso("da de alta las motos y rechaza cliente inexistente, matricula repetida y año ilegible",
+         motos.ok and motos.get("creadas") == 2 and filas_rechazadas(motos) == [3, 4, 5], str(motos.cuerpo)[:300])
+    m1, m2 = admin.get(f"/motos/matricula/{mat1}"), admin.get(f"/motos/matricula/{mat2}")
+    caso("cada moto queda con su dueño, encontrado por NIF o por nombre",
+         m1.get("clienteId") == con_nif and m2.get("clienteId") == sin_nif and m1.get("kmActual") == 12000,
+         f"{m1.get('clienteId')}/{con_nif} {m2.get('clienteId')}/{sin_nif}")
+
+    # --- piezas: el stock del fichero entra como movimiento, igual que a mano
+    ref = sku("IMP")
+    piezas = admin.post("/piezas/importacion", [
+        {"sku": ref, "descripcion": "Filtro de aceite importado", "precioCoste": "4.10",
+         "precioVenta": "9.50", "stockInicial": "12"},
+        {"sku": ref, "descripcion": "Repetida", "precioCoste": "1", "precioVenta": "2"},
+        {"sku": sku("IMP"), "descripcion": "Sin precio de venta", "precioCoste": "1"},
+    ])
+    caso("importa la pieza y rechaza la del SKU repetido y la que no trae precio",
+         piezas.ok and piezas.get("creadas") == 1 and filas_rechazadas(piezas) == [2, 3], str(piezas.cuerpo)[:300])
+    p = admin.get(f"/piezas/sku/{ref}")
+    caso("el stock entra por el libro de movimientos y el minimo, que no venia, queda a cero",
+         p.ok and existencias(admin, p["id"]) == 12 and float(p.get("stockMinimo", -1)) == 0
+         and len(admin.get(f"/inventario/piezas/{p['id']}/movimientos").filas) == 1, str(p.cuerpo)[:150])
+
+    # --- NEXTGO exporta marca y modelo juntos en la denominacion
+    mat3 = matricula()
+    junta = admin.post("/motos/importacion", [{"cliente": doc, "matricula": mat3, "denominacion": "  Aprilia RS 660"}])
+    m3 = admin.get(f"/motos/matricula/{mat3}")
+    caso("marca y modelo que vienen juntos en la denominacion se separan",
+         junta.ok and junta.get("creadas") == 1 and m3.get("marca") == "Aprilia" and m3.get("modelo") == "RS 660",
+         f"{m3.get('marca')} / {m3.get('modelo')}")
+
+    # --- importar es dar de alta en bloque: el mismo permiso
+    colado = tecnico.post("/clientes/importacion", [{"nombre": "Colado"}])
+    caso("quien no puede dar de alta clientes tampoco puede importarlos", colado.codigo == 403,
+         f"HTTP {colado.codigo}")
+
+    # --- facturas del programa anterior: se consultan, no se escriben por la API
+    anteriores = admin.get(f"/clientes/{con_nif}/facturas-anteriores")
+    caso("la ficha consulta las facturas del programa anterior (ninguna si no las tuvo)",
+         anteriores.ok and anteriores.cuerpo == [], f"HTTP {anteriores.codigo}")
+    caso("un tecnico no ve las facturas del programa anterior: llevan importes",
+         tecnico.get(f"/clientes/{con_nif}/facturas-anteriores").codigo == 403)
+
+
 def main() -> int:
     admin = entrar(*ADMIN)
 
@@ -1721,6 +1831,7 @@ def main() -> int:
     s15_robustez(admin, datos)
     s16_bajas(admin)
     s17_auditoria(admin, datos)
+    s18_importacion(admin, tecnico)
 
     return resumen()
 

@@ -5,12 +5,16 @@ import com.motorsport19.taller.cliente.domain.TipoDocumento;
 import com.motorsport19.taller.cliente.repository.ClienteRepository;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
+import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.common.util.ValidadorDocumento;
 import com.motorsport19.taller.fichaje.service.RegistroActividad;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ClienteService {
@@ -50,14 +54,79 @@ public class ClienteService {
                          String codigoPostal, String ciudad, String provincia, String pais,
                          String observaciones) {
         Cliente cliente = Cliente.registrar(nombre, apellidos, telefono, email, observaciones);
-
         String normalizado = ValidadorDocumento.normalizar(documento);
         if (normalizado != null) {
             comprobarDocumentoLibre(normalizado, null);
-            cliente.asignarDatosFiscales(tipoDocumento, normalizado, direccion, codigoPostal, ciudad,
-                    provincia, pais);
         }
-        return clienteRepository.save(cliente);
+        return guardar(cliente, tipoDocumento, normalizado, direccion, codigoPostal, ciudad, provincia, pais);
+    }
+
+    /**
+     * Alta desde un fichero importado: la de {@link #crear}, con dos diferencias.
+     *
+     * <p><b>No repite a quien ya esta.</b> Con documento ya lo impide {@link #crear}.
+     * Sin el, volver a importar el mismo fichero —lo normal despues de corregir
+     * las filas que fallaron— duplicaria a todos los que no lo tienen. Se da por
+     * el mismo cliente al que coincide en nombre, apellidos, telefono y email.
+     *
+     * <p><b>Un documento que no vale no deja fuera al cliente.</b> No se guarda
+     * como documento, porque con el saldrian facturas que Hacienda rechazaria,
+     * pero queda en observaciones para corregirlo en su ficha. Lo que traen los
+     * ficheros de otros programas suele ser un NIF mal copiado o un documento
+     * extranjero con forma de NIF, y por eso no se puede tirar la fila entera.
+     */
+    @Transactional
+    public Cliente importar(String nombre, String apellidos, String telefono, String email,
+                            TipoDocumento tipoDocumento, String documento, String direccion,
+                            String codigoPostal, String ciudad, String provincia, String pais,
+                            String observaciones) {
+        String normalizado = ValidadorDocumento.normalizar(documento);
+        if (normalizado != null) {
+            // Antes de apartarlo: si ya hay alguien con ese documento, aunque no
+            // valga, es este mismo cliente importado otra vez.
+            comprobarDocumentoLibre(normalizado, null);
+            if (!ValidadorDocumento.admite(tipoDocumento, normalizado)) {
+                String nota = "Documento del fichero importado, que no es valido: " + normalizado;
+                observaciones = observaciones == null || observaciones.isBlank() ? nota : observaciones + "\n" + nota;
+                normalizado = null;
+            }
+        }
+
+        Cliente cliente = Cliente.registrar(nombre, apellidos, telefono, email, observaciones);
+        if (normalizado == null && clienteRepository.existeIgual(
+                cliente.getNombre(), cliente.getApellidos(), cliente.getTelefono(), cliente.getEmail())) {
+            throw new ConflictoException(
+                    "Ya existe un cliente con el mismo nombre y contacto: %s.".formatted(cliente.nombreCompleto()));
+        }
+        return guardar(cliente, tipoDocumento, normalizado, direccion, codigoPostal, ciudad, provincia, pais);
+    }
+
+    /**
+     * El cliente al que se refiere una fila importada: por su documento o, si no
+     * lo trae, por su nombre completo tal y como sale en su ficha.
+     */
+    @Transactional(readOnly = true)
+    public Long identificar(String documentoONombre) {
+        String texto = documentoONombre == null ? "" : documentoONombre.trim().replaceAll("\\s+", " ");
+        if (texto.isEmpty()) {
+            throw new ReglaNegocioException("Falta el cliente: ponga su NIF o su nombre completo.");
+        }
+        Optional<Cliente> porDocumento = clienteRepository.buscarPorDocumento(ValidadorDocumento.normalizar(texto));
+        if (porDocumento.isPresent()) {
+            return porDocumento.get().getId();
+        }
+
+        List<Long> porNombre = clienteRepository.idsConNombreCompleto(texto);
+        if (porNombre.isEmpty()) {
+            throw new RecursoNoEncontradoException(
+                    "No hay ningun cliente con el NIF o el nombre '%s'.".formatted(texto));
+        }
+        if (porNombre.size() > 1) {
+            throw new ConflictoException(
+                    "Hay %d clientes que se llaman '%s': ponga su NIF para saber cual es."
+                            .formatted(porNombre.size(), texto));
+        }
+        return porNombre.get(0);
     }
 
     @Transactional
@@ -119,6 +188,16 @@ public class ClienteService {
     }
 
     // ------------------------------------------------------------------
+
+    /** @param documento ya normalizado y comprobado que esta libre, o nulo si no hay */
+    private Cliente guardar(Cliente cliente, TipoDocumento tipoDocumento, String documento, String direccion,
+                            String codigoPostal, String ciudad, String provincia, String pais) {
+        if (documento != null) {
+            cliente.asignarDatosFiscales(tipoDocumento, documento, direccion, codigoPostal, ciudad,
+                    provincia, pais);
+        }
+        return clienteRepository.save(cliente);
+    }
 
     /**
      * El indice unico de la base de datos ya impide dos clientes con el mismo

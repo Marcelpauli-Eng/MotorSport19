@@ -286,18 +286,9 @@ public class ManejadorGlobalErrores {
     public ResponseEntity<RespuestaError> cuerpoIlegible(HttpMessageNotReadableException ex,
                                                          HttpServletRequest req) {
         if (ex.getCause() instanceof InvalidFormatException formato) {
-            String campo = nombreDelCampo(formato);
-            Class<?> tipo = formato.getTargetType();
-
-            String mensaje = tipo != null && tipo.isEnum()
-                    ? "El valor '%s' no vale para '%s'. Los admitidos son: %s.".formatted(
-                            formato.getValue(), campo,
-                            Arrays.stream(tipo.getEnumConstants()).map(String::valueOf)
-                                    .collect(Collectors.joining(", ")))
-                    : "El valor '%s' no es valido para '%s'.".formatted(formato.getValue(), campo);
-
+            String mensaje = mensajeDeFormato(formato);
             return ResponseEntity.badRequest().body(RespuestaError.deValidacion(
-                    mensaje, req.getRequestURI(), Map.of(campo, mensaje)));
+                    mensaje, req.getRequestURI(), Map.of(nombreDelCampo(formato), mensaje)));
         }
 
         return construir(HttpStatus.BAD_REQUEST, "Datos no validos",
@@ -305,8 +296,24 @@ public class ManejadorGlobalErrores {
                 req);
     }
 
+    /**
+     * Que valor venia mal y en que campo. Lo usa tambien la importacion de
+     * ficheros, para que una fila mal escrita diga lo mismo que el formulario.
+     */
+    public static String mensajeDeFormato(InvalidFormatException formato) {
+        String campo = nombreDelCampo(formato);
+        Class<?> tipo = formato.getTargetType();
+
+        return tipo != null && tipo.isEnum()
+                ? "El valor '%s' no vale para '%s'. Los admitidos son: %s.".formatted(
+                        formato.getValue(), campo,
+                        Arrays.stream(tipo.getEnumConstants()).map(String::valueOf)
+                                .collect(Collectors.joining(", ")))
+                : "El valor '%s' no es valido para '%s'.".formatted(formato.getValue(), campo);
+    }
+
     /** El nombre del campo que venia mal, tal y como se llama en la peticion. */
-    private String nombreDelCampo(InvalidFormatException ex) {
+    private static String nombreDelCampo(InvalidFormatException ex) {
         return ex.getPath().stream()
                 .map(com.fasterxml.jackson.databind.JsonMappingException.Reference::getFieldName)
                 .filter(java.util.Objects::nonNull)

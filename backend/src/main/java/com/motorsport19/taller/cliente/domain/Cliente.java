@@ -139,10 +139,7 @@ public class Cliente extends EntidadAuditable {
                 : ValidadorDocumento.deducirTipo(normalizado);
 
         // Pasaporte y "otro" no llevan digito de control comprobable.
-        boolean comprobable = tipoFinal == TipoDocumento.NIF
-                || tipoFinal == TipoDocumento.NIE
-                || tipoFinal == TipoDocumento.CIF;
-        if (comprobable && !ValidadorDocumento.esValido(normalizado)) {
+        if (!ValidadorDocumento.admite(tipoFinal, normalizado)) {
             throw new ReglaNegocioException(
                     "El documento '%s' no es un %s valido: el digito de control no cuadra."
                             .formatted(normalizado, tipoFinal));

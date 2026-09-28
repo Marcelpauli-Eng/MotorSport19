@@ -7,6 +7,8 @@ import com.motorsport19.taller.cliente.web.dto.ClienteResponse;
 import com.motorsport19.taller.cliente.web.dto.ClienteResumenResponse;
 import com.motorsport19.taller.cliente.web.dto.CrearClienteRequest;
 import com.motorsport19.taller.cliente.web.dto.DatosFiscalesRequest;
+import com.motorsport19.taller.common.util.ValidadorDocumento;
+import com.motorsport19.taller.common.web.Importador;
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.documento.GeneradorPdfHistorial;
 import com.motorsport19.taller.documento.HistorialImprimible;
@@ -34,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/clientes")
@@ -43,14 +47,16 @@ public class ClienteController {
     private final MotoService motoService;
     private final HistorialServicioService historialServicio;
     private final GeneradorPdfHistorial generadorHistorial;
+    private final Importador importador;
 
     public ClienteController(ClienteService clienteService, MotoService motoService,
                              HistorialServicioService historialServicio,
-                             GeneradorPdfHistorial generadorHistorial) {
+                             GeneradorPdfHistorial generadorHistorial, Importador importador) {
         this.clienteService = clienteService;
         this.motoService = motoService;
         this.historialServicio = historialServicio;
         this.generadorHistorial = generadorHistorial;
+        this.importador = importador;
     }
 
     /**
@@ -117,6 +123,58 @@ public class ClienteController {
         return ResponseEntity
                 .created(uriBuilder.path("/clientes/{id}").build(cliente.getId()))
                 .body(ClienteResponse.de(cliente));
+    }
+
+    /**
+     * Alta en bloque desde un fichero. Cada fila es un alta normal, con sus
+     * mismas reglas: las que no entran vuelven con el motivo, y las que entran
+     * dejando aparte un NIF o un email que no valen, con un aviso.
+     */
+    @PostMapping("/importacion")
+    public Importador.Resultado importar(@RequestBody List<Map<String, Object>> filas) {
+        return importador.importar(filas, (fila, avisos) -> {
+            usarRazonSocial(fila);
+            importador.apartarSiNoVale(fila, CrearClienteRequest.class, "email", "El email", avisos);
+            CrearClienteRequest p = importador.leer(fila, CrearClienteRequest.class);
+            Cliente cliente = clienteService.importar(p.nombre(), p.apellidos(), p.telefono(), p.email(),
+                    p.tipoDocumento(), p.documento(), p.direccion(), p.codigoPostal(), p.ciudad(), p.provincia(),
+                    p.pais(), p.observaciones());
+
+            String documento = ValidadorDocumento.normalizar(p.documento());
+            if (documento != null && cliente.getDocumento() == null) {
+                avisos.add(("El documento '%s' no es un %s valido: ha entrado sin el y queda en observaciones. "
+                        + "Si es extranjero, pongalo en su ficha como pasaporte u otro.").formatted(documento,
+                        Objects.requireNonNullElse(p.tipoDocumento(), ValidadorDocumento.deducirTipo(documento))));
+            }
+        });
+    }
+
+    /**
+     * La razon social manda: es el nombre que va en las facturas y con el que
+     * los demas ficheros del programa anterior se refieren al cliente (el de
+     * motos pone el nombre de la empresa, no el de su persona de contacto).
+     *
+     * <p>Si coincide con nombre y apellidos es una persona, y se respeta como
+     * viene partida. Si no, es una empresa con su persona de contacto: el
+     * cliente es la empresa y la persona queda en observaciones.
+     */
+    private static void usarRazonSocial(Map<String, Object> fila) {
+        String razon = sinEspaciosDeMas(fila.get("razonSocial"));
+        String persona = sinEspaciosDeMas(
+                Objects.toString(fila.get("nombre"), "") + " " + Objects.toString(fila.get("apellidos"), ""));
+        if (razon == null || razon.equalsIgnoreCase(persona)) {
+            return;
+        }
+        fila.put("nombre", razon);
+        fila.remove("apellidos");
+        if (persona != null) {
+            Importador.anotar(fila, "Contacto: " + persona);
+        }
+    }
+
+    private static String sinEspaciosDeMas(Object texto) {
+        String limpio = texto == null ? "" : texto.toString().trim().replaceAll("\\s+", " ");
+        return limpio.isEmpty() ? null : limpio;
     }
 
     @PutMapping("/{id}/contacto")

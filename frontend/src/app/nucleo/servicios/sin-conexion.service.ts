@@ -42,8 +42,10 @@ const CLAVE_PENDIENTES = 'motorsport19.pendientes';
  * - Fichajes: la hora la marca el servidor al recibirlos; fichar sin conexión
  *   apuntaría la hora a la que volvió la red, no la de entrada.
  * - Altas (ver {@link esAlta}).
+ * - Importaciones: son altas en bloque, y el informe de qué filas han entrado
+ *   hace falta en el momento, no cuando vuelva la red.
  */
-const SOLO_CON_CONEXION = ['/auth/', '/facturas', '/facturacion', '/fichajes'];
+const SOLO_CON_CONEXION = ['/auth/', '/facturas', '/facturacion', '/fichajes', '/importacion'];
 
 /**
  * ¿Crea algo nuevo? Un POST a la colección («/ordenes», «/clientes»...) o la

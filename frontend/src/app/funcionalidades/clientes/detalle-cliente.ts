@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { FacturasAnteriores } from '../../compartido/facturas-anteriores';
 import { Cliente, MotoResumen } from '../../nucleo/modelos/taller';
 import { ClientesService } from '../../nucleo/servicios/clientes.service';
 import { PdfService } from '../../nucleo/servicios/pdf.service';
@@ -12,7 +13,7 @@ import { FormularioCliente } from './formulario-cliente';
 
 @Component({
   selector: 'app-detalle-cliente',
-  imports: [CommonModule, RouterLink, Cargando, FormularioCliente],
+  imports: [CommonModule, RouterLink, Cargando, FormularioCliente, FacturasAnteriores],
   template: `
     @if (editando(); as c) {
       <app-formulario-cliente
@@ -128,6 +129,8 @@ import { FormularioCliente } from './formulario-cliente';
             </div>
           }
         </section>
+
+        <app-facturas-anteriores [de]="'clientes/' + c.id" [conMoto]="true" />
       </div>
     } @else {
       <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->

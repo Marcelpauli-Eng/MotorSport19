@@ -13,7 +13,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -213,6 +215,106 @@ class ClienteServiceTest {
 
             assertThat(cliente.isActivo()).isTrue();
             assertThat(cliente.getFechaBaja()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("Importacion")
+    class Importacion {
+
+        @Test
+        @DisplayName("volver a importar a quien no tiene documento no lo duplica")
+        void noDuplicaSinDocumento() {
+            // Llega con espacios, como sale de una hoja de calculo: se compara ya limpio.
+            when(clienteRepository.existeIgual("Rocio", "Almansa Gil", "600100107", null)).thenReturn(true);
+
+            assertThatThrownBy(() -> clienteService.importar(" Rocio ", "Almansa Gil ", "600100107", "",
+                    null, null, null, null, null, null, null, null))
+                    .isInstanceOf(ConflictoException.class)
+                    .hasMessageContaining("Rocio Almansa Gil");
+            verify(clienteRepository, never()).save(any(Cliente.class));
+        }
+
+        @Test
+        @DisplayName("con documento, quien decide si ya esta es el documento")
+        void conDocumentoMandaElDocumento() {
+            when(clienteRepository.existeConDocumento("12345678Z")).thenReturn(true);
+
+            assertThatThrownBy(() -> clienteService.importar("Rocio", null, null, null,
+                    null, "12345678Z", "Calle Mayor 1", "28001", "Madrid", "Madrid", null, null))
+                    .isInstanceOf(ConflictoException.class)
+                    .hasMessageContaining("12345678Z");
+            verify(clienteRepository, never()).existeIgual(any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("un NIF que no cuadra no deja fuera al cliente: entra sin el y queda anotado")
+        void documentoQueNoValeQuedaEnObservaciones() {
+            guardarDevuelveElArgumento();
+
+            Cliente cliente = clienteService.importar("Marta", "Ruiz Soler", "600100107", null,
+                    null, "12345678a", "Calle X", "28009", "Madrid", "Madrid", null, "Viene del programa anterior");
+
+            assertThat(cliente.getDocumento()).isNull();
+            assertThat(cliente.getObservaciones()).isEqualTo(
+                    "Viene del programa anterior\nDocumento del fichero importado, que no es valido: 12345678A");
+            // Sin documento, reimportarlo no lo duplica: se busca por nombre y contacto.
+            verify(clienteRepository).existeIgual("Marta", "Ruiz Soler", "600100107", null);
+        }
+
+        @Test
+        @DisplayName("un pasaporte no se comprueba: entra como documento")
+        void pasaporteSeAdmite() {
+            guardarDevuelveElArgumento();
+
+            Cliente cliente = clienteService.importar("Pierre", "Martin", null, null,
+                    TipoDocumento.PASAPORTE, "12AB34567", "Rue X", "75001", "Paris", "Paris", "Francia", null);
+
+            assertThat(cliente.getDocumento()).isEqualTo("12AB34567");
+            assertThat(cliente.getTipoDocumento()).isEqualTo(TipoDocumento.PASAPORTE);
+        }
+
+        @Test
+        @DisplayName("encuentra al propietario por su NIF, escrito como sea")
+        void identificaPorDocumento() {
+            Cliente rocio = Cliente.registrar("Rocio", "Almansa Gil", null, null);
+            ReflectionTestUtils.setField(rocio, "id", 7L);
+            when(clienteRepository.buscarPorDocumento("12345678Z")).thenReturn(Optional.of(rocio));
+
+            assertThat(clienteService.identificar(" 12.345.678-z ")).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("sin NIF lo encuentra por el nombre completo de su ficha")
+        void identificaPorNombre() {
+            when(clienteRepository.buscarPorDocumento(any())).thenReturn(Optional.empty());
+            when(clienteRepository.idsConNombreCompleto("Rocio Almansa Gil")).thenReturn(List.of(7L));
+
+            assertThat(clienteService.identificar("Rocio   Almansa Gil")).isEqualTo(7L);
+        }
+
+        @Test
+        @DisplayName("con dos clientes que se llaman igual no elige uno a ciegas")
+        void nombreRepetido() {
+            when(clienteRepository.buscarPorDocumento(any())).thenReturn(Optional.empty());
+            when(clienteRepository.idsConNombreCompleto("Juan Garcia")).thenReturn(List.of(3L, 9L));
+
+            assertThatThrownBy(() -> clienteService.identificar("Juan Garcia"))
+                    .isInstanceOf(ConflictoException.class)
+                    .hasMessageContaining("NIF");
+        }
+
+        @Test
+        @DisplayName("dice que cliente no existe y cuando falta la columna")
+        void clienteQueNoEsta() {
+            when(clienteRepository.buscarPorDocumento(any())).thenReturn(Optional.empty());
+            when(clienteRepository.idsConNombreCompleto("Nadie")).thenReturn(List.of());
+
+            assertThatThrownBy(() -> clienteService.identificar("Nadie"))
+                    .isInstanceOf(RecursoNoEncontradoException.class)
+                    .hasMessageContaining("'Nadie'");
+            assertThatThrownBy(() -> clienteService.identificar("  "))
+                    .isInstanceOf(ReglaNegocioException.class);
         }
     }
 

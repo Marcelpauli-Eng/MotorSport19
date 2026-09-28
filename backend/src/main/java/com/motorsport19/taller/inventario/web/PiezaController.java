@@ -1,5 +1,6 @@
 package com.motorsport19.taller.inventario.web;
 
+import com.motorsport19.taller.common.web.Importador;
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.service.PiezaService;
@@ -24,16 +25,21 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/piezas")
 public class PiezaController {
 
     private final PiezaService piezaService;
     private final UsuarioActual usuarioActual;
+    private final Importador importador;
 
-    public PiezaController(PiezaService piezaService, UsuarioActual usuarioActual) {
+    public PiezaController(PiezaService piezaService, UsuarioActual usuarioActual, Importador importador) {
         this.piezaService = piezaService;
         this.usuarioActual = usuarioActual;
+        this.importador = importador;
     }
 
     @GetMapping
@@ -90,6 +96,24 @@ public class PiezaController {
         return ResponseEntity
                 .created(uriBuilder.path("/piezas/{id}").build(pieza.getId()))
                 .body(PiezaResponse.de(pieza));
+    }
+
+    /**
+     * Alta en bloque desde un fichero, con las reglas del alta normal. La
+     * columna de existencias entra como stock inicial: un movimiento de entrada
+     * por pieza, igual que al darla de alta a mano.
+     */
+    @PostMapping("/importacion")
+    public Importador.Resultado importar(@RequestBody List<Map<String, Object>> filas) {
+        return importador.importar(filas, (fila, avisos) -> {
+            // Una tarifa de proveedor no trae el minimo de cada pieza; el
+            // formulario de alta tambien lo propone a cero.
+            fila.putIfAbsent("stockMinimo", 0);
+            CrearPiezaRequest p = importador.leer(fila, CrearPiezaRequest.class);
+            piezaService.crear(p.sku(), p.descripcion(), p.marca(), p.ubicacion(), p.familia(), p.stockMinimo(),
+                    p.precioCoste(), p.precioVenta(), p.tipoIva(), p.proveedorId(), p.unidadMedida(),
+                    p.observaciones(), p.stockInicial(), usuarioActual.id());
+        });
     }
 
     @PutMapping("/{id}")

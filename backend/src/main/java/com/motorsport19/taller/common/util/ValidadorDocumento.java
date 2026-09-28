@@ -78,6 +78,21 @@ public final class ValidadorDocumento {
     }
 
     /**
+     * Si el documento se puede guardar con ese tipo: un NIF, NIE o CIF tiene que
+     * cuadrar su digito de control; un pasaporte o un documento extranjero no se
+     * puede comprobar aqui y se admite tal cual.
+     *
+     * @param tipo el tipo declarado, o {@code null} para deducirlo del formato
+     */
+    public static boolean admite(TipoDocumento tipo, String documento) {
+        TipoDocumento tipoFinal = tipo != null ? tipo : deducirTipo(documento);
+        boolean comprobable = tipoFinal == TipoDocumento.NIF
+                || tipoFinal == TipoDocumento.NIE
+                || tipoFinal == TipoDocumento.CIF;
+        return !comprobable || esValido(documento);
+    }
+
+    /**
      * Comprueba el digito de control del documento.
      *
      * <p>Devuelve {@code false} para los documentos que no son NIF, NIE ni CIF:

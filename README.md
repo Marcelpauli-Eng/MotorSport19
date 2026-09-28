@@ -352,6 +352,7 @@ siempre en español y listo para mostrar al usuario.
 | `GET` | `/clientes/{id}` | Ficha completa, con el indicador `facturable` |
 | `GET` | `/clientes/{id}/motos` | Motos del cliente |
 | `POST` | `/clientes` | Alta (solo el nombre es obligatorio) |
+| `POST` | `/clientes/importacion` | Alta en bloque desde un CSV o JSON (ver [Importar ficheros](#importar-ficheros)) |
 | `PUT` | `/clientes/{id}/contacto` | Actualiza nombre, teléfono, email |
 | `PUT` | `/clientes/{id}/datos-fiscales` | Completa o corrige los datos fiscales |
 | `POST` | `/clientes/{id}/baja` · `/reactivacion` | Baja lógica y reactivación |
@@ -363,6 +364,7 @@ siempre en español y listo para mostrar al usuario.
 | `GET` | `/motos?texto=&soloActivas=` | Busca por matrícula, marca, modelo o bastidor |
 | `GET` | `/motos/{id}` · `/motos/matricula/{matricula}` | Ficha |
 | `POST` | `/motos` | Alta |
+| `POST` | `/motos/importacion` | Alta en bloque; el propietario va por su NIF o su nombre |
 | `PUT` | `/motos/{id}` | Actualiza datos |
 | `PUT` | `/motos/{id}/kilometraje` | Registra kilometraje (solo puede aumentar) |
 | `PUT` | `/motos/{id}/propietario` | Cambio de propietario |
@@ -375,6 +377,7 @@ siempre en español y listo para mostrar al usuario.
 | `GET` | `/piezas?texto=&proveedorId=&soloBajoMinimo=` | Catálogo |
 | `GET` | `/piezas/{id}` · `/piezas/sku/{sku}` | Ficha |
 | `POST` | `/piezas` | Alta (`stockInicial` genera un movimiento de entrada) |
+| `POST` | `/piezas/importacion` | Alta en bloque, con el stock como movimiento de entrada |
 | `PUT` | `/piezas/{id}` · `/piezas/{id}/precios` | Actualiza catálogo y precios |
 | `GET` | `/inventario/alertas` | Piezas al mínimo o por debajo |
 | `GET` | `/inventario/movimientos` | Libro de movimientos, con filtros |
@@ -386,6 +389,58 @@ siempre en español y listo para mostrar al usuario.
 
 **No existe ningún endpoint para fijar el stock de una pieza**, y es deliberado:
 las existencias solo cambian registrando movimientos.
+
+### Importar ficheros
+
+Clientes, motos y piezas tienen un botón **Importar** que da de alta en bloque
+desde un CSV (el de Excel en español, con `;`, vale tal cual) o un JSON. El
+navegador lee el fichero y reconoce las columnas por su nombre —`POBLACION`,
+`Código postal` o `codigoPostal` son la misma—, y al servidor le llegan las
+filas con los campos del alta normal.
+
+- **Cada fila es un alta normal**, con sus validaciones y reglas, y en su propia
+  transacción: las que no entran vuelven con el número de fila y el motivo, y
+  no tumban a las demás.
+- **Reimportar no duplica**: se rechaza la matrícula, el SKU o el NIF que ya
+  existen, y un cliente sin NIF idéntico a otro (nombre, apellidos, teléfono y
+  email). Lo normal es corregir las filas que fallaron y volver a importar el
+  fichero entero.
+- **En clientes, la razón social manda.** Es lo que va en la factura y el nombre
+  con el que los demás ficheros del programa anterior se refieren al cliente (el
+  de motos pone el nombre de la empresa, no el de su contacto). Si no coincide
+  con nombre y apellidos, el cliente es la empresa y la persona queda como
+  contacto en observaciones.
+- **Un NIF o un email que no valen no dejan fuera al cliente**: entra sin ellos,
+  el valor queda en observaciones y el informe lo avisa para corregirlo en la
+  ficha. Un NIF mal copiado no se guarda nunca como documento: con él saldrían
+  facturas que Hacienda rechazaría.
+- **Las facturas no se importan como facturas.** Una factura importada sería
+  una factura nueva emitida hoy: otro número, otra fecha de registro y dentro
+  de la cadena de huellas, duplicando la que ya emitió el programa anterior.
+  Las de NEXTGO van a un archivo aparte (siguiente apartado).
+
+### Facturas del programa anterior
+
+Las facturas que el taller emitió con NEXTGO están en un **archivo de solo
+consulta** (migración `V23`): se ven en la ficha del cliente y en la de la moto,
+con su PDF original, y entran en el historial de la moto. No tienen número de
+este programa, ni huella, ni salen en el libro registro, la exportación a la
+gestoría o los informes: ya las emitió y las declaró NEXTGO.
+
+Se cargan una vez con [`import_facturas_nextgo.py`](import_facturas_nextgo.py),
+que lee el PDF de todas las facturas, el «Registro facturación» y el listado de
+vehículos, y escribe un SQL. Antes de escribir nada comprueba que el PDF y el
+registro cuentan lo mismo, factura a factura. El uso completo está al principio
+del script; en resumen, con clientes y motos ya importados:
+
+```bash
+python3 import_facturas_nextgo.py --pdf … --registro … --vehiculos … > ~/Downloads/facturas_nextgo.sql
+docker compose -f docker-compose.taller.yml exec -T db \
+    psql -v ON_ERROR_STOP=1 -U taller -d motorsport19 < facturas_nextgo.sql
+```
+
+El SQL lleva datos de clientes: se genera fuera del repositorio y no se sube.
+
 
 ### Órdenes de trabajo (fase 3)
 

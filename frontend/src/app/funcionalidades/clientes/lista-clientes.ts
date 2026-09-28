@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
+import { CampoImportable, Importar } from '../../compartido/importar';
 import { FormularioCliente } from './formulario-cliente';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { ClienteResumen } from '../../nucleo/modelos/taller';
@@ -12,7 +13,7 @@ import { ClientesService } from '../../nucleo/servicios/clientes.service';
 
 @Component({
   selector: 'app-lista-clientes',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioCliente],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioCliente, Importar],
   template: `
     @if (mostrarFormulario()) {
       <app-formulario-cliente (cerrar)="mostrarFormulario.set(false)" (guardado)="trasGuardar()" />
@@ -25,12 +26,23 @@ import { ClientesService } from '../../nucleo/servicios/clientes.service';
           {{ totalItems() }} {{ totalItems() === 1 ? 'cliente' : 'clientes' }}
         </p>
       </div>
-      @if (puedeEditar) {
-        <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
-          <app-icono nombre="mas" [tamano]="16" />
-          Nuevo cliente
-        </button>
-      }
+      <div class="fila">
+        @if (puedeImportar) {
+          <app-importar
+            ruta="clientes"
+            titulo="Importar clientes"
+            [campos]="camposImportacion"
+            ayuda="Si la razón social no coincide con nombre y apellidos, el cliente se da de alta con la razón social, que es lo que va en la factura, y la persona queda como contacto en observaciones. Un NIF o un email que no valen no dejan fuera al cliente: entra sin ellos y quedan en observaciones. La dirección solo se guarda si hay NIF."
+            (importado)="cargar()"
+          />
+        }
+        @if (puedeEditar) {
+          <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+            <app-icono nombre="mas" [tamano]="16" />
+            Nuevo cliente
+          </button>
+        }
+      </div>
     </div>
 
     <div class="filtros">
@@ -154,6 +166,23 @@ export class ListaClientes {
 
   /** Dar de alta clientes es cosa de mostrador y dirección. */
   protected readonly puedeEditar = inject(SesionService).tienePermiso('CLIENTES_CREAR', 'CLIENTES_EDITAR');
+  protected readonly puedeImportar = inject(SesionService).tienePermiso('CLIENTES_CREAR');
+
+  protected readonly camposImportacion: CampoImportable[] = [
+    { campo: 'razonSocial', etiqueta: 'Razón social', alias: ['razon fiscal', 'nombre fiscal'] },
+    { campo: 'nombre', etiqueta: 'Nombre', obligatorio: true },
+    { campo: 'apellidos', etiqueta: 'Apellidos', alias: ['apellido'] },
+    { campo: 'telefono', etiqueta: 'Teléfono', alias: ['movil', 'tlf'] },
+    { campo: 'email', etiqueta: 'Email', alias: ['correo', 'correo electronico', 'mail'] },
+    { campo: 'documento', etiqueta: 'NIF', alias: ['cif', 'dni', 'nie'] },
+    { campo: 'tipoDocumento', etiqueta: 'Tipo de documento' },
+    { campo: 'direccion', etiqueta: 'Dirección', alias: ['domicilio'] },
+    { campo: 'codigoPostal', etiqueta: 'Código postal', alias: ['cp'] },
+    { campo: 'ciudad', etiqueta: 'Ciudad', alias: ['poblacion', 'localidad', 'municipio'] },
+    { campo: 'provincia', etiqueta: 'Provincia' },
+    { campo: 'pais', etiqueta: 'País' },
+    { campo: 'observaciones', etiqueta: 'Observaciones', alias: ['notas'] },
+  ];
 
   protected trasGuardar(): void {
     this.mostrarFormulario.set(false);
