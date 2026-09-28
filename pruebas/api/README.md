@@ -1,7 +1,7 @@
 # Batería de pruebas de extremo a extremo
 
 Recorre el programa entero por HTTP, como lo recorrería el taller en un día de
-trabajo, y comprueba **346 cosas** en 17 secciones. Se lanza con un comando:
+trabajo, y comprueba **361 cosas** en 18 secciones. Se lanza con un comando:
 
 ```bash
 ./pruebas/api/lanzar.sh
@@ -33,6 +33,7 @@ para un servidor de integración continua.
 | 15 | Robustez | Cuerpos rotos, tipos equivocados, textos gigantes, emojis, inyección SQL |
 | 16 | Bajas | No hacer desaparecer cosas que se están usando |
 | 17 | Auditoría | Fichaje obligatorio, tasa de neumáticos, facturas de una orden, parámetros que faltan, textos largos, notas del alta, corregir parte de una factura sin poder anularla dos veces, solo rectificativas por diferencias, permisos de roles |
+| 18 | Importación | Clientes, motos y piezas desde un fichero: filas malas con su motivo, razón social, NIF y email apartados con aviso, marca y modelo juntos, reimportar sin duplicar, facturas del programa anterior, permisos |
 
 Quien no está exento de fichar recibe 423 en todo hasta empezar la jornada, así
 que `entrar()` del arnés empieza la jornada de esas sesiones, como haría el

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
+import { CampoImportable, Importar } from '../../compartido/importar';
 import { FormularioMoto } from './formulario-moto';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { MotoResumen } from '../../nucleo/modelos/taller';
@@ -12,7 +13,7 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
 
 @Component({
   selector: 'app-lista-motos',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioMoto],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioMoto, Importar],
   template: `
     @if (mostrarFormulario()) {
       <app-formulario-moto (cerrar)="mostrarFormulario.set(false)" (guardado)="trasGuardar()" />
@@ -25,12 +26,23 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
           {{ totalItems() }} {{ totalItems() === 1 ? 'moto registrada' : 'motos registradas' }}
         </p>
       </div>
-      @if (puedeEditar) {
-        <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
-          <app-icono nombre="mas" [tamano]="16" />
-          Nueva moto
-        </button>
-      }
+      <div class="fila">
+        @if (puedeImportar) {
+          <app-importar
+            ruta="motos"
+            titulo="Importar motos"
+            [campos]="camposImportacion"
+            ayuda="En Cliente va el NIF del propietario o su nombre completo tal y como está en su ficha, así que importe antes los clientes. Si marca y modelo vienen juntos en una columna Denominación («Aprilia RS660»), la primera palabra se toma como marca."
+            (importado)="cargar()"
+          />
+        }
+        @if (puedeEditar) {
+          <button type="button" class="boton boton--principal" (click)="mostrarFormulario.set(true)">
+            <app-icono nombre="mas" [tamano]="16" />
+            Nueva moto
+          </button>
+        }
+      </div>
     </div>
 
     <div class="filtros">
@@ -129,6 +141,21 @@ export class ListaMotos {
   protected readonly texto = signal('');
   protected readonly mostrarFormulario = signal(false);
   protected readonly puedeEditar = inject(SesionService).tienePermiso('MOTOS_CREAR', 'MOTOS_EDITAR');
+  protected readonly puedeImportar = inject(SesionService).tienePermiso('MOTOS_CREAR');
+
+  protected readonly camposImportacion: CampoImportable[] = [
+    { campo: 'matricula', etiqueta: 'Matrícula', obligatorio: true },
+    { campo: 'cliente', etiqueta: 'Cliente', obligatorio: true, alias: ['propietario', 'titular'] },
+    { campo: 'marca', etiqueta: 'Marca', obligatorio: true, oBien: 'denominacion' },
+    { campo: 'modelo', etiqueta: 'Modelo', obligatorio: true, oBien: 'denominacion' },
+    { campo: 'denominacion', etiqueta: 'Denominación', alias: ['denominacion comercial', 'marca y modelo'] },
+    { campo: 'anio', etiqueta: 'Año', tipo: 'entero' },
+    { campo: 'cilindrada', etiqueta: 'Cilindrada', alias: ['cc'], tipo: 'entero' },
+    { campo: 'color', etiqueta: 'Color' },
+    { campo: 'numeroBastidor', etiqueta: 'Bastidor', alias: ['numero de bastidor', 'vin', 'chasis'] },
+    { campo: 'kmActual', etiqueta: 'Kilómetros', alias: ['km', 'kilometraje'], tipo: 'entero' },
+    { campo: 'observaciones', etiqueta: 'Observaciones', alias: ['notas'] },
+  ];
 
   protected trasGuardar(): void {
     this.mostrarFormulario.set(false);

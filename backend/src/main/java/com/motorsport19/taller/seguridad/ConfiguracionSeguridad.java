@@ -156,7 +156,7 @@ public class ConfiguracionSeguridad {
                 // ----- Almacen -----
                 // El consumo de piezas de una orden no pasa por aqui: lo genera
                 // el propio flujo de la OT, que si puede lanzar un tecnico.
-                .requestMatchers(HttpMethod.POST, "/piezas").hasAuthority(p(Permiso.PIEZAS_CREAR))
+                .requestMatchers(HttpMethod.POST, "/piezas", "/piezas/importacion").hasAuthority(p(Permiso.PIEZAS_CREAR))
                 .requestMatchers(HttpMethod.PUT, "/piezas/**").hasAuthority(p(Permiso.PIEZAS_EDITAR))
                 .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/entradas").hasAuthority(p(Permiso.ALMACEN_MOVER))
                 .requestMatchers(HttpMethod.POST, "/inventario/piezas/*/ajustes").hasAuthority(p(Permiso.ALMACEN_MOVER))
@@ -180,6 +180,10 @@ public class ConfiguracionSeguridad {
                 // ----- Facturacion -----
                 // Abrir o cerrar una serie es decidir con que numeracion factura
                 // el taller. Consultarlas basta con poder emitir.
+                // Las del programa anterior tambien son facturas: las ve quien ve
+                // facturas, aunque se consulten desde la ficha del cliente o de la moto.
+                .requestMatchers(HttpMethod.GET, "/clientes/*/facturas-anteriores", "/motos/*/facturas-anteriores",
+                        "/facturas-anteriores/**").hasAuthority(p(Permiso.FACTURAS_VER))
                 .requestMatchers(HttpMethod.POST, "/facturas/series").hasAuthority(p(Permiso.FACTURAS_SERIES))
                 .requestMatchers(HttpMethod.PUT, "/facturas/series/**").hasAuthority(p(Permiso.FACTURAS_SERIES))
                 .requestMatchers(HttpMethod.POST, "/facturas/*/rectificativas").hasAuthority(p(Permiso.FACTURAS_RECTIFICAR))
@@ -194,14 +198,15 @@ public class ConfiguracionSeguridad {
 
                 // ----- Clientes -----
                 .requestMatchers(HttpMethod.GET, "/clientes/**").hasAuthority(p(Permiso.CLIENTES_VER))
-                .requestMatchers(HttpMethod.POST, "/clientes").hasAuthority(p(Permiso.CLIENTES_CREAR))
+                // Importar un fichero es dar de alta en bloque: el mismo permiso.
+                .requestMatchers(HttpMethod.POST, "/clientes", "/clientes/importacion").hasAuthority(p(Permiso.CLIENTES_CREAR))
                 .requestMatchers(HttpMethod.PUT, "/clientes/*/datos-fiscales").hasAuthority(p(Permiso.CLIENTES_DATOS_FISCALES))
                 .requestMatchers(HttpMethod.POST, "/clientes/*/baja").hasAuthority(p(Permiso.CLIENTES_BAJA))
                 .requestMatchers("/clientes/**").hasAuthority(p(Permiso.CLIENTES_EDITAR))
 
                 // ----- Motos -----
                 .requestMatchers(HttpMethod.GET, "/motos/**").hasAuthority(p(Permiso.MOTOS_VER))
-                .requestMatchers(HttpMethod.POST, "/motos").hasAuthority(p(Permiso.MOTOS_CREAR))
+                .requestMatchers(HttpMethod.POST, "/motos", "/motos/importacion").hasAuthority(p(Permiso.MOTOS_CREAR))
                 .requestMatchers(HttpMethod.PUT, "/motos/*/propietario").hasAuthority(p(Permiso.MOTOS_CAMBIAR_PROPIETARIO))
                 .requestMatchers(HttpMethod.POST, "/motos/*/baja").hasAuthority(p(Permiso.MOTOS_BAJA))
                 .requestMatchers("/motos/**").hasAuthority(p(Permiso.MOTOS_EDITAR))

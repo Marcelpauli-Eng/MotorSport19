@@ -13,6 +13,7 @@ export type NombreIcono =
   | 'menu'
   | 'buscar'
   | 'descargar'
+  | 'subir'
   | 'sello'
   | 'alerta'
   | 'aviso'
@@ -74,6 +75,7 @@ const TRAZOS: Record<NombreIcono, string> = {
   menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
   buscar: '<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/>',
   descargar: '<path d="M12 3v12"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M4 20h16"/>',
+  subir: '<path d="M12 15V3"/><path d="m7.5 7.5 4.5-4.5 4.5 4.5"/><path d="M4 20h16"/>',
   sello:
     '<path d="M12 2.8 20 6v6c0 4.5-3.2 8.3-8 9.2C7.2 20.3 4 16.5 4 12V6z"/>' +
     '<path d="m9 12 2.2 2.2L15.5 10"/>',

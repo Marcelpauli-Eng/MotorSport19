@@ -5,6 +5,9 @@ import com.motorsport19.taller.cliente.service.ClienteService;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
 import com.motorsport19.taller.documento.HistorialImprimible;
+import com.motorsport19.taller.factura.domain.FacturaAnterior;
+import com.motorsport19.taller.factura.domain.LineaFacturaAnterior;
+import com.motorsport19.taller.factura.repository.FacturaAnteriorRepository;
 import com.motorsport19.taller.moto.domain.Moto;
 import com.motorsport19.taller.orden.domain.EstadoOT;
 import com.motorsport19.taller.orden.domain.LineaOT;
@@ -20,6 +23,7 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * Hojas de vida: la de una moto y la de un cliente con todas las suyas.
@@ -45,15 +49,18 @@ public class HistorialServicioService {
     private final ClienteService clienteService;
     private final OrdenTrabajoRepository ordenRepository;
     private final ConfiguracionTallerService configuracion;
+    private final FacturaAnteriorRepository facturasAnteriores;
 
     public HistorialServicioService(MotoService motoService,
                                     ClienteService clienteService,
                                     OrdenTrabajoRepository ordenRepository,
-                                    ConfiguracionTallerService configuracion) {
+                                    ConfiguracionTallerService configuracion,
+                                    FacturaAnteriorRepository facturasAnteriores) {
         this.motoService = motoService;
         this.clienteService = clienteService;
         this.ordenRepository = ordenRepository;
         this.configuracion = configuracion;
+        this.facturasAnteriores = facturasAnteriores;
     }
 
     /**
@@ -115,16 +122,22 @@ public class HistorialServicioService {
 
     // ------------------------------------------------------------------
 
-    /** Una moto con todo lo que se le ha hecho. */
+    /**
+     * Una moto con todo lo que se le ha hecho, tambien con el programa
+     * anterior: si no, el papel empezaria el dia que se cambio de programa.
+     */
     private HistorialImprimible.BloqueMoto bloqueDe(Moto moto) {
         // De la mas antigua a la mas reciente: un historial se lee hacia delante,
         // aunque el listado de la ficha lo enseñe al reves.
-        List<HistorialImprimible.Intervencion> intervenciones =
-                ordenRepository.historialDeMoto(moto.getId()).stream()
-                        .filter(o -> TERMINADAS.contains(o.getEstado()))
-                        .sorted(Comparator.comparing(OrdenTrabajo::getFechaEntrada))
-                        .map(this::aIntervencion)
-                        .toList();
+        List<HistorialImprimible.Intervencion> intervenciones = Stream.concat(
+                        ordenRepository.historialDeMoto(moto.getId()).stream()
+                                .filter(o -> TERMINADAS.contains(o.getEstado()))
+                                .sorted(Comparator.comparing(OrdenTrabajo::getFechaEntrada))
+                                .map(this::aIntervencion),
+                        facturasAnteriores.findByMotoIdOrderByFechaDescNumeroDesc(moto.getId()).stream()
+                                .map(this::aIntervencion))
+                .sorted(Comparator.comparing(HistorialImprimible.Intervencion::fecha))
+                .toList();
 
         return new HistorialImprimible.BloqueMoto(
                 new HistorialImprimible.Vehiculo(
@@ -168,6 +181,25 @@ public class HistorialServicioService {
                 trabajos,
                 piezas,
                 importe);
+    }
+
+    /**
+     * Una factura del programa anterior, contada como una entrada mas. Sin
+     * kilometros, motivo ni tecnico: aquel programa no los ponia en la factura.
+     */
+    private HistorialImprimible.Intervencion aIntervencion(FacturaAnterior factura) {
+        List<LineaFacturaAnterior> lineas = factura.getLineas();
+        return new HistorialImprimible.Intervencion(
+                factura.getNumero(),
+                factura.getFecha(),
+                null, null, null, null, null,
+                lineas.stream().filter(l -> !l.esDePieza()).map(LineaFacturaAnterior::getDescripcion).toList(),
+                lineas.stream().filter(LineaFacturaAnterior::esDePieza)
+                        .map(l -> l.getCantidad().compareTo(BigDecimal.ONE) > 0
+                                ? "%s x %s".formatted(cantidad(l.getCantidad()), l.getDescripcion())
+                                : l.getDescripcion())
+                        .toList(),
+                factura.getTotal());
     }
 
     /**

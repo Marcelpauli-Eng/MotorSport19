@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, effect, inject, input, signal, untracked } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
+import { FacturasAnteriores } from '../../compartido/facturas-anteriores';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { Moto, OrdenTrabajoResumen } from '../../nucleo/modelos/taller';
 import { FormularioMoto } from './formulario-moto';
@@ -16,7 +17,7 @@ import { environment } from '../../../environments/environment';
 /** Ficha de la moto con su historial completo de intervenciones. */
 @Component({
   selector: 'app-detalle-moto',
-  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, FormularioMoto, Icono],
+  imports: [CommonModule, RouterLink, Cargando, ColorEstadoPipe, FormularioMoto, Icono, FacturasAnteriores],
   template: `
     @if (cargando()) {
       <app-cargando mensaje="Cargando moto…" />
@@ -78,7 +79,7 @@ import { environment } from '../../../environments/environment';
             <span class="pequeno silenciado">{{ historial().length }} orden(es)</span>
           </div>
           @if (!historial().length) {
-            <p class="vacio pequeno">Esta moto todavía no ha pasado por el taller.</p>
+            <p class="vacio pequeno">Todavía no tiene órdenes de trabajo en este programa.</p>
           } @else {
             <div class="tabla-envoltorio">
               <table>
@@ -114,6 +115,8 @@ import { environment } from '../../../environments/environment';
             </div>
           }
         </section>
+
+        <app-facturas-anteriores [de]="'motos/' + m.id" />
       </div>
     } @else {
       <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->

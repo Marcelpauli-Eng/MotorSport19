@@ -1,5 +1,7 @@
 package com.motorsport19.taller.moto.web;
 
+import com.motorsport19.taller.cliente.service.ClienteService;
+import com.motorsport19.taller.common.web.Importador;
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.documento.GeneradorPdfHistorial;
 import com.motorsport19.taller.documento.HistorialImprimible;
@@ -32,6 +34,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 @RestController
 @RequestMapping("/motos")
 public class MotoController {
@@ -39,13 +45,18 @@ public class MotoController {
     private final MotoService motoService;
     private final HistorialServicioService historialServicio;
     private final GeneradorPdfHistorial generadorHistorial;
+    private final ClienteService clienteService;
+    private final Importador importador;
 
     public MotoController(MotoService motoService,
                           HistorialServicioService historialServicio,
-                          GeneradorPdfHistorial generadorHistorial) {
+                          GeneradorPdfHistorial generadorHistorial,
+                          ClienteService clienteService, Importador importador) {
         this.motoService = motoService;
         this.historialServicio = historialServicio;
         this.generadorHistorial = generadorHistorial;
+        this.clienteService = clienteService;
+        this.importador = importador;
     }
 
     @GetMapping
@@ -105,6 +116,42 @@ public class MotoController {
         return ResponseEntity
                 .created(uriBuilder.path("/motos/{id}").build(moto.getId()))
                 .body(MotoResponse.de(moto));
+    }
+
+    /**
+     * Alta en bloque desde un fichero. El propietario llega en la columna
+     * {@code cliente} por su NIF o su nombre: el identificador interno no lo
+     * conoce nadie fuera del programa.
+     */
+    @PostMapping("/importacion")
+    public Importador.Resultado importar(@RequestBody List<Map<String, Object>> filas) {
+        return importador.importar(filas, (fila, avisos) -> {
+            separarDenominacion(fila, avisos);
+            fila.put("clienteId", clienteService.identificar(Objects.toString(fila.get("cliente"), null)));
+            CrearMotoRequest p = importador.leer(fila, CrearMotoRequest.class);
+            motoService.crear(p.clienteId(), p.matricula(), p.marca(), p.modelo(), p.anio(), p.cilindrada(),
+                    p.color(), p.numeroBastidor(), p.kmActual(), p.observaciones());
+        });
+    }
+
+    /**
+     * El programa anterior exporta marca y modelo juntos («Aprilia RS660»): la
+     * primera palabra es la marca y el resto el modelo, como hacia el script de
+     * la primera migracion. Si la fila trae marca o modelo por separado, mandan
+     * ellos. Cuando la primera palabra no tiene pinta de marca («450 FE»,
+     * «RS660») se avisa, para revisarlo en la ficha.
+     */
+    private static void separarDenominacion(Map<String, Object> fila, List<String> avisos) {
+        String denominacion = Objects.toString(fila.get("denominacion"), "").trim();
+        if (denominacion.isEmpty() || fila.containsKey("marca") || fila.containsKey("modelo")) {
+            return;
+        }
+        String[] partes = denominacion.split("\\s+", 2);
+        fila.put("marca", partes[0]);
+        fila.put("modelo", partes.length > 1 ? partes[1] : partes[0]);
+        if (partes.length == 1 || partes[0].matches(".*\\d.*")) {
+            avisos.add("Revise la marca y el modelo: venian juntos en «%s».".formatted(denominacion));
+        }
     }
 
     @PutMapping("/{id}")

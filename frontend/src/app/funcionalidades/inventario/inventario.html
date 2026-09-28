@@ -68,6 +68,15 @@
         <app-icono nombre="buscar" [tamano]="16" />
         Buscar
       </button>
+      @if (puedeImportar) {
+        <app-importar
+          ruta="piezas"
+          titulo="Importar piezas"
+          [campos]="camposImportacion"
+          ayuda="El stock entra como una entrada de almacén, igual que al dar de alta una pieza a mano. Tipo de IVA: GENERAL, REDUCIDO, SUPERREDUCIDO o EXENTO; sin columna, el general."
+          (importado)="trasGuardarPieza()"
+        />
+      }
       @if (gestionaAlmacen) {
         <button type="button" class="boton boton--principal" (click)="creando.set(true)">
           <app-icono nombre="mas" [tamano]="16" />

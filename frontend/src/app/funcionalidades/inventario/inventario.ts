@@ -7,6 +7,7 @@ import { Cargando } from '../../compartido/cargando';
 import { AlertaStock, MovimientoStock, Pieza } from '../../nucleo/modelos/taller';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { Icono } from '../../compartido/icono';
+import { CampoImportable, Importar } from '../../compartido/importar';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { FormularioPieza } from './formulario-pieza';
@@ -21,7 +22,7 @@ type Pestana = 'catalogo' | 'alertas' | 'movimientos';
  */
 @Component({
   selector: 'app-inventario',
-  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioPieza],
+  imports: [CommonModule, FormsModule, RouterLink, Cargando, Icono, FormularioPieza, Importar],
   templateUrl: './inventario.html',
   styleUrl: './inventario.scss',
 })
@@ -41,6 +42,36 @@ export class Inventario {
    * que esto solo evita pintar dos columnas de guiones.
    */
   protected readonly vePrecios = this.sesion.tienePermiso('IMPORTES_VER');
+
+  protected readonly puedeImportar = this.sesion.tienePermiso('PIEZAS_CREAR');
+
+  /** Los precios van sin IVA, como los guarda el catálogo: por eso no se acepta «PVP». */
+  protected readonly camposImportacion: CampoImportable[] = [
+    { campo: 'sku', etiqueta: 'SKU', obligatorio: true, alias: ['referencia', 'ref', 'codigo'] },
+    { campo: 'descripcion', etiqueta: 'Descripción', obligatorio: true, alias: ['articulo', 'nombre'] },
+    {
+      campo: 'precioCoste',
+      etiqueta: 'Coste sin IVA',
+      obligatorio: true,
+      alias: ['coste', 'precio de coste', 'precio compra'],
+      tipo: 'decimal',
+    },
+    {
+      campo: 'precioVenta',
+      etiqueta: 'Venta sin IVA',
+      obligatorio: true,
+      alias: ['venta', 'precio de venta'],
+      tipo: 'decimal',
+    },
+    { campo: 'stockInicial', etiqueta: 'Stock', alias: ['existencias', 'cantidad', 'unidades'], tipo: 'decimal' },
+    { campo: 'stockMinimo', etiqueta: 'Mínimo', alias: ['stock minimo'], tipo: 'decimal' },
+    { campo: 'marca', etiqueta: 'Marca' },
+    { campo: 'familia', etiqueta: 'Grupo', alias: ['familia', 'categoria'] },
+    { campo: 'ubicacion', etiqueta: 'Ubicación' },
+    { campo: 'tipoIva', etiqueta: 'Tipo de IVA', alias: ['iva'] },
+    { campo: 'unidadMedida', etiqueta: 'Unidad', alias: ['unidad de medida'] },
+    { campo: 'observaciones', etiqueta: 'Observaciones', alias: ['notas'] },
+  ];
 
   protected readonly pestana = signal<Pestana>('catalogo');
   protected readonly cargando = signal(true);
