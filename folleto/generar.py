@@ -3,6 +3,7 @@
 - Cambia la marca «MotorSport19» por «SportMotor» en el texto del folleto.
 - Cambia el logo de 19 Racing Motorsport por el de SportMotor (../marca).
 - Rellena los datos de contacto de la última página.
+- Añade las tasas y pluses de Ajustes a las automatizaciones de la página 4.
 - Inserta la página de planes y precios (pagina-precios.html) antes del contacto.
 
 Uso:  pip install pymupdf  &&  python3 generar.py
@@ -31,6 +32,7 @@ TELEFONO = "634 27 63 85"
 
 ROSA = (1, 0, 109 / 255)
 ROSA_FUERTE = (217 / 255, 0, 92 / 255)
+GRIS_300 = (203 / 255, 209 / 255, 218 / 255)
 GRIS_400 = (154 / 255, 162 / 255, 177 / 255)
 GRIS_500 = (109 / 255, 118 / 255, 134 / 255)
 BLANCO = (1, 1, 1)
@@ -54,7 +56,8 @@ def borrar(pagina, *rects):
 
 
 def escribir(pagina, x, y, texto, fuente, tam, color, espaciado=0.0, alinear="izq"):
-    """Escribe con interletrado (las etiquetas en mayúsculas lo llevan)."""
+    """Escribe con interletrado (las etiquetas en mayúsculas lo llevan).
+    Devuelve dónde acaba, para seguir la línea con otro tramo."""
     f = FUENTE[fuente]
     ancho = f.text_length(texto, tam) + espaciado * (len(texto) - 1)
     if alinear == "centro":
@@ -68,7 +71,9 @@ def escribir(pagina, x, y, texto, fuente, tam, color, espaciado=0.0, alinear="iz
             x += f.text_length(c, tam) + espaciado
     else:
         tw.append((x, y), texto, font=f, fontsize=tam)
+        x += ancho
     tw.write_text(pagina)
+    return x
 
 
 def pie(pagina, numero=None, color=GRIS_400):
@@ -118,6 +123,14 @@ def main():
     p = doc[7]
     borrar(p, (368, 560.2, 460, 568.5))
     escribir(p, 368.6, 567.0, f"CON {MARCA.upper()}", "negrita", 7.4, ROSA, espaciado=0.71)
+
+    # Funciones: la tasa de neumáticos pasa a ser parte de las tasas y pluses
+    # que el taller configura en Ajustes. Mismo hueco de dos líneas.
+    p = doc[3]
+    borrar(p, (76, 709.4, 276, 730.3))
+    x = escribir(p, 76.8, 717.0, "Tasas y pluses", "semi", 8.6, BLANCO)
+    escribir(p, x, 717.0, " a tu medida en Ajustes; la de", "regular", 8.6, GRIS_300)
+    escribir(p, 76.8, 728.2, "neumáticos se añade sola", "regular", 8.6, GRIS_300)
 
     # Pie de página de todas las páginas interiores (5 y 6 lo llevan más oscuro).
     for i in range(1, len(doc) - 1):

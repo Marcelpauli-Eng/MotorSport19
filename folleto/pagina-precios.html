@@ -64,6 +64,18 @@
   .precio b { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 34pt; line-height: 1; letter-spacing: -0.01em; }
   .precio span { color: var(--gris-500); font-size: 8pt; }
   .plan--destacado .precio span { color: var(--gris-400); }
+  /* Precio anterior tachado. La raya es propia: la de text-decoration cae
+     demasiado baja en Barlow Condensed y no cruza los números por el centro. */
+  .precio s {
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 18pt;
+    color: var(--gris-500); margin-right: 5pt; text-decoration: none;
+    position: relative; display: inline-block; line-height: 0.72;
+  }
+  .precio s::after {
+    content: ''; position: absolute; left: -1.5pt; right: -1.5pt; top: 50%;
+    height: 1.6pt; margin-top: -0.8pt; background: var(--marca); transform: rotate(-10deg);
+  }
+  .plan--destacado .precio s { color: var(--gris-400); }
   .inicial {
     align-self: flex-start; margin-top: 8pt; background: var(--marca-tenue); color: var(--marca-fuerte);
     font-weight: 600; font-size: 7.4pt; padding: 3pt 7pt; border-radius: 20pt;
@@ -119,7 +131,7 @@
     <article class="plan">
       <h3>Básico</h3>
       <p class="para">Para el mecánico que trabaja solo y empieza a dejar el papel.</p>
-      <div class="precio"><b>39 €</b><span>/mes</span></div>
+      <div class="precio"><s>49 €</s><b>39 €</b><span>/mes</span></div>
       <div class="inicial">+ 199 € de pago inicial</div>
       <div class="usuarios">1 usuario</div>
       <ul>
@@ -127,6 +139,7 @@
         <li>Agenda de citas</li>
         <li>Órdenes y presupuestos en PDF</li>
         <li>Facturas sin huecos en la numeración</li>
+        <li>Tasas y pluses a tu medida, en Ajustes</li>
         <li>Soporte por email</li>
       </ul>
       <span class="boton">Empezar</span>
@@ -136,7 +149,7 @@
       <span class="chip-reco">RECOMENDADO</span>
       <h3>Profesional</h3>
       <p class="para">Para el taller con mostrador y varios técnicos.</p>
-      <div class="precio"><b>99 €</b><span>/mes</span></div>
+      <div class="precio"><s>99 €</s><b>75 €</b><span>/mes</span></div>
       <div class="inicial">+ 399 € de pago inicial</div>
       <div class="usuarios">Hasta 5 usuarios</div>
       <ul>
