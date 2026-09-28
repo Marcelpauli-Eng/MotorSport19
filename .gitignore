@@ -48,3 +48,4 @@ infra/respaldo/rclone.conf
 # rompen la compilacion (clase duplicada). Nunca deben entrar al repositorio.
 * [0-9].*
 comercial/*.mp4
+__pycache__/
