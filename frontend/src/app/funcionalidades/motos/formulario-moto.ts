@@ -54,10 +54,20 @@ export class FormularioMoto {
 
   protected readonly esEdicion = computed(() => this.moto() !== null);
 
+  /**
+   * Toda moto tiene bastidor; no toda tiene matrícula (las de carreras). Solo
+   * las fichadas antes de exigirlo pueden seguir sin él, y mientras tengan
+   * matrícula. La misma regla que aplica el backend.
+   */
+  protected readonly bastidorObligatorio = computed(() => {
+    const m = this.moto();
+    return !m || !!m.numeroBastidor || !this.matricula().trim();
+  });
+
   protected readonly puedeGuardar = computed(
     () =>
       !this.enviando() &&
-      this.matricula().trim().length > 0 &&
+      (!this.bastidorObligatorio() || this.numeroBastidor().trim().length > 0) &&
       this.marca().trim().length > 0 &&
       this.modelo().trim().length > 0 &&
       (this.esEdicion() || this.clienteId() !== null),
@@ -81,7 +91,7 @@ export class FormularioMoto {
       const m = this.moto();
       if (!m) return;
       this.clienteId.set(m.clienteId);
-      this.matricula.set(m.matricula);
+      this.matricula.set(m.matricula ?? '');
       this.marca.set(m.marca);
       this.modelo.set(m.modelo);
       this.anio.set(m.anio);
@@ -125,7 +135,7 @@ export class FormularioMoto {
     const datos = {
       // La matrícula en mayúsculas: es como se escribe y como la busca todo el
       // mundo, y así no se crean duplicados por la caja.
-      matricula: this.matricula().trim().toUpperCase(),
+      matricula: vacioANulo(this.matricula().toUpperCase()),
       marca: this.marca().trim(),
       modelo: this.modelo().trim(),
       anio: this.anio(),
@@ -172,7 +182,7 @@ export class FormularioMoto {
       next: (m) => {
         this.enviando.set(false);
         this.notificaciones.exito(
-          existente ? 'Moto actualizada.' : `Moto ${m.matricula} dada de alta.`,
+          existente ? 'Moto actualizada.' : `Moto ${m.matricula ?? m.numeroBastidor} dada de alta.`,
         );
         this.guardado.emit(m);
       },

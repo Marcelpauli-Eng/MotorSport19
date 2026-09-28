@@ -293,7 +293,7 @@
                           {{ m.ordenCodigo }}
                         </a>
                         <span class="celda-doble__secundario">
-                          {{ m.matricula }}@if (m.descripcionMoto) { · {{ m.descripcionMoto }} }
+                          {{ m.matricula ?? 'Sin matrícula' }}@if (m.descripcionMoto) { · {{ m.descripcionMoto }} }
                         </span>
                       </div>
                     } @else if (m.documentoProveedor) {

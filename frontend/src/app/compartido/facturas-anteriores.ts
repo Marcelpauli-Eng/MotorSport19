@@ -58,7 +58,7 @@ interface FacturaAnterior {
                   @if (conMoto()) {
                     <td class="pequeno" style="white-space: nowrap">
                       @if (f.motoId) {
-                        <a [routerLink]="['/motos', f.motoId]">{{ f.matricula }}</a>
+                        <a [routerLink]="['/motos', f.motoId]">{{ f.matricula ?? 'Sin matrícula' }}</a>
                       } @else {
                         —
                       }

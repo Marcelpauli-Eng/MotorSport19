@@ -352,7 +352,7 @@ public class CitaService {
         if (!vivas.isEmpty()) {
             throw new ConflictoException(
                     ("La moto %s ya tiene una cita sin cerrar. Muevala de fecha o cancelela antes de "
-                     + "dar otra.").formatted(moto.getMatricula()));
+                     + "dar otra.").formatted(moto.identificador()));
         }
     }
 

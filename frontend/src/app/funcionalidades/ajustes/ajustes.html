@@ -9,7 +9,7 @@
 </div>
 
 <div class="apilado">
-  @if (veSeries || veRoles || veUsuarios) {
+  @if (veSeries || veTasas || veRoles || veUsuarios) {
     <div class="pestanas">
       <button
         type="button"
@@ -27,6 +27,16 @@
         (click)="cambiarPestana('series')"
       >
         Series de facturación
+      </button>
+      }
+      @if (veTasas) {
+      <button
+        type="button"
+        class="pestana"
+        [class.pestana--activa]="pestana() === 'tasas'"
+        (click)="cambiarPestana('tasas')"
+      >
+        Tasas y pluses
       </button>
       }
       @if (veRoles) {
@@ -258,66 +268,6 @@
           Emite {{ b.softwareNombre }} {{ b.softwareVersion }}. Esos datos identifican al programa,
           no al taller, y no se tocan desde aquí.
         </p>
-
-        <!--
-          Tasa de reciclaje: se guarda aparte de los datos fiscales porque es una
-          regla de cobro, no la identidad del taller. Su propio botón para no
-          obligar a reenviar la razón social al cambiar un desplegable.
-        -->
-        @if (esAdmin) {
-          <div class="separador" style="margin-top: var(--e4)"></div>
-          <h3 style="margin-top: var(--e4)">Tasa de reciclaje de neumáticos</h3>
-          <p class="pequeno silenciado">
-            Al añadir un neumático al presupuesto se añade sola su tasa, con la misma cantidad.
-            Déjalo vacío si el taller no vende neumáticos.
-          </p>
-
-          <div class="rejilla-2" style="margin-top: var(--e3)">
-            <div class="campo">
-              <label for="familia-neu">Qué familia son los neumáticos</label>
-              <select
-                id="familia-neu"
-                [ngModel]="familiaNeumaticos()"
-                (ngModelChange)="familiaNeumaticos.set($event)"
-              >
-                <option value="">Sin tasa</option>
-                @for (f of familiasPieza(); track f) {
-                  <option [value]="f">{{ f }}</option>
-                }
-              </select>
-            </div>
-
-            <div class="campo">
-              <label for="pieza-tasa">Qué pieza se cobra como tasa</label>
-              <select
-                id="pieza-tasa"
-                [ngModel]="piezaTasaId()"
-                (ngModelChange)="piezaTasaId.set($event ? +$event : null)"
-              >
-                <option [ngValue]="null">Sin tasa</option>
-                @for (p of piezasParaTasa(); track p.id) {
-                  <option [ngValue]="p.id">
-                    {{ p.sku }} · {{ p.descripcion }} — {{ p.precioVenta | number: '1.2-2' : 'es' }} €
-                  </option>
-                }
-              </select>
-              <span class="pequeno silenciado">
-                Es una pieza normal del almacén: para subir la tasa, cambias su precio de venta.
-              </span>
-            </div>
-          </div>
-
-          <div class="fila fila--fin" style="margin-top: var(--e3)">
-            <button
-              type="button"
-              class="boton boton--principal"
-              [disabled]="guardandoTasa()"
-              (click)="guardarTasaNeumatico()"
-            >
-              {{ guardandoTasa() ? 'Guardando…' : 'Guardar la tasa' }}
-            </button>
-          </div>
-        }
       </section>
     }
   }
@@ -489,6 +439,160 @@
         }
       </section>
     }
+  }
+
+  <!-- ============ Tasas y pluses ============
+       Reglas que se aplican solas al añadir una pieza al presupuesto: una tasa
+       es una línea más por cada unidad; un plus, un descuento en la propia
+       línea. Para un grupo entero o para una pieza concreta de ese grupo. -->
+  @if (pestana() === 'tasas' && veTasas) {
+    <section class="tarjeta tarjeta--ajustada">
+      <div class="tarjeta__titulo">
+        <h2>Tasas y pluses</h2>
+      </div>
+      <p class="pequeno silenciado" style="margin: 0; padding: var(--e3) var(--e5)">
+        Se aplican solos al añadir una pieza al presupuesto. Una <strong>tasa</strong> añade una
+        línea aparte con el importe que pongas por cada unidad, como la de reciclaje de neumáticos.
+        Un <strong>plus</strong> le pone un descuento a la pieza. Pueden ser para un grupo entero o
+        para una pieza concreta; si hay de las dos, manda la de la pieza.
+      </p>
+
+      <div class="alta-serie">
+        <div class="campo" style="width: 180px">
+          <label for="reglaTipo">Qué es</label>
+          <select
+            id="reglaTipo"
+            [ngModel]="nuevaRegla().tipo"
+            (ngModelChange)="cambiarRegla({ tipo: $event })"
+          >
+            <option value="TASA">Tasa</option>
+            <option value="PLUS">Plus (descuento)</option>
+          </select>
+        </div>
+        <div class="campo" style="width: 190px">
+          <label for="reglaGrupo">Grupo</label>
+          <select
+            id="reglaGrupo"
+            [ngModel]="nuevaRegla().familia"
+            (ngModelChange)="elegirGrupo($event)"
+          >
+            <option value="">Elige un grupo…</option>
+            @for (f of familiasPieza(); track f) {
+              <option [value]="f">{{ f }}</option>
+            }
+          </select>
+        </div>
+        <div class="campo crece">
+          <label for="reglaPieza">Producto</label>
+          <select
+            id="reglaPieza"
+            [disabled]="!nuevaRegla().familia"
+            [ngModel]="nuevaRegla().piezaId"
+            (ngModelChange)="cambiarRegla({ piezaId: $event })"
+          >
+            <option [ngValue]="null">Todo el grupo</option>
+            @for (p of piezasDelGrupo(); track p.id) {
+              <option [ngValue]="p.id">{{ p.sku }} · {{ p.descripcion }}</option>
+            }
+          </select>
+        </div>
+        @if (nuevaRegla().tipo === 'TASA') {
+          <div class="campo crece">
+            <label for="reglaConcepto">Concepto en el presupuesto</label>
+            <input
+              id="reglaConcepto"
+              maxlength="300"
+              [ngModel]="nuevaRegla().concepto"
+              (ngModelChange)="cambiarRegla({ concepto: $event })"
+              placeholder="Tasa de reciclaje de neumáticos"
+            />
+          </div>
+        }
+        <div class="campo" style="width: 140px">
+          <label for="reglaValor">
+            {{ nuevaRegla().tipo === 'TASA' ? '€ por unidad, sin IVA' : 'Descuento (%)' }}
+          </label>
+          <input
+            id="reglaValor"
+            type="number"
+            step="0.01"
+            min="0"
+            [attr.max]="nuevaRegla().tipo === 'PLUS' ? 100 : null"
+            [ngModel]="nuevaRegla().valor"
+            (ngModelChange)="cambiarRegla({ valor: $event === '' || $event === null ? null : +$event })"
+            (keyup.enter)="puedeAnadirRegla() && anadirRegla()"
+          />
+        </div>
+        <button
+          type="button"
+          class="boton boton--principal"
+          [disabled]="!puedeAnadirRegla()"
+          (click)="anadirRegla()"
+        >
+          {{ guardandoRegla() ? 'Guardando…' : 'Añadir' }}
+        </button>
+      </div>
+
+      @if (!reglas().length) {
+        <div class="vacio">
+          <span class="vacio__titulo">Todavía no hay ninguna</span>
+          <span class="pequeno">Los presupuestos se hacen con el precio de cada pieza, sin más.</span>
+        </div>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Se aplica a</th>
+                <th>Concepto</th>
+                <th class="num">Valor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of reglas(); track r.id) {
+                <tr>
+                  <td>
+                    @if (r.tipo === 'TASA') {
+                      <span class="etiqueta etiqueta--azul">Tasa</span>
+                    } @else {
+                      <span class="etiqueta etiqueta--verde">Plus</span>
+                    }
+                  </td>
+                  <td>
+                    @if (r.piezaNombre) {
+                      <span class="truncado">{{ r.piezaNombre }}</span>
+                      <span class="pequeno silenciado">{{ r.familia }}</span>
+                    } @else {
+                      Todo el grupo «{{ r.familia }}»
+                    }
+                  </td>
+                  <td>{{ r.concepto ?? '—' }}</td>
+                  <td class="num importe">
+                    @if (r.tipo === 'TASA') {
+                      {{ r.valor | number: '1.2-2' : 'es' }} € / ud.
+                    } @else {
+                      −{{ r.valor | number: '1.0-2' : 'es' }} %
+                    }
+                  </td>
+                  <td class="num">
+                    <button
+                      type="button"
+                      class="icono-accion icono-accion--peligro"
+                      (click)="quitarRegla(r)"
+                      title="Quitar"
+                    >
+                      <app-icono nombre="papelera" [tamano]="16" />
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
   }
 
   <!-- ============ Roles y permisos ============

@@ -26,7 +26,7 @@ export class MotosService {
 
   crear(datos: {
     clienteId: number;
-    matricula: string;
+    matricula: string | null;
     marca: string;
     modelo: string;
     anio?: number | null;

@@ -328,7 +328,7 @@ public class GeneradorPdfHistorial {
             float fila1 = arriba - FICHA_FILA1;
             float fila2 = arriba - FICHA_FILA2;
 
-            etiqueta(col1, fila1, "MATRÍCULA", v.matricula(), 11);
+            etiqueta(col1, fila1, "MATRÍCULA", valorOGuion(v.matricula()), 11);
             etiqueta(col2, fila1, "MOTO", "%s %s".formatted(valorOVacio(v.marca()), valorOVacio(v.modelo())).trim(), 9);
             etiqueta(col3, fila1, "AÑO", v.anio() == null ? "—" : String.valueOf(v.anio()), 9);
 
@@ -407,7 +407,7 @@ public class GeneradorPdfHistorial {
         private String continuidad(HistorialImprimible h) {
             String sujeto = h.cliente() != null
                     ? h.cliente().nombre()
-                    : h.motos().isEmpty() ? "" : h.motos().get(0).vehiculo().matricula();
+                    : h.motos().isEmpty() ? "" : valorOGuion(h.motos().get(0).vehiculo().matricula());
 
             return "%s · %s".formatted(sujeto, h.emisor().razonSocial());
         }

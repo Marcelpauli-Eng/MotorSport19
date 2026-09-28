@@ -35,7 +35,7 @@ export interface Moto {
   id: number;
   clienteId: number;
   clienteNombre: string;
-  matricula: string;
+  matricula: string | null;
   marca: string;
   modelo: string;
   descripcion: string;
@@ -51,7 +51,7 @@ export interface Moto {
 
 export interface MotoResumen {
   id: number;
-  matricula: string;
+  matricula: string | null;
   descripcion: string;
   anio: number | null;
   kmActual: number;
@@ -160,7 +160,8 @@ export type EstadoOT =
   | 'ENTREGADA'
   | 'RECHAZADA';
 
-export type TipoLinea = 'MANO_DE_OBRA' | 'PIEZA';
+/** TASA: la que acompaña a una pieza según Ajustes › Tasas y pluses. No sale del almacén. */
+export type TipoLinea = 'MANO_DE_OBRA' | 'PIEZA' | 'TASA';
 
 /**
  * Línea de una orden de trabajo.
@@ -216,7 +217,7 @@ export interface OrdenTrabajo {
   permiteEditarLineas: boolean;
 
   motoId: number;
-  matricula: string;
+  matricula: string | null;
   descripcionMoto: string;
   clienteId: number;
   clienteNombre: string;
@@ -263,7 +264,7 @@ export interface OrdenTrabajoResumen {
   codigo: string;
   estado: EstadoOT;
   estadoDescripcion: string;
-  matricula: string;
+  matricula: string | null;
   descripcionMoto: string;
   clienteNombre: string;
   tecnicoNombre: string | null;

@@ -34,7 +34,7 @@
       <option [ngValue]="null">Todavía no está dada de alta</option>
       @for (m of listaMotos(); track m.id) {
         <option [ngValue]="m.id">
-          {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
+          {{ m.matricula ?? 'Sin matrícula' }} · {{ m.descripcion }} — {{ m.clienteNombre }}
         </option>
       }
     </select>

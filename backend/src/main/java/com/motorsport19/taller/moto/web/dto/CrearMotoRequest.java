@@ -11,7 +11,6 @@ public record CrearMotoRequest(
         @NotNull(message = "La moto debe asignarse a un cliente")
         Long clienteId,
 
-        @NotBlank(message = "La matricula es obligatoria")
         @Size(max = 15, message = "La matricula no puede superar los 15 caracteres")
         String matricula,
 
@@ -32,6 +31,7 @@ public record CrearMotoRequest(
         @Size(max = 50, message = "El color no puede superar los 50 caracteres")
         String color,
 
+        @NotBlank(message = "El numero de bastidor es obligatorio")
         @Size(max = 30, message = "El numero de bastidor no puede superar los 30 caracteres")
         String numeroBastidor,
 

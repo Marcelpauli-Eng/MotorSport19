@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
-import { ConfiguracionTaller, Usuario } from '../../nucleo/modelos/configuracion';
+import { ConfiguracionTaller, ReglaCobro, Usuario } from '../../nucleo/modelos/configuracion';
 import { Pieza } from '../../nucleo/modelos/taller';
 import { SerieFactura, TipoFactura } from '../../nucleo/modelos/facturacion';
 import { ConfiguracionService } from '../../nucleo/servicios/configuracion.service';
@@ -17,7 +17,16 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 import { FormularioUsuario } from './formulario-usuario';
 
-type Pestana = 'empresa' | 'series' | 'roles' | 'usuarios';
+type Pestana = 'empresa' | 'series' | 'tasas' | 'roles' | 'usuarios';
+
+/** El alta de una tasa o un plus, antes de guardarla. */
+interface NuevaRegla {
+  tipo: ReglaCobro['tipo'];
+  familia: string;
+  piezaId: number | null;
+  concepto: string;
+  valor: number | null;
+}
 
 /**
  * Ajustes del taller: lo que hay que tener puesto antes de facturar.
@@ -136,6 +145,8 @@ export class Ajustes {
   protected readonly veSeries = this.sesion.tienePermiso('FACTURAS_SERIES') && this.sesion.tienePermiso('FACTURAS_VER');
   protected readonly veRoles = this.sesion.tienePermiso('ROLES_GESTIONAR');
   protected readonly veUsuarios = this.sesion.tienePermiso('USUARIOS_GESTIONAR');
+  // Los desplegables de grupo y pieza salen del almacén.
+  protected readonly veTasas = this.esAdmin && this.sesion.tienePermiso('ALMACEN_VER');
 
   protected readonly pestana = signal<Pestana>('empresa');
   protected readonly cargando = signal(true);
@@ -151,12 +162,6 @@ export class Ajustes {
    */
   protected readonly sinConfigurar = signal(false);
 
-  // --- Tasa de reciclaje de neumáticos --------------------------------
-  protected readonly familiasPieza = signal<string[]>([]);
-  protected readonly piezasParaTasa = signal<Pieza[]>([]);
-  protected readonly familiaNeumaticos = signal<string>('');
-  protected readonly piezaTasaId = signal<number | null>(null);
-  protected readonly guardandoTasa = signal(false);
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly editando = signal<Usuario | null>(null);
   protected readonly creando = signal(false);
@@ -187,12 +192,12 @@ export class Ajustes {
       if (this.usuarios().length) this.cargarUsuarios();
       if (this.roles().length) this.cargarRoles();
       if (this.series().length) this.cargarSeries();
+      if (this.pestana() === 'tasas') this.cargarReglas();
     });
     this.configuracion.obtener().subscribe({
       next: (c) => {
         this.recibir(c);
         this.cargando.set(false);
-        if (this.esAdmin && this.sesion.tienePermiso('ALMACEN_VER')) this.cargarDatosDeLaTasa();
         this.irAlAncla();
       },
       error: () => this.cargando.set(false),
@@ -212,39 +217,6 @@ export class Ajustes {
     const id = this.ruta.snapshot.fragment;
     if (!id) return;
     setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-  }
-
-  /**
-   * Carga las familias y las piezas del desplegable de la tasa.
-   *
-   * <p>Solo cuando hace falta: quien entra en Ajustes casi siempre va a otra
-   * cosa, y el almacén no tiene por qué viajar en cada visita.
-   */
-  private cargarDatosDeLaTasa(): void {
-    if (this.familiasPieza().length) return;
-    this.inventario.familias().subscribe((f) => this.familiasPieza.set(f));
-    this.inventario
-      .buscarPiezas('', { tamano: 300 })
-      .subscribe((p) => this.piezasParaTasa.set(p.contenido));
-  }
-
-  protected guardarTasaNeumatico(): void {
-    this.guardandoTasa.set(true);
-    this.configuracion
-      .guardarTasaNeumatico(this.familiaNeumaticos() || null, this.piezaTasaId())
-      .subscribe({
-        next: (c) => {
-          this.guardandoTasa.set(false);
-          this.recibir(c);
-          this.notificaciones.exito(
-            c.familiaNeumaticos
-              ? `Los neumáticos de «${c.familiaNeumaticos}» llevarán su tasa.`
-              : 'Tasa de reciclaje desactivada.',
-          );
-        },
-        // El interceptor ya enseña el motivo que manda el servidor.
-        error: () => this.guardandoTasa.set(false),
-      });
   }
 
   /**
@@ -268,8 +240,6 @@ export class Ajustes {
     this.datos.set(limpia);
     this.borrador.set({ ...limpia });
     this.sinConfigurar.set(!c.configurado);
-    this.familiaNeumaticos.set(c.familiaNeumaticos ?? '');
-    this.piezaTasaId.set(c.piezaTasaNeumaticoId ?? null);
   }
 
   protected cambiarPestana(p: Pestana): void {
@@ -277,6 +247,88 @@ export class Ajustes {
     if (p === 'usuarios' && !this.usuarios().length) this.cargarUsuarios();
     if (p === 'series' && !this.series().length) this.cargarSeries();
     if (p === 'roles' && !this.roles().length) this.cargarRoles();
+    if (p === 'tasas') this.cargarReglas();
+  }
+
+  // ==================================================================
+  // Tasas y pluses
+  // ==================================================================
+
+  protected readonly reglas = signal<ReglaCobro[]>([]);
+  protected readonly familiasPieza = signal<string[]>([]);
+  protected readonly piezasDelGrupo = signal<Pieza[]>([]);
+  protected readonly guardandoRegla = signal(false);
+  protected readonly nuevaRegla = signal<NuevaRegla>({
+    tipo: 'TASA',
+    familia: '',
+    piezaId: null,
+    concepto: '',
+    valor: null,
+  });
+
+  protected readonly puedeAnadirRegla = computed(() => {
+    const n = this.nuevaRegla();
+    return (
+      !this.guardandoRegla() &&
+      !!n.familia &&
+      !!n.valor &&
+      n.valor > 0 &&
+      (n.tipo === 'PLUS' ? n.valor <= 100 : !!n.concepto.trim())
+    );
+  });
+
+  private cargarReglas(): void {
+    this.configuracion.reglas().subscribe((r) => this.reglas.set(r));
+    if (!this.familiasPieza().length) {
+      this.inventario.familias().subscribe((f) => this.familiasPieza.set(f));
+    }
+  }
+
+  protected cambiarRegla(cambio: Partial<NuevaRegla>): void {
+    this.nuevaRegla.update((n) => ({ ...n, ...cambio }));
+  }
+
+  /** Al cambiar de grupo, la pieza elegida ya no es de él: se vuelve a «todo el grupo». */
+  protected elegirGrupo(familia: string): void {
+    this.cambiarRegla({ familia, piezaId: null });
+    this.piezasDelGrupo.set([]);
+    if (familia) {
+      this.inventario
+        .buscarPiezas('', { familia, tamano: 300 })
+        .subscribe((p) => this.piezasDelGrupo.set(p.contenido));
+    }
+  }
+
+  protected anadirRegla(): void {
+    const n = this.nuevaRegla();
+    this.guardandoRegla.set(true);
+    this.configuracion
+      .crearRegla({
+        tipo: n.tipo,
+        familia: n.familia,
+        piezaId: n.piezaId,
+        concepto: n.tipo === 'TASA' ? n.concepto.trim() : null,
+        valor: n.valor!,
+      })
+      .subscribe({
+        next: (r) => {
+          this.guardandoRegla.set(false);
+          this.reglas.update((rs) => [...rs, r]);
+          this.cambiarRegla({ piezaId: null, concepto: '', valor: null });
+          this.notificaciones.exito(r.tipo === 'TASA' ? 'Tasa añadida.' : 'Plus añadido.');
+        },
+        // El interceptor ya enseña el motivo que manda el servidor.
+        error: () => this.guardandoRegla.set(false),
+      });
+  }
+
+  /** Las órdenes que ya la llevan no se tocan: solo deja de ponerse en las nuevas líneas. */
+  protected quitarRegla(r: ReglaCobro): void {
+    const que = r.tipo === 'TASA' ? `la tasa «${r.concepto}»` : 'este plus';
+    if (!confirm(`Se quitará ${que}. Los presupuestos que ya la llevan no cambian. ¿Continuar?`)) return;
+    this.configuracion
+      .borrarRegla(r.id)
+      .subscribe(() => this.reglas.update((rs) => rs.filter((x) => x.id !== r.id)));
   }
 
   // ==================================================================

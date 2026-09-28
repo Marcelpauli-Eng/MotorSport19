@@ -28,7 +28,7 @@ public final class OrdenesDePrueba {
 
     public static Moto moto(Cliente cliente) {
         return Moto.registrar(cliente, "1234 JKL", "Yamaha", "MT-07", 2021, 689, "Azul",
-                null, 24500, null);
+                "JYARM33E0MA012345", 24500, null);
     }
 
     /** Orden recien abierta, en estado RECIBIDA. */

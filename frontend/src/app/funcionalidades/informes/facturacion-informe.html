@@ -116,7 +116,7 @@
                   <tr>
                     <td><a [routerLink]="['/ordenes', o.ordenId]" class="codigo">{{ o.codigo }}</a></td>
                     <td><span class="truncado">{{ o.cliente }}</span></td>
-                    <td class="silenciado">{{ o.matricula }}</td>
+                    <td class="silenciado">{{ o.matricula ?? 'Sin matrícula' }}</td>
                     <td class="silenciado sin-envolver">
                       {{ o.estado === 'LISTA' ? 'Lista, sin entregar' : 'Entregada' }}
                       @if (o.salida) {

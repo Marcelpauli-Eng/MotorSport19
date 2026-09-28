@@ -167,7 +167,7 @@ public class OrdenTrabajo extends EntidadAuditable {
         if (!moto.isActivo()) {
             throw new ConflictoException(
                     "La moto %s esta dada de baja: no se le pueden abrir ordenes de trabajo."
-                            .formatted(moto.getMatricula()));
+                            .formatted(moto.identificador()));
         }
         if (textoONulo(problemaReportado) == null) {
             throw new ReglaNegocioException(
@@ -346,7 +346,7 @@ public class OrdenTrabajo extends EntidadAuditable {
         }
         this.tarifaHora = nuevaTarifa;
         lineas.stream()
-                .filter(linea -> !linea.esDePieza())
+                .filter(LineaOT::esManoDeObra)
                 .forEach(linea -> linea.repreciarManoDeObra(nuevaTarifa));
     }
 
@@ -366,6 +366,16 @@ public class OrdenTrabajo extends EntidadAuditable {
         exigirLineasEditables();
         LineaOT linea = LineaOT.pieza(this, siguienteNumeroDeLinea(), pieza, cantidad, descuentoPct,
                 porcentajeIva);
+        lineas.add(linea);
+        return linea;
+    }
+
+    /** Anade la tasa de una regla de cobro, al importe de la regla. */
+    public LineaOT anadirTasa(String concepto, BigDecimal cantidad, BigDecimal importe,
+                              String tipoIva, BigDecimal porcentajeIva) {
+        exigirLineasEditables();
+        LineaOT linea = LineaOT.tasa(this, siguienteNumeroDeLinea(), concepto, cantidad, importe,
+                tipoIva, porcentajeIva);
         lineas.add(linea);
         return linea;
     }
@@ -517,7 +527,7 @@ public class OrdenTrabajo extends EntidadAuditable {
 
     public BigDecimal horasManoDeObra() {
         return lineas.stream()
-                .filter(l -> !l.esDePieza())
+                .filter(LineaOT::esManoDeObra)
                 .map(LineaOT::getCantidad)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }

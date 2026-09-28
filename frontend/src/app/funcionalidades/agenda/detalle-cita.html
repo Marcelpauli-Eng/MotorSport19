@@ -26,7 +26,7 @@
     <dd>
       @if (cita().motoId) {
         <a [routerLink]="['/motos', cita().motoId]" (click)="cerrar.emit()">{{ cita().moto }}</a>
-        <span class="silenciado"> · {{ cita().matricula }}</span>
+        <span class="silenciado"> · {{ cita().matricula ?? 'Sin matrícula' }}</span>
       } @else {
         {{ cita().moto || '—' }}
         <span class="etiqueta etiqueta--ambar pequeno">Sin dar de alta</span>
@@ -69,7 +69,7 @@
             <option [ngValue]="null">Elige la moto ya dada de alta…</option>
             @for (m of listaMotos(); track m.id) {
               <option [ngValue]="m.id">
-                {{ m.matricula }} · {{ m.descripcion }} — {{ m.clienteNombre }}
+                {{ m.matricula ?? 'Sin matrícula' }} · {{ m.descripcion }} — {{ m.clienteNombre }}
               </option>
             }
           </select>

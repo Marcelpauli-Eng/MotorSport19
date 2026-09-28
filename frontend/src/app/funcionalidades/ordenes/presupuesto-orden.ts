@@ -149,7 +149,8 @@ export class PresupuestoOrden {
 
   private lineasDe(tipo: Pestana): LineaOT[] {
     return this.todasLasLineas().filter((l) =>
-      tipo === 'mano-obra' ? l.tipo === 'MANO_DE_OBRA' : l.tipo === 'PIEZA',
+      // Las tasas van con el material: acompañan a una pieza y no son horas.
+      tipo === 'mano-obra' ? l.tipo === 'MANO_DE_OBRA' : l.tipo !== 'MANO_DE_OBRA',
     );
   }
 
@@ -225,7 +226,7 @@ export class PresupuestoOrden {
 
   /** Referencia de almacén; la mano de obra no tiene, así que lleva la suya. */
   protected codigoDe(l: LineaOT): string {
-    return l.piezaSku ?? 'MO';
+    return l.piezaSku ?? (l.tipo === 'TASA' ? 'TASA' : 'MO');
   }
 
   // ==================================================================
@@ -734,7 +735,7 @@ export class PresupuestoOrden {
 
     const mensaje = [
       `Presupuesto ${o.codigo}`,
-      `${o.descripcionMoto} · ${o.matricula}`,
+      `${o.descripcionMoto} · ${o.matricula ?? 'Sin matrícula'}`,
       '',
       ...this.todasLasLineas().map(
         (l) => `• ${l.descripcion} (x${l.cantidad}): ${euros(l.total ?? 0)} €`,

@@ -48,7 +48,7 @@
                 <a [routerLink]="['/ordenes', o.id]" class="ficha">
                   <span class="ficha__codigo codigo">{{ o.codigo }}</span>
                   <span class="ficha__moto">{{ o.descripcionMoto }}</span>
-                  <span class="ficha__matricula codigo">{{ o.matricula }}</span>
+                  <span class="ficha__matricula codigo">{{ o.matricula ?? 'Sin matrícula' }}</span>
                   <span class="ficha__pie">
                     <span class="truncado">{{ o.clienteNombre }}</span>
                     @if (o.tecnicoNombre) {

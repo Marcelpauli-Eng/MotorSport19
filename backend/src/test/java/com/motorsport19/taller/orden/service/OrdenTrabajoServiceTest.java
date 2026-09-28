@@ -2,7 +2,9 @@ package com.motorsport19.taller.orden.service;
 
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
+import com.motorsport19.taller.configuracion.domain.ReglaCobro;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
+import com.motorsport19.taller.configuracion.repository.ReglaCobroRepository;
 import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
 import com.motorsport19.taller.inventario.domain.Pieza;
@@ -16,6 +18,7 @@ import com.motorsport19.taller.orden.domain.ContadorOt;
 import com.motorsport19.taller.orden.domain.EstadoOT;
 import com.motorsport19.taller.orden.domain.LineaOT;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
+import com.motorsport19.taller.orden.domain.TipoLinea;
 import com.motorsport19.taller.orden.repository.CambioEstadoOTRepository;
 import com.motorsport19.taller.orden.repository.ContadorOtRepository;
 import com.motorsport19.taller.orden.repository.LineaOTRepository;
@@ -39,6 +42,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,6 +78,7 @@ class OrdenTrabajoServiceTest {
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private TipoIvaRepository tipoIvaRepository;
     @Mock private ConfiguracionTallerRepository configuracionRepository;
+    @Mock private ReglaCobroRepository reglaRepository;
     /** Por defecto no es tecnico, asi que no se aplica el filtro por asignacion. */
     @Mock private UsuarioActual usuarioActual;
 
@@ -663,62 +668,91 @@ class OrdenTrabajoServiceTest {
     }
 
     @Nested
-    @DisplayName("Tasa de reciclaje de neumaticos")
-    class TasaDeReciclaje {
+    @DisplayName("Tasas y pluses")
+    class TasasYPluses {
 
-        private Pieza pieza(long id, String sku, String familia) {
-            Pieza p = PiezasDePrueba.conStock(id, sku, "50");
+        private Pieza pieza(long id, String familia) {
+            Pieza p = PiezasDePrueba.conStock(id, "P-" + id, "50");
             ReflectionTestUtils.setField(p, "familia", familia);
+            when(piezaService.obtener(id)).thenReturn(p);
             return p;
         }
 
-        /** Preparada con 2 neumaticos y su linea de tasa de 2, como la deja el alta. */
-        private OrdenTrabajo conDosNeumaticos(Pieza neumatico, Pieza tasa) {
-            ConfiguracionTaller config = ConfiguracionTaller.sinRellenar();
-            config.configurarTasaNeumatico("Neumaticos", tasa);
-            when(configuracionRepository.findById(ConfiguracionTaller.ID_UNICO)).thenReturn(Optional.of(config));
+        private OrdenTrabajo preparadaCon(ReglaCobro... reglas) {
+            when(reglaRepository.findAll()).thenReturn(List.of(reglas));
+            TipoIva iva = org.springframework.beans.BeanUtils.instantiateClass(TipoIva.class);
+            ReflectionTestUtils.setField(iva, "codigo", "GENERAL");
+            ReflectionTestUtils.setField(iva, "porcentaje", OrdenesDePrueba.IVA_GENERAL);
+            when(tipoIvaRepository.findById("GENERAL")).thenReturn(Optional.of(iva));
             sinConsumoPrevio();
 
             OrdenTrabajo orden = OrdenesDePrueba.recienAbierta();
             orden.preparar(null, null);
-            orden.anadirPieza(neumatico, new BigDecimal("2"), BigDecimal.ZERO, OrdenesDePrueba.IVA_GENERAL);
-            orden.anadirPieza(tasa, new BigDecimal("2"), BigDecimal.ZERO, OrdenesDePrueba.IVA_GENERAL);
-            long id = 500L;
-            for (LineaOT l : orden.getLineas()) {
-                ReflectionTestUtils.setField(l, "id", id++);
-            }
             dadaLaOrden(orden);
             return orden;
         }
 
-        private BigDecimal cantidadDe(OrdenTrabajo orden, Pieza pieza) {
-            return orden.getLineas().stream().filter(l -> l.getPieza() == pieza)
-                    .map(LineaOT::getCantidad).findFirst().orElse(null);
+        private LineaOT tasaDe(OrdenTrabajo orden) {
+            return orden.getLineas().stream().filter(l -> l.getTipo() == TipoLinea.TASA)
+                    .findFirst().orElse(null);
+        }
+
+        private LineaOT anadir(OrdenTrabajo orden, Pieza pieza, String cantidad, BigDecimal descuento) {
+            return ordenService.anadirPieza(orden.getId(), pieza.getId(), new BigDecimal(cantidad),
+                    descuento, 1L);
         }
 
         @Test
-        @DisplayName("al cambiar los neumaticos de 2 a 4, la tasa pasa a 4")
+        @DisplayName("cada neumatico lleva su tasa, en una sola linea y al importe de la regla")
+        void tasaPorUnidad() {
+            OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos",
+                    null, "Tasa de reciclaje", new BigDecimal("1.50")));
+            Pieza delantero = pieza(9L, "Neumaticos");
+            Pieza trasero = pieza(10L, "Neumaticos");
+
+            anadir(orden, delantero, "1", null);
+            anadir(orden, trasero, "1", null);
+            anadir(orden, pieza(11L, "Filtros"), "1", null);
+
+            LineaOT tasa = tasaDe(orden);
+            assertThat(tasa.getCantidad()).isEqualByComparingTo("2");
+            assertThat(tasa.getPrecioUnitario()).isEqualByComparingTo("1.50");
+            assertThat(tasa.getPieza()).isNull();
+            assertThat(orden.getLineas()).hasSize(4);
+            assertThat(orden.horasManoDeObra()).isZero();
+        }
+
+        @Test
+        @DisplayName("la tasa sigue a los neumaticos: de 2 a 4 pasa a 4, y sin ellos se va")
         void sigueLaCantidad() {
-            Pieza neumatico = pieza(9L, "NEU-180", "Neumaticos");
-            Pieza tasa = pieza(19L, "TASA-NFU", "Tasas");
-            OrdenTrabajo orden = conDosNeumaticos(neumatico, tasa);
+            OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos",
+                    null, "Tasa de reciclaje", new BigDecimal("1.50")));
+            anadir(orden, pieza(9L, "Neumaticos"), "2", null);
+            long id = 500L;
+            for (LineaOT l : orden.getLineas()) {
+                ReflectionTestUtils.setField(l, "id", id++);
+            }
 
             ordenService.cambiarCantidadDeLinea(orden.getId(), 500L, new BigDecimal("4"));
+            assertThat(tasaDe(orden).getCantidad()).isEqualByComparingTo("4");
 
-            assertThat(cantidadDe(orden, tasa)).isEqualByComparingTo("4");
+            ordenService.quitarLinea(orden.getId(), 500L);
+            assertThat(orden.getLineas()).isEmpty();
         }
 
         @Test
-        @DisplayName("al quitar los neumaticos, la tasa se va con ellos")
-        void seQuitaConElNeumatico() {
-            Pieza neumatico = pieza(9L, "NEU-180", "Neumaticos");
-            Pieza tasa = pieza(19L, "TASA-NFU", "Tasas");
-            OrdenTrabajo orden = conDosNeumaticos(neumatico, tasa);
+        @DisplayName("el plus pone su descuento: el de la pieza antes que el del grupo, y el de a mano antes que los dos")
+        void plus() {
+            Pieza concreta = pieza(3L, "Filtros");
+            OrdenTrabajo orden = preparadaCon(
+                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, "Filtros", null, null, BigDecimal.TEN),
+                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, null, concreta, null, new BigDecimal("25")));
+            Pieza otra = pieza(4L, "Filtros");
 
-            ordenService.quitarLinea(orden.getId(), 500L);
-
-            assertThat(cantidadDe(orden, tasa)).isNull();
-            assertThat(orden.getLineas()).isEmpty();
+            assertThat(anadir(orden, concreta, "1", null).getDescuentoPct()).isEqualByComparingTo("25");
+            assertThat(anadir(orden, otra, "1", BigDecimal.ZERO).getDescuentoPct()).isEqualByComparingTo("10");
+            assertThat(anadir(orden, otra, "1", new BigDecimal("5")).getDescuentoPct()).isEqualByComparingTo("5");
+            assertThat(anadir(orden, pieza(5L, "Frenos"), "1", null).getDescuentoPct()).isZero();
         }
     }
 }

@@ -203,6 +203,10 @@ def matricula() -> str:
     return f"{n:04d}" + "".join(random.choices("BCDFGHJKLMNPRSTVWXYZ", k=3))
 
 
+def bastidor() -> str:
+    return f"VIN{next(_secuencia):014d}"
+
+
 def sku(prefijo="P") -> str:
     return f"{prefijo}-{next(_secuencia)}-{''.join(random.choices(string.ascii_uppercase, k=3))}"
 
@@ -241,7 +245,7 @@ def moto_de(api: Api, cliente_id: int, **extra) -> dict:
         # primera visita el cuentakilometros no puede quedar por debajo del alta.
         "kmActual": 0,
         "color": "Azul",
-        "numeroBastidor": f"VIN{next(_secuencia):014d}",
+        "numeroBastidor": bastidor(),
     }
     cuerpo.update(extra)
     r = api.post("/motos", cuerpo)

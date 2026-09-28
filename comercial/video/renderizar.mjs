@@ -1,7 +1,7 @@
 // Pinta las escenas de escenas.html fotograma a fotograma (sin depender del reloj) o como imagen fija.
 //   node renderizar.mjs anim <escena> <segundos> <carpeta> [consulta-extra]
 //   node renderizar.mjs png  <escena> <salida.png> [consulta-extra]
-//   node renderizar.mjs rotulos <rotulos.json> <carpeta>
+//   node renderizar.mjs rotulos <rotulos.json> <carpeta> [escena: rotulo | lateral]
 import { mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { conectar, esperar } from './cdp.mjs';
 
@@ -36,7 +36,7 @@ if (modo === 'anim') {
   }
   console.log(escena, total, 'fotogramas');
 } else if (modo === 'png') {
-  await abrir(`escena=${a}&${extra}`);
+  await abrir(`escena=${a}&${c ?? ''}`);
   await js(`document.getAnimations().forEach(a => a.finish())`);
   await esperar(150);
   await foto(b);
@@ -45,7 +45,8 @@ if (modo === 'anim') {
   const { rotulos } = JSON.parse(readFileSync(a, 'utf8'));
   mkdirSync(b, { recursive: true });
   for (const [i, r] of rotulos.entries()) {
-    await abrir(`escena=rotulo&ceja=${encodeURIComponent(r.ceja)}&texto=${encodeURIComponent(r.texto)}`);
+    const { t: _t, ...campos } = r;
+    await abrir(new URLSearchParams({ escena: c || 'rotulo', ...campos }).toString());
     await foto(`${b}/r${String(i).padStart(2, '0')}.png`);
   }
   console.log(rotulos.length, 'rótulos');

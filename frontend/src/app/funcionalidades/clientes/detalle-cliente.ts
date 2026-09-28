@@ -118,7 +118,7 @@ import { FormularioCliente } from './formulario-cliente';
                 <tbody>
                   @for (m of motos(); track m.id) {
                     <tr>
-                      <td><a [routerLink]="['/motos', m.id]" class="negrita">{{ m.matricula }}</a></td>
+                      <td><a [routerLink]="['/motos', m.id]" class="negrita">{{ m.matricula ?? 'Sin matrícula' }}</a></td>
                       <td>{{ m.descripcion }}</td>
                       <td>{{ m.anio || '—' }}</td>
                       <td class="num">{{ m.kmActual | number: '1.0-0' : 'es' }}</td>

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ConfiguracionTaller } from '../modelos/configuracion';
+import { ConfiguracionTaller, ReglaCobro } from '../modelos/configuracion';
 
 /** Datos fiscales del taller y tarifa por hora. */
 @Injectable({ providedIn: 'root' })
@@ -18,14 +18,16 @@ export class ConfiguracionService {
     return this.http.put<ConfiguracionTaller>(this.base, datos);
   }
 
-  /** Configura la tasa de reciclaje de neumáticos, o la desactiva con nulos. */
-  guardarTasaNeumatico(
-    familiaNeumaticos: string | null,
-    piezaTasaId: number | null,
-  ): Observable<ConfiguracionTaller> {
-    return this.http.put<ConfiguracionTaller>(`${this.base}/tasa-neumatico`, {
-      familiaNeumaticos,
-      piezaTasaId,
-    });
+  /** Tasas y pluses que se aplican solos al añadir una pieza a una orden. */
+  reglas(): Observable<ReglaCobro[]> {
+    return this.http.get<ReglaCobro[]>(`${this.base}/reglas`);
+  }
+
+  crearRegla(regla: Omit<ReglaCobro, 'id' | 'piezaNombre'>): Observable<ReglaCobro> {
+    return this.http.post<ReglaCobro>(`${this.base}/reglas`, regla);
+  }
+
+  borrarRegla(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/reglas/${id}`);
   }
 }

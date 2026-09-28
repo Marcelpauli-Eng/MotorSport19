@@ -134,6 +134,19 @@ public class LineaOT extends EntidadAuditable {
         return linea;
     }
 
+    /**
+     * Tasa de una regla de cobro, con el importe de la regla congelado igual que
+     * el precio de una pieza. No tiene pieza: no sale del almacen.
+     */
+    static LineaOT tasa(OrdenTrabajo orden, int numeroLinea, String concepto, BigDecimal cantidad,
+                        BigDecimal importe, String tipoIva, BigDecimal porcentajeIva) {
+        if (textoONulo(concepto) == null) {
+            throw new ReglaNegocioException("La linea de la tasa necesita un concepto.");
+        }
+        return base(orden, numeroLinea, TipoLinea.TASA, concepto, cantidad, importe, null, tipoIva,
+                porcentajeIva);
+    }
+
     // ==================================================================
     // Modificacion
     // ==================================================================
@@ -194,6 +207,11 @@ public class LineaOT extends EntidadAuditable {
         return tipo == TipoLinea.PIEZA;
     }
 
+    /** Horas de taller. Ni las piezas ni las tasas lo son. */
+    public boolean esManoDeObra() {
+        return tipo == TipoLinea.MANO_DE_OBRA;
+    }
+
     /**
      * Revalora la linea a un precio unitario nuevo.
      *
@@ -203,9 +221,9 @@ public class LineaOT extends EntidadAuditable {
      * se toca por aqui, que para eso esta congelado.
      */
     void repreciarManoDeObra(BigDecimal nuevoPrecioUnitario) {
-        if (esDePieza()) {
+        if (!esManoDeObra()) {
             throw new ReglaNegocioException(
-                    "La linea %d es de material: su precio queda congelado del catalogo."
+                    "La linea %d no es de mano de obra: su precio quedo congelado al anadirla."
                             .formatted(numeroLinea));
         }
         if (nuevoPrecioUnitario == null || nuevoPrecioUnitario.signum() < 0) {

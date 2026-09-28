@@ -108,6 +108,37 @@
   #rotulo .caja { position: absolute; left: 190px; top: 950px; width: 1250px; }
   #rotulo .ceja { font-size: 19px; }
   #rotulo .texto { margin-top: 12px; font: 600 38px/1.15 var(--texto); color: #fff; white-space: nowrap; }
+
+  /* ---------- Cartela de capítulo ---------- */
+  #capitulo .raya { right: 250px; animation: raya-cae .9s cubic-bezier(.2,.8,.2,1) both; }
+  #capitulo .raya--2 { right: 190px; animation-delay: .08s; }
+  #capitulo .num { position: absolute; left: 150px; top: 250px; font: 800 300px/.8 var(--display); color: transparent;
+    -webkit-text-stroke: 3px var(--marca); animation: sube .8s .1s both; }
+  #capitulo .bloque { position: absolute; left: 150px; top: 560px; width: 1350px; }
+  #capitulo .ceja { animation: sube .7s .25s both; }
+  #capitulo h2 { margin-top: 22px; font-size: 128px; animation: sube .8s .35s both; }
+  #capitulo .entradilla { margin-top: 26px; animation: sube .8s .55s both; }
+  #capitulo .linea { position: absolute; left: 150px; top: 520px; width: 180px; height: 6px; background: var(--marca); transform-origin: left; animation: crece .7s .2s both; }
+
+  /* ---------- Marco de tablet (vídeo del técnico) ---------- */
+  #fondo-tablet .raya { right: -60px; opacity: .45; } #fondo-tablet .raya--2 { right: 40px; opacity: .45; }
+  .marco-tablet { position: absolute; left: 606px; top: 91px; width: 1258px; height: 898px; border-radius: 52px; background: #0b0d12;
+    border: 3px solid #2a303c; box-shadow: 0 40px 100px rgba(0,0,0,.65); }
+  .marco-tablet::before { content: ""; position: absolute; left: 12px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #1f242e; }
+  #fondo-tablet .logo { position: absolute; left: 80px; top: 96px; height: 50px; }
+  #fondo-tablet .pie { position: absolute; left: 80px; bottom: 92px; width: 460px; font: 500 20px/1.4 var(--texto); color: var(--gris); }
+  #fondo-tablet .pie b { color: var(--gris-3); font-weight: 600; }
+
+  /* ---------- Rótulo lateral (vídeo del técnico) ---------- */
+  #lateral .caja { position: absolute; left: 80px; top: 300px; width: 470px; }
+  #lateral .paso { font: 700 18px/1 var(--texto); letter-spacing: .14em; color: var(--gris-2); }
+  #lateral .paso b { color: #fff; }
+  #lateral .ceja { margin-top: 30px; font-size: 19px; }
+  #lateral h3 { margin-top: 16px; font: 800 66px/.95 var(--display); color: #fff; }
+  #lateral .texto { margin-top: 24px; font: 400 25px/1.45 var(--texto); color: var(--gris-3); }
+  #lateral .barra { margin-top: 40px; display: flex; gap: 8px; }
+  #lateral .barra i { width: 26px; height: 5px; border-radius: 3px; background: var(--noche-3); }
+  #lateral .barra i.hecho { background: var(--marca); }
 </style>
 </head>
 <body>
@@ -117,19 +148,12 @@
   <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
   <div class="chip">Software para talleres</div>
   <div class="bloque">
-    <p class="ceja">MotorSport19 · Gestión del taller</p>
-    <h1>Todo tu taller,<br><em>en un solo programa.</em></h1>
-    <p class="entradilla">De la cita en el mostrador a la factura, pasando por el presupuesto, el almacén y la tablet del técnico.</p>
+    <p class="ceja" id="iCeja">MotorSport19 · Gestión del taller</p>
+    <h1><span id="iT1">Todo tu taller,</span><br><em id="iT2">en un solo programa.</em></h1>
+    <p class="entradilla" id="iSub">De la cita en el mostrador a la factura, pasando por el presupuesto, el almacén y la tablet del técnico.</p>
   </div>
   <div class="linea"></div>
-  <div class="pasos">
-    <span style="animation-delay:1.5s"><b>01</b>Cita</span>
-    <span style="animation-delay:1.65s"><b>02</b>Orden de trabajo</span>
-    <span style="animation-delay:1.8s"><b>03</b>Presupuesto</span>
-    <span style="animation-delay:1.95s"><b>04</b>Reparación</span>
-    <span style="animation-delay:2.1s"><b>05</b>Factura</span>
-    <span style="animation-delay:2.25s"><b>06</b>Informes</span>
-  </div>
+  <div class="pasos" id="iPasos"></div>
 </section>
 
 <section id="puestos" class="escena noche">
@@ -178,6 +202,30 @@
   <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
 </section>
 
+<section id="capitulo" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <div class="num" id="cNum"></div>
+  <div class="linea"></div>
+  <div class="bloque"><p class="ceja" id="cCeja"></p><h2 id="cTitulo"></h2><p class="entradilla" id="cSub"></p></div>
+</section>
+
+<section id="fondo-tablet" class="escena noche">
+  <div class="raya"></div><div class="raya raya--2"></div>
+  <img class="logo" src="img/logo-horizontal-claro.png" alt="MotorSport19">
+  <div class="marco-tablet"></div>
+  <p class="pie"><b>La vista del técnico</b><br>Así lo ve en la tablet del taller, sin precios ni importes.</p>
+</section>
+
+<section id="lateral" class="escena">
+  <div class="caja">
+    <p class="paso" id="lPaso"></p>
+    <p class="ceja" id="lCeja"></p>
+    <h3 id="lTitulo"></h3>
+    <p class="texto" id="lTexto"></p>
+    <div class="barra" id="lBarra"></div>
+  </div>
+</section>
+
 <section id="rotulo" class="escena">
   <div class="caja"><p class="ceja" id="rCeja"></p><p class="texto" id="rTexto"></p></div>
 </section>
@@ -190,6 +238,25 @@
   // Contacto opcional: ?contacto=Tel%3A...|Email%3A...  (líneas separadas por |)
   const c = q.get('contacto');
   if (c) document.getElementById('contacto').innerHTML = c.split('|').map((l) => l.replace(/^([^:]+:)/, '<b>$1</b>')).join('<br>');
+  const poner = (id, v) => { if (v != null) document.getElementById(id).textContent = v; };
+  // Portada
+  poner('iCeja', q.get('ceja')); poner('iT1', q.get('t1')); poner('iT2', q.get('t2')); poner('iSub', q.get('sub'));
+  (q.get('pasos') || 'Cita|Orden de trabajo|Presupuesto|Reparación|Factura|Informes').split('|').forEach((texto, i) => {
+    const sp = document.createElement('span');
+    sp.style.animationDelay = (1.5 + i * 0.15) + 's';
+    sp.innerHTML = `<b>${String(i + 1).padStart(2, '0')}</b>`;
+    sp.append(texto);
+    document.getElementById('iPasos').append(sp);
+  });
+  // Capítulo
+  poner('cNum', q.get('n')); poner('cCeja', q.get('ceja')); poner('cTitulo', q.get('titulo')); poner('cSub', q.get('sub'));
+  // Rótulo lateral
+  const n = Number(q.get('paso') || 0), total = Number(q.get('total') || 0);
+  if (total) {
+    document.getElementById('lPaso').innerHTML = `PASO <b>${String(n).padStart(2, '0')}</b> / ${String(total).padStart(2, '0')}`;
+    for (let i = 1; i <= total; i++) { const b = document.createElement('i'); if (i <= n) b.className = 'hecho'; document.getElementById('lBarra').append(b); }
+  }
+  poner('lCeja', q.get('ceja')); poner('lTitulo', q.get('titulo')); poner('lTexto', q.get('texto'));
   document.querySelectorAll('.pasos span, .ventaja, .condicion, .etiqueta').forEach((el) => el.classList.add('anim'));
 </script>
 </body>

@@ -152,7 +152,7 @@ public class HistorialServicioService {
         List<LineaOT> lineas = orden.getLineas();
 
         List<String> trabajos = lineas.stream()
-                .filter(l -> !l.esDePieza())
+                .filter(LineaOT::esManoDeObra)
                 .map(LineaOT::getDescripcion)
                 .toList();
 
