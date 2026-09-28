@@ -21,7 +21,7 @@
 
   <div class="rejilla">
     <div class="campo">
-      <label for="matricula">Matrícula <span class="silenciado">(obligatorio)</span></label>
+      <label for="matricula">Matrícula <span class="silenciado">(si tiene)</span></label>
       <input
         id="matricula"
         [ngModel]="matricula()"
@@ -92,8 +92,16 @@
       <input id="color" [ngModel]="color()" (ngModelChange)="color.set($event)" />
     </div>
     <div class="campo">
-      <label for="bastidor">Nº de bastidor</label>
-      <input id="bastidor" [ngModel]="numeroBastidor()" (ngModelChange)="numeroBastidor.set($event)" />
+      <label for="bastidor">
+        Nº de bastidor
+        @if (bastidorObligatorio()) { <span class="silenciado">(obligatorio)</span> }
+      </label>
+      <input
+        id="bastidor"
+        [ngModel]="numeroBastidor()"
+        (ngModelChange)="numeroBastidor.set($event)"
+        [required]="bastidorObligatorio()"
+      />
     </div>
   </div>
 

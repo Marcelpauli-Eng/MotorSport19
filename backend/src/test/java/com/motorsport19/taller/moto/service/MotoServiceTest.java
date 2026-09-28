@@ -68,7 +68,7 @@ class MotoServiceTest {
             // En mostrador se teclea de cualquier forma; en la base de datos
             // solo debe quedar una.
             Moto moto = motoService.crear(1L, "1234-jkl", "Yamaha", "MT-07", 2021, 689,
-                    "Azul", null, 24500, null);
+                    "Azul", "JYARM33E0MA012345", 24500, null);
 
             assertThat(moto.getMatricula()).isEqualTo("1234 JKL");
         }
@@ -80,7 +80,7 @@ class MotoServiceTest {
             when(motoRepository.existeConMatricula("1234 JKL")).thenReturn(true);
 
             assertThatThrownBy(() -> motoService.crear(1L, "1234 JKL", "Yamaha", "MT-07",
-                    2021, 689, null, null, 0, null))
+                    2021, 689, null, "JYARM33E0MA012345", 0, null))
                     .isInstanceOf(ConflictoException.class)
                     .hasMessageContaining("1234 JKL");
 
@@ -94,7 +94,7 @@ class MotoServiceTest {
             when(clienteService.obtener(1L)).thenReturn(cliente);
 
             assertThatThrownBy(() -> motoService.crear(1L, "1234 JKL", "Yamaha", "MT-07",
-                    2021, 689, null, null, 0, null))
+                    2021, 689, null, "JYARM33E0MA012345", 0, null))
                     .isInstanceOf(ConflictoException.class)
                     .hasMessageContaining("dado de baja");
         }
@@ -106,9 +106,37 @@ class MotoServiceTest {
             when(motoRepository.existeConMatricula(anyString())).thenReturn(false);
 
             assertThatThrownBy(() -> motoService.crear(1L, "1234 JKL", "Yamaha", "MT-07",
-                    1800, 689, null, null, 0, null))
+                    1800, 689, null, "JYARM33E0MA012345", 0, null))
                     .isInstanceOf(ReglaNegocioException.class)
                     .hasMessageContaining("1800");
+        }
+
+        @Test
+        @DisplayName("admite una moto sin matricula, como las de carreras")
+        void sinMatricula() {
+            when(clienteService.obtener(1L)).thenReturn(cliente);
+            when(motoRepository.save(any(Moto.class))).thenAnswer(i -> i.getArgument(0));
+
+            Moto moto = motoService.crear(1L, "  ", "Yamaha", "YZF-R6", 2021, 599,
+                    null, "jyarj27e0ma012345", 0, null);
+
+            assertThat(moto.getMatricula()).isNull();
+            assertThat(moto.identificador()).isEqualTo("JYARJ27E0MA012345");
+            verify(motoRepository, never()).existeConMatricula(any());
+        }
+
+        @Test
+        @DisplayName("exige el numero de bastidor")
+        void sinBastidor() {
+            when(clienteService.obtener(1L)).thenReturn(cliente);
+            when(motoRepository.existeConMatricula(anyString())).thenReturn(false);
+
+            assertThatThrownBy(() -> motoService.crear(1L, "1234 JKL", "Yamaha", "MT-07",
+                    2021, 689, null, " ", 0, null))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("bastidor");
+
+            verify(motoRepository, never()).save(any());
         }
 
         @Test

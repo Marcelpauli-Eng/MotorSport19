@@ -45,7 +45,8 @@ public class Moto extends EntidadAuditable {
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
-    @Column(name = "matricula", nullable = false, length = 15)
+    /** Opcional: las motos de carreras no tienen. La identifica el bastidor. */
+    @Column(name = "matricula", length = 15)
     private String matricula;
 
     @Column(name = "marca", nullable = false, length = 60)
@@ -148,7 +149,7 @@ public class Moto extends EntidadAuditable {
         if (km < kmActual) {
             throw new ReglaNegocioException(
                     ("El kilometraje de la moto %s no puede disminuir: ya tenia registrados %d km "
-                     + "y se han indicado %d km.").formatted(matricula, kmActual, km));
+                     + "y se han indicado %d km.").formatted(identificador(), kmActual, km));
         }
     }
 
@@ -162,7 +163,7 @@ public class Moto extends EntidadAuditable {
 
     public void darDeBaja() {
         if (!activo) {
-            throw new ConflictoException("La moto %s ya estaba dada de baja.".formatted(matricula));
+            throw new ConflictoException("La moto %s ya estaba dada de baja.".formatted(identificador()));
         }
         this.activo = false;
         this.fechaBaja = Instant.now();
@@ -170,10 +171,18 @@ public class Moto extends EntidadAuditable {
 
     public void reactivar() {
         if (activo) {
-            throw new ConflictoException("La moto %s ya estaba activa.".formatted(matricula));
+            throw new ConflictoException("La moto %s ya estaba activa.".formatted(identificador()));
         }
         this.activo = true;
         this.fechaBaja = null;
+    }
+
+    /**
+     * Matricula, o el bastidor si no tiene. Nunca es nulo: las motos de antes
+     * de exigir el bastidor tienen todas matricula.
+     */
+    public String identificador() {
+        return matricula != null ? matricula : numeroBastidor;
     }
 
     /** Descripcion para listados y facturas: "Yamaha MT-07". */
@@ -186,8 +195,12 @@ public class Moto extends EntidadAuditable {
     private void aplicarDatos(String matricula, String marca, String modelo, Integer anio, Integer cilindrada,
                               String color, String numeroBastidor, String observaciones) {
         String matriculaNormalizada = Matriculas.normalizar(matricula);
-        if (matriculaNormalizada == null) {
-            throw new ReglaNegocioException("La matricula es obligatoria.");
+        String bastidor = textoONulo(numeroBastidor);
+        // Toda moto tiene bastidor; no toda tiene matricula. Las 40 fichadas
+        // antes de exigirlo pueden seguir sin el, pero sin perder tambien la
+        // matricula y sin borrarlo una vez anotado.
+        if (bastidor == null && (id == null || this.numeroBastidor != null || matriculaNormalizada == null)) {
+            throw new ReglaNegocioException("El numero de bastidor es obligatorio.");
         }
         if (textoONulo(marca) == null) {
             throw new ReglaNegocioException("La marca es obligatoria.");
@@ -209,16 +222,14 @@ public class Moto extends EntidadAuditable {
         this.anio = anio;
         this.cilindrada = cilindrada;
         this.color = textoONulo(color);
-        this.numeroBastidor = textoONulo(numeroBastidor) != null
-                ? textoONulo(numeroBastidor).toUpperCase()
-                : null;
+        this.numeroBastidor = bastidor == null ? null : bastidor.toUpperCase();
         this.observaciones = textoONulo(observaciones);
     }
 
     private void comprobarActiva() {
         if (!activo) {
             throw new ConflictoException(
-                    "La moto %s esta dada de baja: reactivela antes de modificarla.".formatted(matricula));
+                    "La moto %s esta dada de baja: reactivela antes de modificarla.".formatted(identificador()));
         }
     }
 

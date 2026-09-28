@@ -428,7 +428,7 @@ export class DetalleOrden {
   );
 
   protected readonly numMateriales = computed(
-    () => this.lineas().filter((l) => l.tipo === 'PIEZA').length,
+    () => this.lineas().filter((l) => l.tipo !== 'MANO_DE_OBRA').length,
   );
 
   protected readonly sinPresupuesto = computed(() => this.lineas().length === 0);

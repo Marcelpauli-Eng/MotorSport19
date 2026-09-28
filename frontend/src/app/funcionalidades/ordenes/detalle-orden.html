@@ -36,7 +36,7 @@
     <div class="doc-campo doc-campo--ancho">
       <label>Vehículo</label>
       <span class="doc-valor">
-        <a [routerLink]="['/motos', o.motoId]" class="codigo">{{ o.matricula }}</a>
+        <a [routerLink]="['/motos', o.motoId]" class="codigo">{{ o.matricula ?? 'Sin matrícula' }}</a>
         <span class="doc-secundario">{{ o.descripcionMoto }}</span>
       </span>
     </div>

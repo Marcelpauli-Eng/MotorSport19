@@ -86,7 +86,7 @@ public interface ActividadJornadaRepository
                    AND cl.created_at >= :desde AND cl.created_at < :hasta
 
                 UNION ALL
-                SELECT mo.created_at, 'MOTO', mo.id, mo.matricula::text, NULL
+                SELECT mo.created_at, 'MOTO', mo.id, COALESCE(mo.matricula, mo.numero_bastidor)::text, NULL
                   FROM moto mo
                  WHERE mo.created_by = :usuarioId
                    AND mo.created_at >= :desde AND mo.created_at < :hasta
@@ -131,7 +131,7 @@ public interface ActividadJornadaRepository
                 -- «abrió la orden» diciendo lo mismo dos veces. Se descartan las
                 -- que coinciden con un hecho ya anotado de la misma persona.
                 UNION ALL
-                SELECT mo.updated_at, 'EDICION', mo.id, mo.matricula::text, 'moto'
+                SELECT mo.updated_at, 'EDICION', mo.id, COALESCE(mo.matricula, mo.numero_bastidor)::text, 'moto'
                   FROM moto mo
                  WHERE mo.updated_by = :usuarioId
                    AND mo.updated_at <> mo.created_at

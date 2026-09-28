@@ -97,7 +97,7 @@ public class MotoService {
         moto.actualizarDatos(matricula, marca, modelo, anio, cilindrada, color, numeroBastidor, observaciones);
         comprobarBastidorLibre(moto.getNumeroBastidor(), id);
 
-        registroActividad.anotar("EDICION", "moto", id, "Editó la moto " + moto.getMatricula());
+        registroActividad.anotar("EDICION", "moto", id, "Editó la moto " + moto.identificador());
         return moto;
     }
 
@@ -124,7 +124,7 @@ public class MotoService {
         }
         moto.cambiarPropietario(nuevo);
         registroActividad.anotar("MOTO", "moto", id,
-                "Cambió el propietario de %s a %s".formatted(moto.getMatricula(), nuevo.nombreCompleto()));
+                "Cambió el propietario de %s a %s".formatted(moto.identificador(), nuevo.nombreCompleto()));
         return moto;
     }
 
@@ -140,7 +140,7 @@ public class MotoService {
         if (abiertas > 0) {
             throw new ConflictoException(
                     ("La moto %s tiene %d orden(es) de trabajo sin cerrar. Cierrelas o recha%celas "
-                     + "antes de darla de baja.").formatted(moto.getMatricula(), abiertas, 'z'));
+                     + "antes de darla de baja.").formatted(moto.identificador(), abiertas, 'z'));
         }
 
         moto.darDeBaja();
@@ -157,6 +157,9 @@ public class MotoService {
     // ------------------------------------------------------------------
 
     private void comprobarMatriculaLibre(String matricula, Long idExcluido) {
+        if (matricula == null) {
+            return;
+        }
         boolean ocupada = idExcluido == null
                 ? motoRepository.existeConMatricula(matricula)
                 : motoRepository.existeOtraConMatricula(matricula, idExcluido);

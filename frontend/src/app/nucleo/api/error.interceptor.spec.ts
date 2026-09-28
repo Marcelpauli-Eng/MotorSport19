@@ -34,6 +34,26 @@ describe('Interceptor de errores', () => {
     return { http: TestBed.inject(HttpClient), red: TestBed.inject(HttpTestingController) };
   }
 
+  it('un PDF que falla dice el motivo del servidor, no uno genérico', async () => {
+    const { http, red } = montar();
+    const peticion = new Promise((terminado) =>
+      http.get('/api/motos/26/historial/pdf', { responseType: 'blob' }).subscribe({ error: terminado }),
+    );
+
+    red.expectOne('/api/motos/26/historial/pdf').flush(
+      new Blob([JSON.stringify({ mensaje: 'Faltan los datos del taller: rellénelos en Ajustes.' })], {
+        type: 'application/json',
+      }),
+      { status: 404, statusText: 'Not Found' },
+    );
+    await peticion;
+
+    expect(avisos.error).toHaveBeenCalledWith(
+      'Faltan los datos del taller: rellénelos en Ajustes.',
+      expect.anything(),
+    );
+  });
+
   it('un cambio que ha quedado pendiente no dice «NO se ha guardado»', () => {
     // Lo que hace el interceptor sin conexión al encolar.
     const { http } = montar(() =>

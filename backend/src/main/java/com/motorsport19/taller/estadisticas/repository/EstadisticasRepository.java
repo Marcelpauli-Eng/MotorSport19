@@ -73,7 +73,7 @@ public class EstadisticasRepository {
             reparto AS (
                 SELECT EXTRACT(MONTH FROM f.fecha_emision)::int AS mes,
                        SUM(CASE WHEN l.tipo = 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS mano_obra,
-                       SUM(CASE WHEN l.tipo = 'PIEZA'        THEN l.base_imponible ELSE 0 END) AS piezas
+                       SUM(CASE WHEN l.tipo <> 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS piezas
                   FROM linea_factura l
                   JOIN factura f ON f.id = l.factura_id
                  WHERE EXTRACT(YEAR FROM f.fecha_emision) = :ejercicio
@@ -199,7 +199,7 @@ public class EstadisticasRepository {
             reparto AS (
                 SELECT c.inicio, c.con_iva,
                        SUM(CASE WHEN l.tipo = 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS mano_obra,
-                       SUM(CASE WHEN l.tipo = 'PIEZA'        THEN l.base_imponible ELSE 0 END) AS piezas
+                       SUM(CASE WHEN l.tipo <> 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS piezas
                   FROM linea_factura l
                   JOIN clasificadas c ON c.id = l.factura_id
                  GROUP BY 1, 2

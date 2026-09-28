@@ -78,7 +78,7 @@
               <td>
                 <div class="celda-doble">
                   <span class="celda-doble__principal">{{ o.descripcionMoto }}</span>
-                  <span class="celda-doble__secundario codigo">{{ o.matricula }}</span>
+                  <span class="celda-doble__secundario codigo">{{ o.matricula ?? 'Sin matrícula' }}</span>
                 </div>
               </td>
               <td><span class="truncado" style="max-width: 190px">{{ o.clienteNombre }}</span></td>

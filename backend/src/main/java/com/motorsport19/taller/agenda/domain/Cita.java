@@ -268,7 +268,7 @@ public class Cita extends EntidadAuditable {
         if (moto != null && !moto.isActivo()) {
             throw new ConflictoException(
                     "La moto %s esta dada de baja: no se le pueden dar citas."
-                            .formatted(moto.getMatricula()));
+                            .formatted(moto.identificador()));
         }
 
         this.motivo = textoONulo(motivo);

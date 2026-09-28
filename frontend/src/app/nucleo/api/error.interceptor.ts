@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { NotificacionesService } from '../servicios/notificaciones.service';
 import { SesionService } from '../servicios/sesion.service';
 import { PENDIENTE, REINTENTO, noLlegoAlServidor } from '../servicios/sin-conexion.service';
@@ -25,6 +25,14 @@ export const errorInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
   const router = inject(Router);
 
   return siguiente(peticion).pipe(
+    // Lo que se pide como fichero (un PDF) trae el error dentro de un Blob. Sin
+    // leerlo, el aviso decía «No se ha encontrado lo que buscaba» en vez del
+    // motivo real, como «Faltan los datos del taller».
+    catchError((error: HttpErrorResponse) =>
+      error.error instanceof Blob && error.error.type.includes('json')
+        ? from(error.error.text()).pipe(switchMap((texto) => throwError(() => conCuerpo(error, texto))))
+        : throwError(() => error),
+    ),
     catchError((error: HttpErrorResponse) => {
       // Se ha quedado en cola sin conexión: ya lo ha dicho quien la encoló, y
       // aquí se diría justo lo contrario («NO se ha guardado»).
@@ -67,6 +75,21 @@ export const errorInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
     }),
   );
 };
+
+/** El mismo error, con el cuerpo JSON ya leído; si no se puede leer, tal cual. */
+function conCuerpo(error: HttpErrorResponse, texto: string): HttpErrorResponse {
+  try {
+    return new HttpErrorResponse({
+      error: JSON.parse(texto),
+      headers: error.headers,
+      status: error.status,
+      statusText: error.statusText,
+      url: error.url ?? undefined,
+    });
+  } catch {
+    return error;
+  }
+}
 
 export function mensajeDe(error: HttpErrorResponse, peticion?: HttpRequest<unknown>): string {
   if (error.status === 0) {

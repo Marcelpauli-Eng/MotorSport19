@@ -29,13 +29,28 @@ export interface ConfiguracionTaller {
   capacidadDiariaHoras: number;
   /** Importe (IVA incluido) a partir del cual una factura ya no puede ser simplificada. */
   limiteFacturaSimplificada: number;
-  /** Familia de pieza que se cobra con tasa de reciclaje. Nula: tasa desactivada. */
-  familiaNeumaticos: string | null;
-  piezaTasaNeumaticoId: number | null;
-  piezaTasaNeumaticoNombre: string | null;
   softwareNombre: string;
   softwareVersion: string;
   tiposIva: TipoIva[];
+}
+
+/**
+ * Tasa o plus que se aplica solo al añadir una pieza a una orden.
+ *
+ * Una TASA añade una línea aparte de `valor` euros por unidad; un PLUS pone un
+ * descuento de `valor` % en la línea de la pieza. Si la regla es de una pieza
+ * concreta, manda sobre la de su grupo.
+ */
+export interface ReglaCobro {
+  id: number;
+  tipo: 'TASA' | 'PLUS';
+  /** El grupo de la regla o, si es de una pieza, el de la pieza. */
+  familia: string | null;
+  /** Nula si vale para todo el grupo. */
+  piezaId: number | null;
+  piezaNombre: string | null;
+  concepto: string | null;
+  valor: number;
 }
 
 export interface Usuario {

@@ -31,7 +31,7 @@ import { environment } from '../../../environments/environment';
 
         <div class="pagina-cabecera">
           <div class="pagina-cabecera__texto">
-            <h1>{{ m.matricula }}</h1>
+            <h1>{{ m.matricula ?? 'Sin matrícula' }}</h1>
             <p class="silenciado pequeno">
               {{ m.descripcion }} · propietario:
               <a [routerLink]="['/clientes', m.clienteId]">{{ m.clienteNombre }}</a>
@@ -166,7 +166,7 @@ export class DetalleMoto {
     if (!m) return;
     this.pdf.abrir(
       `${environment.urlApi}/motos/${m.id}/historial/pdf`,
-      `historial-${m.matricula}.pdf`,
+      `historial-${m.matricula ?? m.numeroBastidor}.pdf`,
     );
   }
 

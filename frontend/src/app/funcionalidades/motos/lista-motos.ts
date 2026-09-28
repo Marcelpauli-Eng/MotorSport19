@@ -88,7 +88,7 @@ import { MotosService } from '../../nucleo/servicios/motos.service';
                   <tr>
                     <td>
                       <div class="fila" style="gap: 6px; flex-wrap: nowrap">
-                        <a [routerLink]="['/motos', m.id]" class="codigo">{{ m.matricula }}</a>
+                        <a [routerLink]="['/motos', m.id]" class="codigo">{{ m.matricula ?? 'Sin matrícula' }}</a>
                         @if (!m.activo) {
                           <span class="etiqueta etiqueta--gris etiqueta--simple">De baja</span>
                         }
@@ -144,7 +144,7 @@ export class ListaMotos {
   protected readonly puedeImportar = inject(SesionService).tienePermiso('MOTOS_CREAR');
 
   protected readonly camposImportacion: CampoImportable[] = [
-    { campo: 'matricula', etiqueta: 'Matrícula', obligatorio: true },
+    { campo: 'matricula', etiqueta: 'Matrícula' },
     { campo: 'cliente', etiqueta: 'Cliente', obligatorio: true, alias: ['propietario', 'titular'] },
     { campo: 'marca', etiqueta: 'Marca', obligatorio: true, oBien: 'denominacion' },
     { campo: 'modelo', etiqueta: 'Modelo', obligatorio: true, oBien: 'denominacion' },
@@ -152,7 +152,7 @@ export class ListaMotos {
     { campo: 'anio', etiqueta: 'Año', tipo: 'entero' },
     { campo: 'cilindrada', etiqueta: 'Cilindrada', alias: ['cc'], tipo: 'entero' },
     { campo: 'color', etiqueta: 'Color' },
-    { campo: 'numeroBastidor', etiqueta: 'Bastidor', alias: ['numero de bastidor', 'vin', 'chasis'] },
+    { campo: 'numeroBastidor', etiqueta: 'Bastidor', obligatorio: true, alias: ['numero de bastidor', 'vin', 'chasis'] },
     { campo: 'kmActual', etiqueta: 'Kilómetros', alias: ['km', 'kilometraje'], tipo: 'entero' },
     { campo: 'observaciones', etiqueta: 'Observaciones', alias: ['notas'] },
   ];

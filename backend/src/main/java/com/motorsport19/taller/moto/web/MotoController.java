@@ -97,7 +97,8 @@ public class MotoController {
 
         // El historial de una moto trae un solo bloque: el suyo.
         String nombre = "historial-%s.pdf".formatted(
-                historial.motos().get(0).vehiculo().matricula().replaceAll("[^A-Za-z0-9-]", ""));
+                Objects.requireNonNullElse(historial.motos().get(0).vehiculo().matricula(),
+                        historial.motos().get(0).vehiculo().bastidor()).replaceAll("[^A-Za-z0-9-]", ""));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"%s\"".formatted(nombre))

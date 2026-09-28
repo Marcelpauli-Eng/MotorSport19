@@ -78,9 +78,9 @@ public record DocumentoImprimible(
     /**
      * La banda de totales del pie.
      *
-     * <p>{@code tasas} y {@code portes} van siempre a cero: el programa no los
-     * gestiona todavia, pero las columnas se imprimen igual porque forman parte
-     * del formato del documento que el taller lleva usando.
+     * <p>{@code importe} no incluye las tasas, que van en su casilla. {@code portes}
+     * va siempre a cero: el programa no los gestiona todavia, pero la columna se
+     * imprime igual porque forma parte del formato que el taller lleva usando.
      */
     public record Totales(
             BigDecimal importe,

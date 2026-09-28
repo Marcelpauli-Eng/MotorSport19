@@ -40,7 +40,7 @@ import zipfile
 
 from arnes import (
     Api, aviso, caso, cliente_facturable, entrar, existencias,
-    matricula, moto_de, nif, pieza_con_stock, resumen, seccion, sku,
+    bastidor, matricula, moto_de, nif, pieza_con_stock, resumen, seccion, sku,
 )
 
 ADMIN = ("admin", "admin1234")
@@ -158,24 +158,26 @@ def s2_datos_maestros(admin: Api) -> dict:
                                "numeroBastidor": f"VIN{SELLO}0099887766"[:20]})
     caso("se da de alta una moto", m1.ok, m1.mensaje)
 
-    mdup = admin.post("/motos", {"clienteId": cid, "matricula": mat, "marca": "X", "modelo": "Y"})
+    mdup = admin.post("/motos", {"clienteId": cid, "matricula": mat, "marca": "X", "modelo": "Y",
+                                 "numeroBastidor": bastidor()})
     caso("no deja repetir matricula", mdup.codigo == 409, f"HTTP {mdup.codigo}")
 
-    minus = admin.post("/motos", {"clienteId": cid, "matricula": mat.lower(), "marca": "X", "modelo": "Y"})
+    minus = admin.post("/motos", {"clienteId": cid, "matricula": mat.lower(), "marca": "X", "modelo": "Y",
+                                 "numeroBastidor": bastidor()})
     caso("la misma matricula en minusculas tampoco cuela", minus.codigo == 409,
          "si no, se duplican fichas de la misma moto")
 
     huerfana = admin.post("/motos", {"clienteId": 999999, "matricula": matricula(),
-                                     "marca": "X", "modelo": "Y"})
+                                     "marca": "X", "modelo": "Y", "numeroBastidor": bastidor()})
     caso("una moto de un cliente inexistente se rechaza", huerfana.codigo in (400, 404),
          f"HTTP {huerfana.codigo}")
 
     futuro = admin.post("/motos", {"clienteId": cid, "matricula": matricula(), "marca": "X",
-                                   "modelo": "Y", "anio": HOY.year + 5})
+                                   "modelo": "Y", "anio": HOY.year + 5, "numeroBastidor": bastidor()})
     caso("un ano de fabricacion en el futuro se rechaza", not futuro.ok, f"HTTP {futuro.codigo}")
 
     kmneg = admin.post("/motos", {"clienteId": cid, "matricula": matricula(), "marca": "X",
-                                  "modelo": "Y", "kmActual": -100})
+                                  "modelo": "Y", "kmActual": -100, "numeroBastidor": bastidor()})
     caso("un kilometraje negativo se rechaza", kmneg.codigo == 400)
 
     atras = admin.put(f"/motos/{m1['id']}/kilometraje", {"km": 100})
@@ -184,6 +186,15 @@ def s2_datos_maestros(admin: Api) -> dict:
 
     adelante = admin.put(f"/motos/{m1['id']}/kilometraje", {"km": 26500})
     caso("si deja actualizar el kilometraje hacia arriba", adelante.ok)
+
+    # Las motos de carreras no tienen matricula; bastidor, todas.
+    carreras = admin.post("/motos", {"clienteId": cid, "marca": "Yamaha", "modelo": "YZF-R6",
+                                     "numeroBastidor": bastidor()})
+    caso("se da de alta una moto sin matricula", carreras.ok and carreras.get("matricula") is None,
+         carreras.mensaje)
+    sin_vin = admin.post("/motos", {"clienteId": cid, "matricula": matricula(), "marca": "X",
+                                    "modelo": "Y"})
+    caso("una moto sin bastidor se rechaza", sin_vin.codigo == 400, f"HTTP {sin_vin.codigo}")
 
     # --- piezas
     p_sku = sku("FIL")
@@ -1380,7 +1391,8 @@ def s14_concurrencia(admin: Api, datos: dict) -> None:
     mat = matricula()
     cid = [r for r in dos if r.ok][0]["id"]
     motos = a_la_vez(5, lambda _: admin.post("/motos", {"clienteId": cid, "matricula": mat,
-                                                        "marca": "X", "modelo": "Y"}))
+                                                        "marca": "X", "modelo": "Y",
+                                                        "numeroBastidor": bastidor()}))
     caso("cinco altas simultaneas de la misma matricula crean UNA sola moto",
          len([r for r in motos if r.ok]) == 1, f"{len([r for r in motos if r.ok])} creadas")
 
@@ -1576,11 +1588,16 @@ def s17_auditoria(admin: Api, datos: dict) -> None:
     caso("las observaciones del alta de cliente se guardan", obs.get("observaciones") == "Llamar por la tarde",
          str(obs.get("observaciones")))
 
-    # --- tasa de reciclaje: tantas tasas como neumaticos
+    # --- tasas y pluses: tantas tasas como neumaticos, y el plus pone su descuento
     neumatico = pieza_con_stock(admin, unidades=20, familia=f"Neumaticos {SELLO}")
-    tasa = pieza_con_stock(admin, unidades=100, venta="1.50", familia="Tasas")
-    admin.put("/configuracion/tasa-neumatico", {"familiaNeumaticos": neumatico["familia"],
-                                                "piezaTasaId": tasa["id"]})
+    oferta = pieza_con_stock(admin, unidades=20, familia=f"Neumaticos {SELLO}")
+    regla_tasa = admin.post("/configuracion/reglas", {"tipo": "TASA", "familia": neumatico["familia"],
+                                                      "concepto": f"Tasa NFU {SELLO}", "valor": "1.50"})
+    regla_plus = admin.post("/configuracion/reglas", {"tipo": "PLUS", "familia": oferta["familia"],
+                                                      "piezaId": oferta["id"], "valor": "15"})
+    repetida = admin.post("/configuracion/reglas", {"tipo": "TASA", "familia": neumatico["familia"],
+                                                    "concepto": "Otra", "valor": "2"})
+    caso("no se puede poner dos tasas para el mismo grupo", repetida.codigo == 409, f"HTTP {repetida.codigo}")
     cli = cliente_facturable(admin, "Neumaticos")
     moto = moto_de(admin, cli["id"])
     oid = admin.post("/ordenes", {"motoId": moto["id"], "kmEntrada": 10,
@@ -1588,18 +1605,22 @@ def s17_auditoria(admin: Api, datos: dict) -> None:
     admin.post(f"/ordenes/{oid}/preparacion")
     admin.post(f"/ordenes/{oid}/lineas/piezas", {"piezaId": neumatico["id"], "cantidad": "2"})
 
-    def cantidad(pieza_id):
-        return next((float(l["cantidad"]) for l in admin.get(f"/ordenes/{oid}/lineas").cuerpo
-                     if l["piezaId"] == pieza_id), None)
+    def tasa():
+        return next((l for l in admin.get(f"/ordenes/{oid}/lineas").cuerpo if l["tipo"] == "TASA"), None)
 
-    caso("dos neumaticos llevan dos tasas", cantidad(tasa["id"]) == 2.0, str(cantidad(tasa["id"])))
+    caso("dos neumaticos llevan dos tasas al importe de la regla",
+         tasa() is not None and float(tasa()["cantidad"]) == 2.0 and float(tasa()["precioUnitario"]) == 1.5,
+         str(tasa()))
     linea = next(l for l in admin.get(f"/ordenes/{oid}/lineas").cuerpo if l["piezaId"] == neumatico["id"])
     admin.put(f"/ordenes/{oid}/lineas/{linea['id']}/cantidad", {"cantidad": "4"})
-    caso("al pasar a cuatro neumaticos la tasa sube a cuatro", cantidad(tasa["id"]) == 4.0,
-         str(cantidad(tasa["id"])))
+    caso("al pasar a cuatro neumaticos la tasa sube a cuatro", float(tasa()["cantidad"]) == 4.0, str(tasa()))
     admin.delete(f"/ordenes/{oid}/lineas/{linea['id']}")
-    caso("sin neumaticos no se cobra tasa", cantidad(tasa["id"]) is None, str(cantidad(tasa["id"])))
-    admin.put("/configuracion/tasa-neumatico", {"familiaNeumaticos": None, "piezaTasaId": None})
+    caso("sin neumaticos no se cobra tasa", tasa() is None, str(tasa()))
+    con_plus = admin.post(f"/ordenes/{oid}/lineas/piezas", {"piezaId": oferta["id"], "cantidad": "1"})
+    caso("la pieza con plus nace con su descuento", float(con_plus.get("descuentoPct") or 0) == 15.0,
+         str(con_plus.get("descuentoPct")))
+    admin.delete(f"/configuracion/reglas/{regla_tasa['id']}")
+    admin.delete(f"/configuracion/reglas/{regla_plus['id']}")
 
     # --- corregir solo una parte de una factura, y no anularla dos veces
     cli = cliente_facturable(admin, "Corrige")
@@ -1739,12 +1760,15 @@ def s18_importacion(admin: Api, tecnico: Api) -> None:
     mat1, mat2 = matricula(), matricula()
     motos = admin.post("/motos/importacion", [
         {"cliente": doc, "matricula": mat1, "marca": "Yamaha", "modelo": "MT-07", "anio": "2021",
-         "kmActual": "12000"},
+         "kmActual": "12000", "numeroBastidor": bastidor()},
         # Sin apellidos y en mayusculas: la ficha dice «Importada…».
-        {"cliente": sin_doc.upper(), "matricula": mat2, "marca": "Honda", "modelo": "PCX"},
-        {"cliente": "Nadie Que Exista", "matricula": matricula(), "marca": "X", "modelo": "Y"},
-        {"cliente": doc, "matricula": mat1, "marca": "Yamaha", "modelo": "MT-07"},
-        {"cliente": doc, "matricula": matricula(), "marca": "Yamaha", "modelo": "R1", "anio": "abc"},
+        {"cliente": sin_doc.upper(), "matricula": mat2, "marca": "Honda", "modelo": "PCX",
+         "numeroBastidor": bastidor()},
+        {"cliente": "Nadie Que Exista", "matricula": matricula(), "marca": "X", "modelo": "Y",
+         "numeroBastidor": bastidor()},
+        {"cliente": doc, "matricula": mat1, "marca": "Yamaha", "modelo": "MT-07", "numeroBastidor": bastidor()},
+        {"cliente": doc, "matricula": matricula(), "marca": "Yamaha", "modelo": "R1", "anio": "abc",
+         "numeroBastidor": bastidor()},
     ])
     caso("da de alta las motos y rechaza cliente inexistente, matricula repetida y año ilegible",
          motos.ok and motos.get("creadas") == 2 and filas_rechazadas(motos) == [3, 4, 5], str(motos.cuerpo)[:300])
@@ -1770,7 +1794,8 @@ def s18_importacion(admin: Api, tecnico: Api) -> None:
 
     # --- NEXTGO exporta marca y modelo juntos en la denominacion
     mat3 = matricula()
-    junta = admin.post("/motos/importacion", [{"cliente": doc, "matricula": mat3, "denominacion": "  Aprilia RS 660"}])
+    junta = admin.post("/motos/importacion", [{"cliente": doc, "matricula": mat3, "denominacion": "  Aprilia RS 660",
+                                                "numeroBastidor": bastidor()}])
     m3 = admin.get(f"/motos/matricula/{mat3}")
     caso("marca y modelo que vienen juntos en la denominacion se separan",
          junta.ok and junta.get("creadas") == 1 and m3.get("marca") == "Aprilia" and m3.get("modelo") == "RS 660",

@@ -68,7 +68,7 @@
                 <option [ngValue]="null">Elige la moto…</option>
                 @for (m of motosDelCliente(); track m.id) {
                   <option [ngValue]="m.id">
-                    {{ m.matricula }} · {{ m.descripcion }}
+                    {{ m.matricula ?? 'Sin matrícula' }} · {{ m.descripcion }}
                     @if (m.anio) { ({{ m.anio }}) }
                     — {{ m.kmActual | number: '1.0-0' : 'es' }} km
                   </option>

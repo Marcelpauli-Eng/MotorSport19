@@ -47,3 +47,5 @@ infra/respaldo/rclone.conf
 # «Fichero 2.java» junto a «Fichero.java»: aparecen solas al sincronizar y
 # rompen la compilacion (clase duplicada). Nunca deben entrar al repositorio.
 * [0-9].*
+comercial/*.mp4
+__pycache__/

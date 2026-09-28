@@ -97,7 +97,7 @@ export interface OrdenSinFacturar {
   codigo: string;
   estado: string;
   cliente: string;
-  matricula: string;
+  matricula: string | null;
   salida: string | null;
   /** Suma de sus líneas, con IVA: lo que se le cobraría tal cual está. */
   importe: number;

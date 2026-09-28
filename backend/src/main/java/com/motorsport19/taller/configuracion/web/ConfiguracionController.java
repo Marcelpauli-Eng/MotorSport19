@@ -1,12 +1,14 @@
 package com.motorsport19.taller.configuracion.web;
 
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
-import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.inventario.domain.Pieza;
 import com.motorsport19.taller.inventario.repository.PiezaRepository;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
+import com.motorsport19.taller.configuracion.domain.ReglaCobro;
 import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
+import com.motorsport19.taller.configuracion.repository.ReglaCobroRepository;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -14,11 +16,16 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -39,12 +46,15 @@ public class ConfiguracionController {
     private final ConfiguracionTallerRepository repositorio;
     private final TipoIvaRepository tiposIva;
     private final PiezaRepository piezas;
+    private final ReglaCobroRepository reglas;
 
     public ConfiguracionController(ConfiguracionTallerRepository repositorio,
-                                   TipoIvaRepository tiposIva, PiezaRepository piezas) {
+                                   TipoIvaRepository tiposIva, PiezaRepository piezas,
+                                   ReglaCobroRepository reglas) {
         this.repositorio = repositorio;
         this.tiposIva = tiposIva;
         this.piezas = piezas;
+        this.reglas = reglas;
     }
 
     /**
@@ -81,39 +91,66 @@ public class ConfiguracionController {
         return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
     }
 
-    /**
-     * Configura la tasa de reciclaje de neumaticos, o la desactiva.
-     *
-     * <p>Endpoint propio y no un par de campos mas en el PUT de arriba: aquello
-     * son los datos fiscales del taller y esto es una regla de cobro. Mezclarlas
-     * obligaria a reenviar la razon social y el NIF para cambiar un desplegable.
-     *
-     * <p>Con cualquiera de los dos vacios queda desactivada, que es como sale de
-     * fabrica y como se queda un taller que no vende neumaticos.
-     */
-    @PutMapping("/tasa-neumatico")
-    @Transactional
-    public ConfiguracionResponse configurarTasaNeumatico(@Valid @RequestBody TasaNeumaticoRequest peticion) {
-        // Sin fila no se puede crear una a medias: la razon social y el NIF son
-        // obligatorios en la base, y guardarla vacia reventaba con la sentencia SQL
-        // entera como mensaje.
-        ConfiguracionTaller cfg = repositorio.findById(ConfiguracionTaller.ID_UNICO)
-                .orElseThrow(() -> new ReglaNegocioException(
-                        "Guarde primero los datos de la empresa; despues podra configurar la tasa de neumaticos."));
+    // ==================================================================
+    // Tasas y pluses
+    // ==================================================================
 
-        Pieza tasa = peticion.piezaTasaId() == null ? null
-                : piezas.findById(peticion.piezaTasaId()).orElseThrow(
-                        () -> RecursoNoEncontradoException.de("la pieza de la tasa",
-                                peticion.piezaTasaId()));
-
-        cfg.configurarTasaNeumatico(peticion.familiaNeumaticos(), tasa);
-        return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
+    /** Las tasas y los pluses que se aplican solos al anadir una pieza a una orden. */
+    @GetMapping("/reglas")
+    @Transactional(readOnly = true)
+    public List<ReglaResponse> reglas() {
+        return reglas.findAll().stream().map(ReglaResponse::de).toList();
     }
 
-    /** @param piezaTasaId nulo para desactivar la tasa */
-    public record TasaNeumaticoRequest(
-            @Size(max = 60, message = "La familia no puede superar los 60 caracteres") String familiaNeumaticos,
-            Long piezaTasaId) {
+    @PostMapping("/reglas")
+    @Transactional
+    public ReglaResponse crearRegla(@Valid @RequestBody ReglaRequest peticion) {
+        Pieza pieza = peticion.piezaId() == null ? null
+                : piezas.findById(peticion.piezaId()).orElseThrow(
+                        () -> RecursoNoEncontradoException.de("la pieza", peticion.piezaId()));
+        ReglaCobro nueva = ReglaCobro.crear(peticion.tipo(), peticion.familia(), pieza,
+                peticion.concepto(), peticion.valor());
+        // La base ya lo impide, pero con la sentencia SQL entera como mensaje.
+        if (reglas.findAll().stream().anyMatch(nueva::mismaQue)) {
+            throw new ConflictoException(nueva.getTipo() == ReglaCobro.Tipo.TASA
+                    ? "Ya hay una tasa para eso. Quita la que hay si quieres cambiarla."
+                    : "Ya hay un plus para eso. Quita el que hay si quieres cambiarlo.");
+        }
+        return ReglaResponse.de(reglas.save(nueva));
+    }
+
+    @DeleteMapping("/reglas/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void borrarRegla(@PathVariable Long id) {
+        reglas.delete(reglas.findById(id).orElseThrow(
+                () -> RecursoNoEncontradoException.de("la regla", id)));
+    }
+
+    /**
+     * @param familia el grupo; se ignora si viene la pieza
+     * @param piezaId nulo para aplicarla a todo el grupo
+     * @param valor   euros por unidad en una tasa, tanto por ciento en un plus
+     */
+    public record ReglaRequest(
+            @NotNull(message = "Indica si es una tasa o un plus") ReglaCobro.Tipo tipo,
+            @Size(max = 60, message = "El grupo no puede superar los 60 caracteres") String familia,
+            Long piezaId,
+            @Size(max = 300, message = "El concepto no puede superar los 300 caracteres") String concepto,
+            @NotNull(message = "Indica el valor") BigDecimal valor) {
+    }
+
+    /** @param familia el grupo de la regla o, si es de una pieza, el de la pieza */
+    public record ReglaResponse(Long id, ReglaCobro.Tipo tipo, String familia, Long piezaId,
+                                String piezaNombre, String concepto, BigDecimal valor) {
+        static ReglaResponse de(ReglaCobro r) {
+            Pieza p = r.getPieza();
+            return new ReglaResponse(r.getId(), r.getTipo(),
+                    p == null ? r.getFamilia() : p.getFamilia(),
+                    p == null ? null : p.getId(),
+                    p == null ? null : p.getSku() + " · " + p.getDescripcion(),
+                    r.getConcepto(), r.getValor());
+        }
     }
 
     /** Lo que se puede cambiar, mas el catalogo de IVA para el desplegable. */
@@ -125,9 +162,6 @@ public class ConfiguracionController {
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
             BigDecimal capacidadDiariaHoras,
             BigDecimal limiteFacturaSimplificada,
-            String familiaNeumaticos,
-            Long piezaTasaNeumaticoId,
-            String piezaTasaNeumaticoNombre,
             String softwareNombre, String softwareVersion,
             List<TipoIvaResponse> tiposIva
     ) {
@@ -138,11 +172,6 @@ public class ConfiguracionController {
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
                     c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
                     c.getLimiteFacturaSimplificada(),
-                    c.getFamiliaNeumaticos(),
-                    c.getPiezaTasaNeumatico() == null ? null : c.getPiezaTasaNeumatico().getId(),
-                    c.getPiezaTasaNeumatico() == null ? null
-                            : c.getPiezaTasaNeumatico().getSku() + " · "
-                              + c.getPiezaTasaNeumatico().getDescripcion(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }
@@ -155,8 +184,6 @@ public class ConfiguracionController {
                     null, "GENERAL", null,
                     // El tope que trae la instalacion de serie; la gestoria lo confirma.
                     ConfiguracionTaller.LIMITE_SIMPLIFICADA_POR_DEFECTO,
-                    // Sin estrenar no hay tasa de neumaticos: se configura si el taller los vende.
-                    null, null, null,
                     ConfiguracionTaller.SOFTWARE_NOMBRE, ConfiguracionTaller.SOFTWARE_VERSION,
                     tipos.stream().map(TipoIvaResponse::de).toList());
         }

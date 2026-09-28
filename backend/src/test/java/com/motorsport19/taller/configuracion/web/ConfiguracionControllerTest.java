@@ -1,6 +1,5 @@
 package com.motorsport19.taller.configuracion.web;
 
-import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
@@ -18,7 +17,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
@@ -85,18 +83,6 @@ class ConfiguracionControllerTest {
             assertThat(guardada.getValue().getSoftwareNombre())
                     .isEqualTo(ConfiguracionTaller.SOFTWARE_NOMBRE);
             assertThat(respuesta.configurado()).isTrue();
-        }
-
-        @Test
-        @DisplayName("la tasa de neumaticos pide antes los datos de la empresa, sin tocar la base")
-        void tasaSinDatosDeEmpresa() {
-            when(repositorio.findById(ConfiguracionTaller.ID_UNICO)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> controlador.configurarTasaNeumatico(
-                    new ConfiguracionController.TasaNeumaticoRequest("Neumaticos", null)))
-                    .isInstanceOf(ReglaNegocioException.class)
-                    .hasMessageContaining("datos de la empresa");
-            org.mockito.Mockito.verify(repositorio, org.mockito.Mockito.never()).save(any());
         }
     }
 

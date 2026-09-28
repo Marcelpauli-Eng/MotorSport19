@@ -85,7 +85,7 @@ public record OrdenTrabajoResponse(
         BigDecimal iva = sumar(lineas, LineaOT::getCuotaIva);
         BigDecimal total = sumar(lineas, LineaOT::getTotal);
         BigDecimal horas = lineas.stream()
-                .filter(l -> !l.esDePieza())
+                .filter(LineaOT::esManoDeObra)
                 .map(LineaOT::getCantidad)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 

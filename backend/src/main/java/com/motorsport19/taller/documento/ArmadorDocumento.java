@@ -39,8 +39,11 @@ public class ArmadorDocumento {
         List<DocumentoImprimible.Linea> filas = new ArrayList<>();
         agrupar(filas, lineas);
 
-        BigDecimal bruto = suma(lineas, LineaOT::importeBruto);
-        BigDecimal descuento = suma(lineas, LineaOT::importeDescuento);
+        // Las tasas van en su casilla, no en el importe: importe - dto. + tasas = base.
+        List<LineaOT> tasas = lineas.stream().filter(l -> l.getTipo() == TipoLinea.TASA).toList();
+        List<LineaOT> resto = lineas.stream().filter(l -> l.getTipo() != TipoLinea.TASA).toList();
+        BigDecimal bruto = suma(resto, LineaOT::importeBruto);
+        BigDecimal descuento = suma(resto, LineaOT::importeDescuento);
         BigDecimal base = suma(lineas, LineaOT::getBaseImponible);
         BigDecimal iva = suma(lineas, LineaOT::getCuotaIva);
 
@@ -62,7 +65,8 @@ public class ArmadorDocumento {
                 orden.getFechaEntrada().atZone(java.time.ZoneId.of("Europe/Madrid"))
                         .toLocalDate().plusDays(DIAS_VALIDEZ),
                 filas,
-                totales(bruto, descuento, base, iva, porcentajeDominante(lineas)),
+                totales(bruto, descuento, suma(tasas, LineaOT::getBaseImponible), base, iva,
+                        porcentajeDominante(lineas)),
                 orden.getObservaciones());
     }
 
@@ -71,10 +75,12 @@ public class ArmadorDocumento {
         List<DocumentoImprimible.Linea> filas = new ArrayList<>();
         agruparFactura(filas, lineas);
 
-        BigDecimal bruto = lineas.stream().map(LineaFactura::importeBruto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal descuento = lineas.stream().map(LineaFactura::importeDescuento)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal bruto = lineas.stream().filter(l -> l.getTipo() != TipoLinea.TASA)
+                .map(LineaFactura::importeBruto).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal descuento = lineas.stream().filter(l -> l.getTipo() != TipoLinea.TASA)
+                .map(LineaFactura::importeDescuento).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal tasas = lineas.stream().filter(l -> l.getTipo() == TipoLinea.TASA)
+                .map(l -> l.importes().baseImponible()).reduce(BigDecimal.ZERO, BigDecimal::add);
 
         var receptor = factura.getDatosReceptor();
 
@@ -106,7 +112,7 @@ public class ArmadorDocumento {
                 "CONTADO",
                 null,
                 filas,
-                totales(bruto, descuento, factura.getBaseImponible(), factura.getTotalIva(),
+                totales(bruto, descuento, tasas, factura.getBaseImponible(), factura.getTotalIva(),
                         porcentajeDominanteFactura(lineas)),
                 null);
     }
@@ -121,12 +127,12 @@ public class ArmadorDocumento {
      */
     private void agrupar(List<DocumentoImprimible.Linea> destino, List<LineaOT> lineas) {
         anadirBloque(destino, "MANO DE OBRA",
-                lineas.stream().filter(l -> !l.esDePieza()).toList(),
+                lineas.stream().filter(LineaOT::esManoDeObra).toList(),
                 l -> CODIGO_MANO_OBRA, LineaOT::getDescripcion, LineaOT::getCantidad,
                 LineaOT::getPrecioUnitario, LineaOT::getDescuentoPct, LineaOT::getBaseImponible);
 
         anadirBloque(destino, "MATERIAL",
-                lineas.stream().filter(LineaOT::esDePieza).toList(),
+                lineas.stream().filter(l -> !l.esManoDeObra()).toList(),
                 l -> l.skuPieza() == null ? "" : l.skuPieza(), LineaOT::getDescripcion,
                 LineaOT::getCantidad, LineaOT::getPrecioUnitario, LineaOT::getDescuentoPct,
                 LineaOT::getBaseImponible);
@@ -134,13 +140,13 @@ public class ArmadorDocumento {
 
     private void agruparFactura(List<DocumentoImprimible.Linea> destino, List<LineaFactura> lineas) {
         anadirBloque(destino, "MANO DE OBRA",
-                lineas.stream().filter(l -> l.getTipo() != TipoLinea.PIEZA).toList(),
+                lineas.stream().filter(l -> l.getTipo() == TipoLinea.MANO_DE_OBRA).toList(),
                 l -> CODIGO_MANO_OBRA, LineaFactura::getDescripcion, LineaFactura::getCantidad,
                 LineaFactura::getPrecioUnitario, LineaFactura::getDescuentoPct,
                 l -> l.importes().baseImponible());
 
         anadirBloque(destino, "MATERIAL",
-                lineas.stream().filter(l -> l.getTipo() == TipoLinea.PIEZA).toList(),
+                lineas.stream().filter(l -> l.getTipo() != TipoLinea.MANO_DE_OBRA).toList(),
                 l -> l.getPiezaSku() == null ? "" : l.getPiezaSku(), LineaFactura::getDescripcion,
                 LineaFactura::getCantidad, LineaFactura::getPrecioUnitario,
                 LineaFactura::getDescuentoPct, l -> l.importes().baseImponible());
@@ -181,15 +187,16 @@ public class ArmadorDocumento {
     /**
      * Las casillas del formato que el programa aun no gestiona van a cero.
      *
-     * <p>Tasas, portes, descuentos globales e IRPF forman parte del documento
-     * que usa el taller. Se imprimen a cero en vez de quitarlas: el papel sigue
-     * siendo el mismo, y el dia que hagan falta ya tienen su sitio.
+     * <p>Portes, descuentos globales e IRPF forman parte del documento que usa
+     * el taller. Se imprimen a cero en vez de quitarlas: el papel sigue siendo
+     * el mismo, y el dia que hagan falta ya tienen su sitio, como lo tenian las
+     * tasas.
      */
     private DocumentoImprimible.Totales totales(BigDecimal bruto, BigDecimal descuento,
-                                                BigDecimal base, BigDecimal iva,
+                                                BigDecimal tasas, BigDecimal base, BigDecimal iva,
                                                 BigDecimal porcentajeIva) {
         return new DocumentoImprimible.Totales(
-                bruto, descuento, CERO, CERO, CERO,
+                bruto, descuento, tasas, CERO, CERO,
                 base, porcentajeIva, iva,
                 CERO, CERO,
                 base.add(iva));

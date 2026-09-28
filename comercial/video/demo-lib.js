@@ -7,8 +7,10 @@
   const cuadro = () => new Promise((r) => requestAnimationFrame(r));
 
   // Los diálogos nativos no salen en la grabación: se aceptan solos y se enseñan con dialogo().
+  // Las respuestas a prompt() se ponen en cola desde el guion con clic(..., { respuestas }).
+  const respuestas = [];
   window.confirm = () => true;
-  window.prompt = (_m, d) => d || 'Visto bueno';
+  window.prompt = (_m, d) => (respuestas.length ? respuestas.shift() : d ?? '');
   window.open = () => null;
 
   function montar() {
@@ -18,6 +20,10 @@
       #demo-capa { position: fixed; inset: 0; pointer-events: none; z-index: 2147483600; }
       #demo-cursor { position: fixed; left: 0; top: 0; width: 30px; height: 30px; z-index: 2147483647; pointer-events: none;
         filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); will-change: transform; }
+      #demo-cursor.tactil { width: 38px; height: 38px; border-radius: 50%; background: rgba(20,23,31,.28); border: 2px solid rgba(255,255,255,.95);
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,.35)); }
+      .demo-dialogo input { display: block; width: 100%; margin: -8px 0 20px; font: 14px Inter, system-ui, sans-serif; padding: 8px 10px;
+        border: 2px solid #0b57d0; border-radius: 6px; color: #1f1f1f; }
       .demo-onda { position: fixed; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%;
         background: rgba(255,0,109,.35); border: 2px solid #ff006d; z-index: 2147483646; pointer-events: none;
         animation: demo-onda .55s ease-out forwards; }
@@ -48,7 +54,8 @@
     document.body.appendChild(capa);
     const cursor = document.createElement('div');
     cursor.id = 'demo-cursor';
-    cursor.innerHTML = `<svg viewBox="0 0 30 30" width="30" height="30"><path d="M5 3 L5 24 L10.5 18.8 L14.2 27 L18 25.3 L14.3 17.3 L21.5 17.3 Z" fill="#111" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+    if (window.__tactil) cursor.className = 'tactil';
+    else cursor.innerHTML = `<svg viewBox="0 0 30 30" width="30" height="30"><path d="M5 3 L5 24 L10.5 18.8 L14.2 27 L18 25.3 L14.3 17.3 L21.5 17.3 Z" fill="#111" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
     document.body.appendChild(cursor);
     colocar(pos.x, pos.y);
   }
@@ -57,7 +64,7 @@
   function colocar(x, y) {
     pos.x = x; pos.y = y;
     const c = document.getElementById('demo-cursor');
-    if (c) c.style.transform = `translate(${x - 5}px, ${y - 3}px)`;
+    if (c) c.style.transform = window.__tactil ? `translate(${x - 19}px, ${y - 19}px)` : `translate(${x - 5}px, ${y - 3}px)`;
   }
 
   function buscar(q) {
@@ -114,13 +121,15 @@
     setTimeout(() => o.remove(), 700);
   }
 
-  async function clic(q, { antes = 180, despues = 350, dx = 0, dy = 0, confirmar = null } = {}) {
+  async function clic(q, { antes = 180, despues = 350, dx = 0, dy = 0, confirmar = null, dialogos = [], respuestas: r = [] } = {}) {
     const el = await mover(q, 700, dx, dy);
     await e(antes);
     onda();
     await e(90);
     // El diálogo nativo que saldría en el navegador, pintado para que se vea en el vídeo.
     if (confirmar) await dialogo(confirmar.titulo, confirmar.texto);
+    for (const dl of dialogos) await dialogo(dl.titulo, dl.texto, 'Aceptar', dl.entrada);
+    respuestas.push(...r);
     if (el.matches('input, textarea, select')) el.focus();
     el.click();
     await e(despues);
@@ -136,6 +145,17 @@
       await e(ms + Math.random() * ms * 0.6);
     }
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    return el;
+  }
+
+  // Para campos que no se teclean (fecha y hora): clic y valor puesto de una vez.
+  async function fijar(q, valor) {
+    const el = await clic(q, { despues: 300 });
+    el.value = valor;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.blur();
+    await e(400);
     return el;
   }
 
@@ -189,18 +209,26 @@
     raiz.style.transition = ''; raiz.style.transform = '';
   }
 
-  async function dialogo(titulo, texto, boton = 'Aceptar') {
+  async function dialogo(titulo, texto, boton = 'Aceptar', entrada = null) {
     montar();
     const velo = document.createElement('div');
     velo.className = 'demo-velo';
     velo.style.background = 'rgba(0,0,0,.18)';
-    velo.innerHTML = `<div class="demo-dialogo"><h4></h4><p></p><div class="botones"><button>Cancelar</button><button class="si"></button></div></div>`;
+    velo.innerHTML = `<div class="demo-dialogo"><h4></h4><p></p>${entrada !== null ? '<input>' : ''}<div class="botones"><button>Cancelar</button><button class="si"></button></div></div>`;
     velo.querySelector('h4').textContent = titulo;
     velo.querySelector('p').textContent = texto;
     velo.querySelector('.si').textContent = boton;
     document.body.appendChild(velo);
     await cuadro(); velo.classList.add('visible');
-    await e(1900);
+    if (entrada !== null) {
+      // Lo que escribe la persona en el prompt, letra a letra.
+      await e(600);
+      const inp = velo.querySelector('input');
+      for (const ch of entrada) { inp.value += ch; await e(70 + Math.random() * 40); }
+      await e(700);
+    } else {
+      await e(1900);
+    }
     await clic(velo.querySelector('.si'), { despues: 120 });
     velo.classList.remove('visible');
     await e(350);
@@ -232,6 +260,6 @@
     visor.remove(); visor = null;
   }
 
-  window.__demo = { e, montar, colocar, mover, clic, escribir, elegir, desplazar, zoom, sinZoom, dialogo, pdf, pdfDesplazar, cerrarPdf, esperarA, buscar, pos };
+  window.__demo = { e, montar, colocar, mover, clic, escribir, fijar, elegir, desplazar, zoom, sinZoom, dialogo, pdf, pdfDesplazar, cerrarPdf, esperarA, buscar, pos };
   if (document.body) montar(); else addEventListener('DOMContentLoaded', montar);
 })();

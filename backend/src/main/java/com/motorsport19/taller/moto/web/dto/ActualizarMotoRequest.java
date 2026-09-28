@@ -11,7 +11,6 @@ import jakarta.validation.constraints.Size;
  */
 public record ActualizarMotoRequest(
 
-        @NotBlank(message = "La matricula es obligatoria")
         @Size(max = 15, message = "La matricula no puede superar los 15 caracteres")
         String matricula,
 
