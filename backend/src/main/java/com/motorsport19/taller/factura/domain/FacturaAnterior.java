@@ -76,6 +76,10 @@ public class FacturaAnterior {
     @Column(name = "total", nullable = false, precision = 12, scale = 2)
     private BigDecimal total;
 
+    /** La orden de trabajo que factura, si se cargo tambien su presupuesto (V26). */
+    @Column(name = "orden_trabajo_id")
+    private Long ordenTrabajoId;
+
     @OneToMany(mappedBy = "factura")
     @OrderBy("numeroLinea ASC")
     private List<LineaFacturaAnterior> lineas = new ArrayList<>();

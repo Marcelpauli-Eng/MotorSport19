@@ -295,6 +295,7 @@ public class EstadisticasRepository {
                AND NOT EXISTS (SELECT 1 FROM factura f
                                 WHERE f.orden_trabajo_id = o.id
                                   AND f.tipo = 'ORDINARIA')
+               AND NOT EXISTS (SELECT 1 FROM factura_anterior fa WHERE fa.orden_trabajo_id = o.id)
              GROUP BY o.id, o.codigo, o.estado, c.nombre, c.apellidos, m.matricula, o.fecha_real_salida
              ORDER BY 7 DESC
             """).getResultList();

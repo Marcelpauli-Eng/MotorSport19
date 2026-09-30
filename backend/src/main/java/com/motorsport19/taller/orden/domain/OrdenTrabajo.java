@@ -24,6 +24,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.Generated;
 import org.hibernate.generator.EventType;
 
@@ -138,6 +139,10 @@ public class OrdenTrabajo extends EntidadAuditable {
 
     @Column(name = "observaciones", columnDefinition = "text")
     private String observaciones;
+
+    /** Ya la facturo el programa anterior (V26): no admite otra factura. */
+    @Formula("(EXISTS (SELECT 1 FROM factura_anterior fa WHERE fa.orden_trabajo_id = id))")
+    private boolean facturadaEnProgramaAnterior;
 
     @OneToMany(mappedBy = "ordenTrabajo", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("numeroLinea ASC")
@@ -537,7 +542,7 @@ public class OrdenTrabajo extends EntidadAuditable {
     }
 
     public boolean puedeFacturarse() {
-        return estado.permiteFacturar();
+        return estado.permiteFacturar() && !facturadaEnProgramaAnterior;
     }
 
     // ==================================================================

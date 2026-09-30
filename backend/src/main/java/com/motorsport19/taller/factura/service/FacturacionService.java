@@ -219,6 +219,11 @@ public class FacturacionService {
     public Factura emitirDesdeOrden(Long ordenId, Long serieId, LocalDate fechaEmision, Long usuarioId) {
         OrdenTrabajo orden = ordenService.obtener(ordenId);
 
+        if (orden.isFacturadaEnProgramaAnterior()) {
+            throw new ConflictoException(
+                    "La orden %s ya se facturo con el programa anterior: su factura esta en la ficha de la moto."
+                            .formatted(orden.codigoVisible()));
+        }
         if (!orden.puedeFacturarse()) {
             throw new ConflictoException(
                     ("La orden %s esta en estado %s. Solo se factura una orden LISTA o ENTREGADA.")
