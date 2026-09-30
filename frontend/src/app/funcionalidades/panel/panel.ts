@@ -166,4 +166,8 @@ export class Panel {
     { estado: 'ESPERANDO_PIEZAS', titulo: 'Esperando piezas' },
     { estado: 'LISTA', titulo: 'Listas para entregar' },
   ];
+
+  protected verPdf(f: FacturaResumen): void {
+    this.facturas.abrirPdfDe(f);
+  }
 }

@@ -171,19 +171,26 @@
             </tr>
           </thead>
           <tbody>
-            @for (f of facturas(); track f.id) {
-              <tr [class.fila--marcada]="estaMarcada(f.id)">
+            @for (f of facturas(); track (f.anterior ? 'a' : 'f') + f.id) {
+              <tr [class.fila--marcada]="!f.anterior && estaMarcada(f.id)">
                 <td class="col-marca">
-                  <input
-                    type="checkbox"
-                    [checked]="estaMarcada(f.id)"
-                    (change)="alternarSeleccion.emit(f.id)"
-                    [attr.aria-label]="'Seleccionar la factura ' + f.numeroCompleto"
-                  />
+                  @if (!f.anterior) {
+                    <input
+                      type="checkbox"
+                      [checked]="estaMarcada(f.id)"
+                      (change)="alternarSeleccion.emit(f.id)"
+                      [attr.aria-label]="'Seleccionar la factura ' + f.numeroCompleto"
+                    />
+                  }
                 </td>
                 <td>
                   <div class="celda-doble">
-                    <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
+                    @if (f.anterior) {
+                      <a href="" class="codigo" (click)="$event.preventDefault(); abrirPdf.emit(f)">{{ f.numeroCompleto }}</a>
+                      <span class="celda-doble__secundario">de NEXTGO, el programa anterior</span>
+                    } @else {
+                      <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
+                    }
                     @if (f.tipo === 'RECTIFICATIVA') {
                       <span class="celda-doble__secundario">
                         rectificativa@if (f.rectificaA) { de {{ f.rectificaA }} }
@@ -205,7 +212,7 @@
                   <button
                     type="button"
                     class="boton boton--pequeno"
-                    (click)="abrirPdf.emit(f.id)"
+                    (click)="abrirPdf.emit(f)"
                     title="Ver el PDF de la factura"
                   >
                     <app-icono nombre="documento" [tamano]="14" />

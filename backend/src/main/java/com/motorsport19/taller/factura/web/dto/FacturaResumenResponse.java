@@ -1,6 +1,7 @@
 package com.motorsport19.taller.factura.web.dto;
 
 import com.motorsport19.taller.factura.domain.Factura;
+import com.motorsport19.taller.factura.domain.FacturaAnterior;
 import com.motorsport19.taller.factura.domain.TipoFactura;
 
 import java.math.BigDecimal;
@@ -28,7 +29,12 @@ public record FacturaResumenResponse(
         String rectificaA,
         String huella,
         /** Sin datos fiscales del cliente: el antiguo tique. */
-        boolean simplificada
+        boolean simplificada,
+        /**
+         * Del programa anterior: {@code id} es el de su archivo (su PDF esta en
+         * /facturas-anteriores/{id}/pdf) y no tiene ficha, registro ni huella.
+         */
+        boolean anterior
 ) {
 
     public static FacturaResumenResponse de(Factura f) {
@@ -47,6 +53,16 @@ public record FacturaResumenResponse(
                 f.getMatricula(),
                 f.getFacturaRectificada() == null ? null : f.getFacturaRectificada().getNumeroCompleto(),
                 f.getHuella(),
-                f.isSimplificada());
+                f.isSimplificada(),
+                false);
+    }
+
+    public static FacturaResumenResponse de(FacturaAnterior f) {
+        return new FacturaResumenResponse(
+                f.getId(), null, f.getNumero(), TipoFactura.ORDINARIA, f.getFecha(),
+                f.getReceptorNombre(), f.getReceptorNif(),
+                f.getBaseImponible(), f.getTotalIva(), f.getTotal(),
+                null, f.getMoto() == null ? null : f.getMoto().getMatricula(),
+                null, null, false, true);
     }
 }
