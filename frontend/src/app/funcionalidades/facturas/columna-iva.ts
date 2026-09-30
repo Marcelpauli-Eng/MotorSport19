@@ -1,10 +1,16 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
-import { ColumnaIva } from '../../nucleo/modelos/estadisticas';
-import { FacturaResumen } from '../../nucleo/modelos/facturacion';
+import { ColumnaIva, MesIva } from '../../nucleo/modelos/estadisticas';
+import { FacturaResumen, numeroVisible } from '../../nucleo/modelos/facturacion';
+
+/** Un mes del mes a mes: el que se elige para ver sus facturas. */
+export interface MesElegido {
+  anio: number;
+  mes: number;
+}
 
 /**
  * Una de las dos mitades del libro de facturas: las que llevan IVA o las
@@ -44,6 +50,14 @@ export class ColumnaIvaComponente {
   /** Marca o desmarca de golpe las facturas visibles en esta página. */
   readonly alternarPagina = output<boolean>();
 
+  /** Mes cuyas facturas enseña la lista, o null para las de todo el periodo. */
+  readonly mes = input<MesElegido | null>(null);
+  readonly elegirMes = output<MesElegido | null>();
+
+  private readonly lista = viewChild<ElementRef<HTMLElement>>('lista');
+
+  protected readonly numeroVisible = numeroVisible;
+
   /** Con IVA a la izquierda, 0 % a la derecha: cambia el color y el texto. */
   protected readonly conIva = computed(() => this.resumen()?.conIva ?? true);
 
@@ -73,11 +87,30 @@ export class ColumnaIvaComponente {
 
   protected readonly hayMovimiento = computed(() => (this.resumen()?.numeroFacturas ?? 0) > 0);
 
+  protected esElegido(m: MesIva): boolean {
+    const e = this.mes();
+    return e !== null && e.anio === m.anio && e.mes === m.mes;
+  }
+
+  /** «Sep 2026 · 10» no decía cuáles: al pulsarlo, la lista de abajo enseña esas diez. */
+  protected alternarMes(m: MesIva): void {
+    if (!m.numeroFacturas) return;
+    if (this.esElegido(m)) return this.elegirMes.emit(null);
+    this.elegirMes.emit({ anio: m.anio, mes: m.mes });
+    this.lista()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  protected readonly etiquetaElegida = computed(
+    () => this.resumen()?.meses.find((m) => this.esElegido(m))?.etiqueta ?? null,
+  );
+
   protected estaMarcada(id: number): boolean {
     return this.seleccionadas().has(id);
   }
 
   /** La casilla de la cabecera solo sale marcada si lo están todas las de la página. */
+  protected readonly haySeleccionables = computed(() => this.facturas().some((f) => !f.anterior));
+
   protected readonly paginaEntera = computed(() => {
     // Las de NEXTGO no se seleccionan: el ZIP es para la gestoría y esas ya las entregó aquel programa.
     const filas = this.facturas().filter((f) => !f.anterior);

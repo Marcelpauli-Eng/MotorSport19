@@ -77,6 +77,8 @@
   .columnas-iva { grid-template-columns: minmax(0, 1fr); }
 }
 
+.columnas-iva--una { grid-template-columns: minmax(0, 1fr); }
+
 /*
   Barra de la selección. Se queda pegada arriba al desplazar: las facturas que
   se van marcando están repartidas entre las dos columnas y el botón de

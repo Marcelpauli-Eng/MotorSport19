@@ -111,11 +111,25 @@
           </thead>
           <tbody>
             @for (m of meses(); track m.anio * 100 + m.mes) {
-              <tr [class.mes--vacio]="m.numeroFacturas === 0">
+              <tr
+                [class.mes--vacio]="m.numeroFacturas === 0"
+                [class.mes--con-facturas]="m.numeroFacturas > 0"
+                [class.mes--elegido]="esElegido(m)"
+                (click)="alternarMes(m)"
+              >
                 <td class="sin-envolver">
-                  {{ m.etiqueta }}
                   @if (m.numeroFacturas) {
-                    <span class="pequeno silenciado">· {{ m.numeroFacturas }}</span>
+                    <!-- El clic lo recoge la fila; el botón está para el teclado. -->
+                    <button
+                      type="button"
+                      class="mes__boton"
+                      [attr.aria-pressed]="esElegido(m)"
+                      [title]="esElegido(m) ? 'Volver a todas las facturas' : 'Ver las facturas de este mes'"
+                    >
+                      {{ m.etiqueta }} <span class="pequeno silenciado">· {{ m.numeroFacturas }}</span>
+                    </button>
+                  } @else {
+                    {{ m.etiqueta }}
                   }
                 </td>
                 <td class="num importe">{{ m.totalFacturado | number: '1.2-2' : 'es' }}</td>
@@ -136,12 +150,18 @@
           </tfoot>
         </table>
       </div>
+      <p class="pequeno silenciado ayuda-meses">Pulsa un mes para ver abajo solo sus facturas.</p>
 
     <!-- Facturas de esta columna -->
-    <h3 class="subtitulo">
-      Facturas
-      @if (totalItems()) {
-        <span class="pequeno silenciado">{{ totalItems() }} en el periodo</span>
+    <h3 class="subtitulo lista__titulo" #lista>
+      @if (etiquetaElegida(); as e) {
+        Facturas de {{ e }}
+        <button type="button" class="boton boton--pequeno" (click)="elegirMes.emit(null)">Ver todas</button>
+      } @else {
+        Facturas
+        @if (totalItems()) {
+          <span class="pequeno silenciado">{{ totalItems() }} en el periodo</span>
+        }
       }
     </h3>
 
@@ -155,17 +175,17 @@
           <thead>
             <tr>
               <th class="col-marca">
-                <input
-                  type="checkbox"
-                  [checked]="paginaEntera()"
-                  (change)="alternarPagina.emit(!paginaEntera())"
-                  [attr.aria-label]="'Seleccionar las facturas de esta página'"
-                />
+                @if (haySeleccionables()) {
+                  <input
+                    type="checkbox"
+                    [checked]="paginaEntera()"
+                    (change)="alternarPagina.emit(!paginaEntera())"
+                    [attr.aria-label]="'Seleccionar las facturas de esta página'"
+                  />
+                }
               </th>
-              <th>Número</th>
+              <th>Factura</th>
               <th>Fecha</th>
-              <th>Cliente</th>
-              <th class="num">Base</th>
               <th class="num">Total</th>
               <th></th>
             </tr>
@@ -186,11 +206,19 @@
                 <td>
                   <div class="celda-doble">
                     @if (f.anterior) {
-                      <a href="" class="codigo" (click)="$event.preventDefault(); abrirPdf.emit(f)">{{ f.numeroCompleto }}</a>
-                      <span class="celda-doble__secundario">de NEXTGO, el programa anterior</span>
+                      <a
+                        href=""
+                        class="codigo"
+                        [title]="f.numeroCompleto + ' · del programa anterior: se abre su PDF'"
+                        (click)="$event.preventDefault(); abrirPdf.emit(f)"
+                        >{{ numeroVisible(f) }}</a
+                      >
                     } @else {
                       <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
                     }
+                    <span class="celda-doble__secundario">
+                      {{ f.receptorNombre }}@if (f.matricula) { · {{ f.matricula }} }
+                    </span>
                     @if (f.tipo === 'RECTIFICATIVA') {
                       <span class="celda-doble__secundario">
                         rectificativa@if (f.rectificaA) { de {{ f.rectificaA }} }
@@ -201,12 +229,13 @@
                 <td class="silenciado sin-envolver">
                   {{ f.fechaEmision | date: 'd MMM yy' : undefined : 'es' }}
                 </td>
-                <td>
-                  <span class="truncado">{{ f.receptorNombre }}</span>
-                </td>
-                <td class="num importe silenciado">{{ f.baseImponible | number: '1.2-2' : 'es' }}</td>
-                <td class="num importe importe--fuerte" [class.negativo]="f.total < 0">
-                  {{ f.total | number: '1.2-2' : 'es' }}
+                <td class="num">
+                  <div class="celda-doble total-y-base">
+                    <span class="importe importe--fuerte" [class.negativo]="f.total < 0">
+                      {{ f.total | number: '1.2-2' : 'es' }}
+                    </span>
+                    <span class="celda-doble__secundario">base {{ f.baseImponible | number: '1.2-2' : 'es' }}</span>
+                  </div>
                 </td>
                 <td class="num">
                   <button

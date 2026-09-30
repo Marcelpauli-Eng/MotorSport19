@@ -142,6 +142,29 @@
    apaga para que no compita con los que sí tienen movimiento. */
 .mes--vacio td { color: var(--gris-400); }
 
+/* Un mes con facturas se pulsa para verlas abajo. */
+.mes--con-facturas { cursor: pointer; }
+.mes--con-facturas:hover td { background: var(--gris-50); }
+.mes--elegido td { background: var(--marca-tenue); }
+.mes__boton {
+  all: unset;
+  cursor: pointer;
+  border-bottom: 1px dotted currentColor;
+}
+.mes__boton:focus-visible { outline: 2px solid var(--gris-900); outline-offset: 2px; }
+
+.lista__titulo {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  flex-wrap: wrap;
+  scroll-margin-top: var(--e6);
+}
+
+.total-y-base { align-items: flex-end; }
+/* La tabla va a sangre dentro de la tarjeta (margen negativo): se compensa. */
+.ayuda-meses { margin-top: calc(var(--e5) + var(--e2)); }
+
 /* ---------- Selección para la descarga agrupada ---------- */
 
 .col-marca {
