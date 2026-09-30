@@ -1,6 +1,10 @@
 <app-dialogo
-  titulo="Nueva orden de trabajo"
-  subtitulo="Entra una moto en el taller"
+  [titulo]="solicitud() ? 'El cliente acepta el presupuesto' : 'Nueva orden de trabajo'"
+  [subtitulo]="
+    solicitud()
+      ? 'Se abre la orden con las líneas del presupuesto, ya aprobada. Da de alta al cliente y su moto si aún no lo son.'
+      : 'Entra una moto en el taller'
+  "
   (cerrar)="cerrar.emit()"
 >
   <!-- ====== Paso 1: Cliente ====== -->
@@ -195,6 +199,8 @@
     <button type="button" class="boton boton--principal" [disabled]="!puedeGuardar()" (click)="guardar()">
       @if (enviando()) {
         Abriendo…
+      } @else if (solicitud()) {
+        Abrir la orden
       } @else if (camino() === 'preparar') {
         Abrir y preparar
       } @else {
@@ -208,6 +214,7 @@
 
 @if (creandoCliente()) {
   <app-formulario-cliente
+    [borrador]="borradorCliente()"
     (cerrar)="creandoCliente.set(false)"
     (guardado)="trasCrearCliente($event)"
   />
@@ -216,6 +223,7 @@
 @if (creandoMoto()) {
   <app-formulario-moto
     [clienteFijado]="clienteId()"
+    [borrador]="borradorMoto()"
     (cerrar)="creandoMoto.set(false)"
     (guardado)="trasCrearMoto($event)"
   />

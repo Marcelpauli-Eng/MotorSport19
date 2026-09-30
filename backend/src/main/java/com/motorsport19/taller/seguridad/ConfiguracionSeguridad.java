@@ -189,8 +189,14 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/cita").access(AuthorizationManagers.allOf(
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.AGENDA_GESTIONAR))))
-                // Mandar un presupuesto es poner precio: pide tambien ver importes.
-                .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/presupuesto").access(AuthorizationManagers.allOf(
+                // Aceptar el presupuesto abre la orden y la aprueba: pide los dos permisos.
+                .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/presupuesto/aceptacion").access(AuthorizationManagers.allOf(
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.IMPORTES_VER)),
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.ORDENES_ABRIR)),
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.ORDENES_APROBAR))))
+                // Montar y mandar un presupuesto es poner precio: pide tambien ver importes.
+                .requestMatchers("/solicitudes-web/*/presupuesto", "/solicitudes-web/*/presupuesto/**").access(AuthorizationManagers.allOf(
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.IMPORTES_VER))))
                 .requestMatchers("/solicitudes-web/**").hasAuthority(p(Permiso.SOLICITUDES_WEB))

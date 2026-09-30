@@ -530,98 +530,23 @@ public class OrdenTrabajoService {
         return linea;
     }
 
-    /**
-     * Anade la linea de una pieza con el plus que le toque.
-     *
-     * <p>El descuento puesto a mano manda; si no hay ninguno, el plus que tenga
-     * la pieza o su grupo en Ajustes &gt; Tasas y pluses. En tanto por ciento va
-     * como descuento de la linea; en euros baja el precio de cada unidad.
-     */
+    // Pluses y tasas: los mismos que en el presupuesto de una solicitud web (CobroDePiezas).
+
     private static LineaOT anadirConPlus(OrdenTrabajo orden, List<ReglaCobro> reglas, Pieza pieza,
                                          BigDecimal cantidad, BigDecimal descuentoPct,
                                          BigDecimal porcentajeIva) {
-        ReglaCobro plus = descuentoPct != null && descuentoPct.signum() > 0 ? null
-                : ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.PLUS, pieza).orElse(null);
-        BigDecimal descuento = plus != null && plus.enPorcentaje() ? plus.getValor() : descuentoPct;
-        LineaOT linea = orden.anadirPieza(pieza, cantidad, descuento, porcentajeIva);
-        if (plus != null && !plus.enPorcentaje()) {
-            linea.rebajarPrecio(plus.getValor());
-        }
-        return linea;
+        return CobroDePiezas.anadirConPlus(orden, reglas, pieza, cantidad, descuentoPct, porcentajeIva);
     }
 
-    /**
-     * Anade la tasa que acompana a una pieza, si su regla la pide.
-     *
-     * <p>La tasa de gestion del neumatico fuera de uso se repercute como
-     * concepto aparte, no sumada al precio, asi que en el presupuesto es una
-     * linea mas. Es la linea que se olvida: nadie echa en falta un euro y medio
-     * hasta que la gestoria pregunta.
-     *
-     * <p>Tantas tasas como piezas, en una sola linea por concepto. Si ya hay una
-     * de una pieza anterior se le suma la cantidad en vez de repetir el
-     * concepto: dos neumaticos son dos tasas, pero en la factura del cliente eso
-     * es una linea de dos unidades, no dos lineas de una.
-     *
-     * <p>Una tasa en tanto por ciento va sobre lo que se cobra por la pieza, ya
-     * con su descuento o su plus.
-     *
-     * <p>Devuelve la linea de la tasa, o nulo si la pieza no lleva.
-     */
+    /** Devuelve la linea de la tasa, o nulo si la pieza no lleva. */
     private LineaOT anadirTasa(OrdenTrabajo orden, List<ReglaCobro> reglas, LineaOT lineaPieza,
                                BigDecimal cantidad) {
-        ReglaCobro regla = ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.TASA, lineaPieza.getPieza())
-                .orElse(null);
-        if (regla == null) {
-            return null;
-        }
-        BigDecimal importe = regla.importeDeTasa(lineaPieza.precioNeto());
-        LineaOT yaPuesta = lineaDeTasa(orden, regla, importe);
-        if (yaPuesta != null) {
-            yaPuesta.cambiarCantidad(yaPuesta.getCantidad().add(cantidad), null);
-            return yaPuesta;
-        }
-        TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, null));
-        return orden.anadirTasa(regla.getConcepto(), cantidad, importe, tipoIva.getCodigo(),
-                tipoIva.getPorcentaje());
+        return CobroDePiezas.anadirTasa(orden, reglas, lineaPieza, cantidad,
+                () -> cargarTipoIva(tipoDeLaLinea(orden, null)));
     }
 
-    /**
-     * Mueve la tasa lo mismo que se ha movido su pieza.
-     *
-     * <p>Al cambiar la cantidad de un neumatico o quitarlo, la tasa tiene que
-     * seguirle: si no, cuatro neumaticos salian con dos tasas, y sin ningun
-     * neumatico la tasa se seguia cobrando. Solo se corrige la linea de tasa que
-     * ya haya; si alguien la quito a mano, no se vuelve a poner.
-     */
     private void moverTasa(OrdenTrabajo orden, LineaOT lineaPieza, BigDecimal diferencia) {
-        if (lineaPieza.getPieza() == null || diferencia.signum() == 0) {
-            return;
-        }
-        ReglaCobro.laQueManda(reglaRepository.findAll(), ReglaCobro.Tipo.TASA, lineaPieza.getPieza())
-                .map(regla -> lineaDeTasa(orden, regla, regla.importeDeTasa(lineaPieza.precioNeto())))
-                .ifPresent(tasa -> {
-                    BigDecimal nueva = tasa.getCantidad().add(diferencia);
-                    if (nueva.signum() > 0) {
-                        tasa.cambiarCantidad(nueva, null);
-                    } else {
-                        orden.quitarLinea(tasa);
-                    }
-                });
-    }
-
-    /**
-     * La linea de la orden que ya cobra esa tasa: se reconoce por su concepto.
-     * Una en tanto por ciento, ademas, por su importe: dos neumaticos de precio
-     * distinto pagan tasas distintas y no caben en una linea.
-     */
-    private static LineaOT lineaDeTasa(OrdenTrabajo orden, ReglaCobro regla, BigDecimal importe) {
-        return orden.getLineas().stream()
-                .filter(l -> l.getTipo() == TipoLinea.TASA
-                        && l.getDescripcion().equalsIgnoreCase(regla.getConcepto())
-                        && (!regla.enPorcentaje() || l.getPrecioUnitario().compareTo(importe) == 0))
-                .findFirst()
-                .orElse(null);
+        CobroDePiezas.moverTasa(orden, reglaRepository.findAll(), lineaPieza, diferencia);
     }
 
     /**

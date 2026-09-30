@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { CanalPresupuesto, EstadoSolicitud, SolicitudWeb } from '../modelos/solicitudes';
+import { EstadoSolicitud, SolicitudWeb } from '../modelos/solicitudes';
 import { DatosCita } from './citas.service';
 
 @Injectable({ providedIn: 'root' })
@@ -42,17 +42,6 @@ export class SolicitudesService {
   /** Apunta la cita en la agenda y cierra la solicitud, todo de una vez. */
   darCita(id: number, datos: DatosCita): Observable<SolicitudWeb> {
     return this.http.post<SolicitudWeb>(`${this.base}/${id}/cita`, datos);
-  }
-
-  /**
-   * Apunta el presupuesto que se le manda. El mensaje sale del WhatsApp o del
-   * correo de quien lo atiende; aquí solo queda constancia de cuánto y por dónde.
-   */
-  enviarPresupuesto(
-    id: number,
-    datos: { importe: number; detalle: string | null; canal: CanalPresupuesto },
-  ): Observable<SolicitudWeb> {
-    return this.http.post<SolicitudWeb>(`${this.base}/${id}/presupuesto`, datos);
   }
 
   marcarAtendida(id: number, nota: string | null): Observable<SolicitudWeb> {

@@ -52,6 +52,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./funcionalidades/solicitudes/bandeja-solicitudes').then((m) => m.BandejaSolicitudes),
       },
+      // El presupuesto de una solicitud se monta en la misma pantalla que el de una orden.
+      {
+        path: 'solicitudes/:id/presupuesto',
+        title: 'Presupuesto web · MotorSport19',
+        canActivate: [permisoGuard('SOLICITUDES_WEB')],
+        data: { web: true },
+        loadComponent: () =>
+          import('./funcionalidades/ordenes/presupuesto-orden').then((m) => m.PresupuestoOrden),
+      },
 
       {
         path: 'ordenes',

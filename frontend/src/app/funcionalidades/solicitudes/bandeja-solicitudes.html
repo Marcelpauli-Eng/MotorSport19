@@ -104,6 +104,9 @@
               @if (s.presupuestoDetalle) {
                 <p class="prosa">{{ s.presupuestoDetalle }}</p>
               }
+              @if (puedePresupuestar) {
+                <a class="pequeno" [routerLink]="['/solicitudes', s.id, 'presupuesto']">Ver el presupuesto</a>
+              }
             </div>
           }
 
@@ -115,26 +118,43 @@
               @if (s.citaFechaHora) {
                 Cita el {{ s.citaFechaHora | date: "EEEE d 'de' MMMM 'a las' HH:mm" : undefined : 'es' }}.
               }
+              @if (s.ordenTrabajoId) {
+                <a [routerLink]="['/ordenes', s.ordenTrabajoId]">Ver la orden {{ s.ordenTrabajoCodigo }}</a>
+              }
             </p>
             @if (s.nota) {
               <p class="prosa">{{ s.nota }}</p>
             }
+          } @else if (s.estado === 'PRESUPUESTADA') {
+            <!-- Mandado: se espera la respuesta del cliente. -->
+            <div class="fila solicitud__acciones">
+              <button type="button" class="boton boton--plano" (click)="abrirCierre(s, 'rechazar')">
+                Rechaza
+              </button>
+              @if (puedePresupuestar) {
+                <button type="button" class="boton" [disabled]="trabajando()" (click)="reescribir(s)">
+                  Reescribir presupuesto
+                </button>
+              }
+              @if (puedeAceptar) {
+                <button type="button" class="boton boton--principal" (click)="aceptando.set(s)">Acepta</button>
+              }
+            </div>
           } @else {
-            <!-- El botón principal es el siguiente paso natural: si pidió presupuesto
-                 y aún no se le ha mandado, mandárselo; si no, darle cita. -->
-            @let primeroPresupuesto = s.tipo === 'PRESUPUESTO' && s.estado === 'PENDIENTE';
+            <!-- El botón principal es el siguiente paso natural: si pidió presupuesto,
+                 hacérselo; si no, darle cita. -->
+            @let primeroPresupuesto = s.tipo === 'PRESUPUESTO';
             <div class="fila solicitud__acciones">
               <button type="button" class="boton boton--plano" (click)="abrirCierre(s, 'descartar')">Descartar</button>
               <button type="button" class="boton" (click)="abrirCierre(s, 'atender')">Marcar atendida</button>
               @if (puedePresupuestar) {
-                <button
-                  type="button"
+                <a
                   class="boton"
                   [class.boton--principal]="primeroPresupuesto"
-                  (click)="presupuestando.set(s)"
+                  [routerLink]="['/solicitudes', s.id, 'presupuesto']"
                 >
-                  {{ s.presupuestadaEn ? 'Volver a enviar presupuesto' : 'Enviar presupuesto' }}
-                </button>
+                  {{ s.presupuestadaEn ? 'Seguir con el presupuesto' : 'Hacer presupuesto' }}
+                </a>
               }
               @if (puedeDarCita) {
                 <button
@@ -163,13 +183,24 @@
   />
 }
 
-@if (presupuestando(); as s) {
-  <app-enviar-presupuesto [solicitud]="s" (cerrar)="presupuestando.set(null)" (enviado)="trasPresupuestar()" />
+@if (aceptando(); as s) {
+  <app-formulario-orden
+    [solicitud]="s"
+    caminoFijo="revisar"
+    (cerrar)="aceptando.set(null)"
+    (aceptada)="trasAceptar($event)"
+  />
 }
 
 @if (cerrando(); as c) {
   <app-dialogo
-    [titulo]="c.accion === 'atender' ? 'Marcar como atendida' : 'Descartar solicitud'"
+    [titulo]="
+      c.accion === 'atender'
+        ? 'Marcar como atendida'
+        : c.accion === 'rechazar'
+          ? 'El cliente rechaza el presupuesto'
+          : 'Descartar solicitud'
+    "
     [subtitulo]="c.s.nombre + ' · ' + c.s.descripcionMoto"
     (cerrar)="cerrando.set(null)"
   >
@@ -185,7 +216,9 @@
         [placeholder]="
           c.accion === 'atender'
             ? 'Presupuesto dado por teléfono: 180 € con montaje.'
-            : 'Duplicada, spam, ya no la necesita…'
+            : c.accion === 'rechazar'
+              ? 'Le parece caro, lo hará en otro taller…'
+              : 'Duplicada, spam, ya no la necesita…'
         "
       ></textarea>
     </div>
@@ -196,11 +229,19 @@
         type="button"
         class="boton"
         [class.boton--principal]="c.accion === 'atender'"
-        [class.boton--peligro]="c.accion === 'descartar'"
+        [class.boton--peligro]="c.accion !== 'atender'"
         [disabled]="trabajando()"
         (click)="confirmarCierre()"
       >
-        {{ trabajando() ? 'Guardando…' : c.accion === 'atender' ? 'Marcar atendida' : 'Descartar' }}
+        {{
+          trabajando()
+            ? 'Guardando…'
+            : c.accion === 'atender'
+              ? 'Marcar atendida'
+              : c.accion === 'rechazar'
+                ? 'Rechazado'
+                : 'Descartar'
+        }}
       </button>
     </ng-container>
   </app-dialogo>

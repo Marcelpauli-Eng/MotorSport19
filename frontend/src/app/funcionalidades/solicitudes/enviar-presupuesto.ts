@@ -2,9 +2,9 @@ import { Component, computed, effect, inject, input, output, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { Dialogo } from '../../compartido/dialogo';
 import { Icono } from '../../compartido/icono';
-import { CanalPresupuesto, SolicitudWeb } from '../../nucleo/modelos/solicitudes';
+import { CanalPresupuesto, PresupuestoWeb, SolicitudWeb } from '../../nucleo/modelos/solicitudes';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
-import { SolicitudesService } from '../../nucleo/servicios/solicitudes.service';
+import { PresupuestosWebService } from '../../nucleo/servicios/presupuestos-web.service';
 
 type Idioma = SolicitudWeb['idioma'];
 
@@ -54,12 +54,12 @@ const PLANTILLAS: Record<Idioma, { asunto: string; cuerpo: string }> = {
 const IDIOMAS: Record<Idioma, string> = { es: 'castellano', ca: 'catalán', en: 'inglés', fr: 'francés' };
 
 /**
- * Presupuesto para una solicitud de la web, enviado por WhatsApp o por email.
+ * Manda el presupuesto de una solicitud web por WhatsApp o por email.
  *
  * <p>No manda nada por su cuenta: abre WhatsApp o el correo de quien lo atiende
- * con el mensaje ya escrito, que es desde donde el taller habla con sus clientes.
- * Antes de abrirlo apunta en la solicitud cuánto y por dónde, y la deja
- * presupuestada: si el cliente acepta, se le da cita desde la bandeja.
+ * con el mensaje ya escrito en el idioma del cliente, con las líneas y el total.
+ * Antes de abrirlo apunta en la solicitud por dónde se mandó y la deja
+ * presupuestada, a la espera de que el cliente acepte o no.
  */
 @Component({
   selector: 'app-enviar-presupuesto',
@@ -68,54 +68,44 @@ const IDIOMAS: Record<Idioma, string> = { es: 'castellano', ca: 'catalán', en: 
   templateUrl: './enviar-presupuesto.html',
 })
 export class EnviarPresupuesto {
-  private readonly servicio = inject(SolicitudesService);
+  private readonly servicio = inject(PresupuestosWebService);
   private readonly notificaciones = inject(NotificacionesService);
 
-  readonly solicitud = input.required<SolicitudWeb>();
+  readonly presupuesto = input.required<PresupuestoWeb>();
   readonly cerrar = output<void>();
   readonly enviado = output<void>();
 
-  protected readonly detalle = signal('');
-  protected readonly importe = signal<number | null>(null);
   protected readonly mensaje = signal('');
   /** En cuanto se retoca el mensaje a mano, deja de rehacerse solo. */
   protected readonly retocado = signal(false);
   protected readonly enviando = signal(false);
 
-  protected readonly idioma = computed(() => IDIOMAS[this.solicitud().idioma]);
-  protected readonly moto = computed(() => `${this.solicitud().marca} ${this.solicitud().modelo}`);
+  protected readonly idioma = computed(() => IDIOMAS[this.presupuesto().idioma]);
 
   protected readonly asunto = computed(() =>
-    PLANTILLAS[this.solicitud().idioma].asunto.replace('{moto}', this.moto()),
+    PLANTILLAS[this.presupuesto().idioma].asunto.replace('{moto}', this.presupuesto().descripcionMoto),
   );
 
-  protected readonly puedeEnviar = computed(
-    () => !this.enviando() && (this.importe() ?? 0) > 0 && !!this.mensaje().trim(),
-  );
+  protected readonly puedeEnviar = computed(() => !this.enviando() && !!this.mensaje().trim());
 
   constructor() {
-    // Si ya se le mandó uno, se parte de él para corregirlo.
-    queueMicrotask(() => {
-      const s = this.solicitud();
-      this.detalle.set(s.presupuestoDetalle ?? '');
-      this.importe.set(s.presupuestoImporte);
-    });
-
     effect(() => {
       if (this.retocado()) return;
-      const s = this.solicitud();
-      const importe = this.importe();
-      const detalle = this.detalle().trim();
-      const cantidad =
-        importe && importe > 0
-          ? new Intl.NumberFormat(LOCALE[s.idioma], { style: 'currency', currency: 'EUR' }).format(importe)
-          : '…';
+      const p = this.presupuesto();
+      const euros = (n: number | null) =>
+        new Intl.NumberFormat(LOCALE[p.idioma], { style: 'currency', currency: 'EUR' }).format(n ?? 0);
+      const numero = (n: number) => new Intl.NumberFormat(LOCALE[p.idioma]).format(n);
+      // Las tasas van al final, como en el PDF.
+      const lineas = [...p.lineas]
+        .sort((a, b) => Number(a.tipo === 'TASA') - Number(b.tipo === 'TASA'))
+        .map((l) => `• ${l.descripcion}${l.cantidad !== 1 ? ` (x${numero(l.cantidad)})` : ''}: ${euros(l.total)}`)
+        .join('\n');
       this.mensaje.set(
-        PLANTILLAS[s.idioma].cuerpo
-          .replace('{nombre}', s.nombre.split(/\s+/)[0])
-          .replaceAll('{moto}', this.moto())
-          .replace('{detalle}', detalle ? `${detalle}\n\n` : '')
-          .replace('{importe}', cantidad),
+        PLANTILLAS[p.idioma].cuerpo
+          .replace('{nombre}', p.clienteNombre.split(/\s+/)[0])
+          .replaceAll('{moto}', p.descripcionMoto)
+          .replace('{detalle}', lineas ? `${lineas}\n\n` : '')
+          .replace('{importe}', euros(p.total)),
       );
     });
   }
@@ -125,36 +115,38 @@ export class EnviarPresupuesto {
     this.retocado.set(true);
   }
 
+  protected descargarPdf(): void {
+    this.servicio.abrirPresupuestoPdf(this.presupuesto().id);
+  }
+
   protected enviar(canal: CanalPresupuesto): void {
     if (!this.puedeEnviar()) return;
-    const s = this.solicitud();
+    const p = this.presupuesto();
     const texto = this.mensaje().trim();
     // La pestaña de WhatsApp se abre ya, dentro del clic: si se abriera al volver
     // la respuesta, el navegador la tomaría por una ventana emergente y la bloquearía.
     const pestana = canal === 'WHATSAPP' ? window.open('', '_blank') : null;
     this.enviando.set(true);
 
-    this.servicio
-      .enviarPresupuesto(s.id, { importe: this.importe()!, detalle: this.detalle().trim() || null, canal })
-      .subscribe({
-        next: () => {
-          this.enviando.set(false);
-          if (canal === 'WHATSAPP') {
-            const url = enlaceWhatsapp(s.telefono, texto);
-            if (pestana) pestana.location.href = url;
-            else window.open(url, '_blank');
-          } else {
-            window.location.href =
-              `mailto:${s.email}?subject=${encodeURIComponent(this.asunto())}&body=${encodeURIComponent(texto)}`;
-          }
-          this.notificaciones.exito('Presupuesto apuntado. Queda esperando respuesta en «Presupuestadas».');
-          this.enviado.emit();
-        },
-        // El interceptor ya enseña el motivo: por ejemplo, que otro puesto la cerró antes.
-        error: () => {
-          this.enviando.set(false);
-          pestana?.close();
-        },
-      });
+    this.servicio.enviar(p.id, canal).subscribe({
+      next: () => {
+        this.enviando.set(false);
+        if (canal === 'WHATSAPP') {
+          const url = enlaceWhatsapp(p.clienteTelefono ?? '', texto);
+          if (pestana) pestana.location.href = url;
+          else window.open(url, '_blank');
+        } else {
+          window.location.href =
+            `mailto:${p.clienteEmail}?subject=${encodeURIComponent(this.asunto())}&body=${encodeURIComponent(texto)}`;
+        }
+        this.notificaciones.exito('Presupuesto enviado. Queda esperando respuesta en «Presupuestadas».');
+        this.enviado.emit();
+      },
+      // El interceptor ya enseña el motivo: por ejemplo, que otro puesto la cerró antes.
+      error: () => {
+        this.enviando.set(false);
+        pestana?.close();
+      },
+    });
   }
 }

@@ -18,7 +18,7 @@ public interface SolicitudWebRepository extends JpaRepository<SolicitudWeb, Long
      * <p>Con tope: las pendientes de un taller son unas pocas, y de las cerradas
      * solo interesan las ultimas.
      */
-    @EntityGraph(attributePaths = {"cita", "atendidaPor", "presupuestadaPor"})
+    @EntityGraph(attributePaths = {"cita", "atendidaPor", "presupuestadaPor", "ordenTrabajo"})
     List<SolicitudWeb> findTop200ByEstadoOrderByRecibidaEnDesc(EstadoSolicitud estado);
 
     /**
@@ -26,7 +26,7 @@ public interface SolicitudWebRepository extends JpaRepository<SolicitudWeb, Long
      * fuera de la transacción (open-in-view está apagado) y sin esto la cita o
      * quien la atendió llegarían como proxies sin sesión.
      */
-    @EntityGraph(attributePaths = {"cita", "atendidaPor", "presupuestadaPor"})
+    @EntityGraph(attributePaths = {"cita", "atendidaPor", "presupuestadaPor", "ordenTrabajo"})
     Optional<SolicitudWeb> findConRelacionesById(Long id);
 
     long countByEstado(EstadoSolicitud estado);

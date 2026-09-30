@@ -1,3 +1,5 @@
+import { OrdenTrabajo } from './taller';
+
 export type TipoSolicitud = 'CITA' | 'PRESUPUESTO';
 export type EstadoSolicitud = 'PENDIENTE' | 'PRESUPUESTADA' | 'ATENDIDA' | 'DESCARTADA';
 export type CanalPresupuesto = 'WHATSAPP' | 'EMAIL';
@@ -39,4 +41,40 @@ export interface SolicitudWeb {
   nota: string | null;
   atendidaEn: string | null;
   atendidaPor: string | null;
+  /** La orden que se abrió al aceptar el presupuesto. */
+  ordenTrabajoId: number | null;
+  ordenTrabajoCodigo: string | null;
+}
+
+/**
+ * Presupuesto de una solicitud web. Lleva los mismos nombres que el de una
+ * orden porque se monta en la misma pantalla.
+ */
+export interface PresupuestoWeb
+  extends Pick<
+    OrdenTrabajo,
+    | 'id'
+    | 'codigo'
+    | 'estadoDescripcion'
+    | 'permiteEditarLineas'
+    | 'matricula'
+    | 'descripcionMoto'
+    | 'clienteNombre'
+    | 'clienteTelefono'
+    | 'tarifaHora'
+    | 'tipoIva'
+    | 'lineas'
+    | 'horasManoDeObra'
+    | 'importeBruto'
+    | 'totalDescuento'
+    | 'baseImponible'
+    | 'totalIva'
+    | 'total'
+  > {
+  estado: EstadoSolicitud;
+  clienteEmail: string | null;
+  necesita: string;
+  idioma: SolicitudWeb['idioma'];
+  ordenTrabajoId: number | null;
+  ordenTrabajoCodigo: string | null;
 }

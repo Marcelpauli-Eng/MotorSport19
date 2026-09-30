@@ -1,7 +1,7 @@
 import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Observable, concat } from 'rxjs';
 import { Cargando } from '../../compartido/cargando';
@@ -11,8 +11,11 @@ import { TipoIva } from '../../nucleo/modelos/configuracion';
 import { ServicioTipo } from '../../nucleo/modelos/servicios';
 import { ConfiguracionService } from '../../nucleo/servicios/configuracion.service';
 import { LineaOT, OrdenTrabajo, Pieza } from '../../nucleo/modelos/taller';
+import { PresupuestoWeb } from '../../nucleo/modelos/solicitudes';
+import { PresupuestosWebService } from '../../nucleo/servicios/presupuestos-web.service';
 import { Dialogo } from '../../compartido/dialogo';
 import { FormularioPieza } from '../inventario/formulario-pieza';
+import { EnviarPresupuesto } from '../solicitudes/enviar-presupuesto';
 import { InventarioService, porGrupo } from '../../nucleo/servicios/inventario.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
@@ -21,6 +24,27 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
 
 /** Las dos mitades del presupuesto: lo que se hace y lo que se monta. */
 type Pestana = 'mano-obra' | 'materiales';
+
+/** El de una orden o el de una solicitud web: se montan igual. */
+type Presupuesto = OrdenTrabajo | PresupuestoWeb;
+
+/** Lo que esta pantalla le pide al servidor. Lo cumplen los dos servicios. */
+interface ApiPresupuesto {
+  obtener(id: number): Observable<Presupuesto>;
+  aplicarTipoIva(id: number, tipoIva: string): Observable<Presupuesto>;
+  cambiarTarifaHora(id: number, tarifaHora: number): Observable<Presupuesto>;
+  aplicarDescuentoGeneral(id: number, descuentoPct: number): Observable<Presupuesto>;
+  anadirManoDeObra(
+    id: number,
+    datos: { descripcion: string; horas: number; descuentoPct?: number; tipoIva?: string },
+  ): Observable<LineaOT>;
+  anadirPieza(id: number, datos: { piezaId: number; cantidad: number; descuentoPct?: number }): Observable<LineaOT>;
+  cambiarCantidadDeLinea(id: number, lineaId: number, cantidad: number): Observable<LineaOT>;
+  cambiarPrecioDeLinea(id: number, lineaId: number, precioUnitario: number): Observable<LineaOT>;
+  cambiarDescuentoDeLinea(id: number, lineaId: number, descuentoPct: number): Observable<LineaOT>;
+  quitarLinea(id: number, lineaId: number): Observable<void>;
+  abrirPresupuestoPdf(id: number, codigo: string): void;
+}
 
 /**
  * Composición del presupuesto de una orden de trabajo.
@@ -38,12 +62,18 @@ type Pestana = 'mano-obra' | 'materiales';
  */
 @Component({
   selector: 'app-presupuesto-orden',
-  imports: [Dialogo, CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormsModule, FormularioPieza],
+  imports: [Dialogo, CommonModule, RouterLink, Cargando, ColorEstadoPipe, Icono, FormsModule, FormularioPieza, EnviarPresupuesto],
   templateUrl: './presupuesto-orden.html',
   styleUrl: './presupuesto-orden.scss',
 })
 export class PresupuestoOrden {
-  private readonly servicio = inject(OrdenesService);
+  /**
+   * Presupuesto de una solicitud web (ruta /solicitudes/:id/presupuesto) en vez
+   * del de una orden. Es la misma pantalla: cambia a quién se le guarda.
+   */
+  protected readonly esWeb = inject(ActivatedRoute).snapshot.data['web'] === true;
+  private readonly web = inject(PresupuestosWebService);
+  private readonly servicio: ApiPresupuesto = this.esWeb ? this.web : inject(OrdenesService);
   private readonly inventario = inject(InventarioService);
   private readonly notificaciones = inject(NotificacionesService);
   private readonly sesion = inject(SesionService);
@@ -53,7 +83,7 @@ export class PresupuestoOrden {
   readonly id = input.required<string>();
 
   protected readonly cargando = signal(true);
-  protected readonly orden = signal<OrdenTrabajo | null>(null);
+  protected readonly orden = signal<Presupuesto | null>(null);
   protected readonly trabajando = signal(false);
 
   /**
@@ -117,7 +147,8 @@ export class PresupuestoOrden {
   private readonly puedeTrabajarla = computed(() => {
     const o = this.orden();
     if (!o) return false;
-    if (this.sesion.tienePermiso('ORDENES_VER_TODAS')) return true;
+    // Un presupuesto web no es de ningún técnico: lo monta quien atiende la bandeja.
+    if (!('tecnicoId' in o) || this.sesion.tienePermiso('ORDENES_VER_TODAS')) return true;
     return o.tecnicoId === null || o.tecnicoId === this.sesion.usuario()?.id;
   });
 
@@ -587,7 +618,10 @@ export class PresupuestoOrden {
     this.faltanEnAlmacen.set([]);
 
     this.trabajando.set(true);
-    this.serviciosTipo.aplicarAOrden(o.id, servicio.id).subscribe({
+    const volcado = this.esWeb
+      ? this.web.aplicarServicioTipo(o.id, servicio.id)
+      : this.serviciosTipo.aplicarAOrden(o.id, servicio.id);
+    volcado.subscribe({
       next: (lineas) => {
         this.servicioElegido.set(null);
         this.trasCambiarLineas(
@@ -705,6 +739,35 @@ export class PresupuestoOrden {
   // ==================================================================
   // Mandárselo al cliente
   // ==================================================================
+
+  /** De dónde se viene: la orden, o la bandeja si es un presupuesto web. */
+  protected volverA(): unknown[] {
+    return this.esWeb ? ['/solicitudes'] : ['/ordenes', this.orden()?.id];
+  }
+
+  // ----- Presupuesto web: mandarlo y reescribirlo -----
+
+  protected readonly enviandoWeb = signal(false);
+
+  protected trasEnviarWeb(): void {
+    this.enviandoWeb.set(false);
+    this.cargar();
+  }
+
+  /** Vuelve a pendiente, con sus líneas, para corregirlo y mandarlo otra vez. */
+  protected reescribir(): void {
+    const o = this.orden();
+    if (!o || this.trabajando()) return;
+    this.trabajando.set(true);
+    this.web.reescribir(o.id).subscribe({
+      next: () => {
+        this.trabajando.set(false);
+        this.notificaciones.exito('Presupuesto abierto para corregirlo. Cuando esté, vuelve a enviarlo.');
+        this.cargar();
+      },
+      error: () => this.trabajando.set(false),
+    });
+  }
 
   protected abrirPresupuestoPdf(): void {
     const o = this.orden();

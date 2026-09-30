@@ -4,7 +4,12 @@ import com.motorsport19.taller.agenda.domain.Cita;
 import com.motorsport19.taller.common.domain.EntidadAuditable;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.inventario.domain.Pieza;
+import com.motorsport19.taller.orden.domain.ConLineas;
+import com.motorsport19.taller.orden.domain.LineaImporte;
+import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import com.motorsport19.taller.usuario.domain.Usuario;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,6 +20,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -23,7 +30,12 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Cita o presupuesto que un cliente pide desde la web publica.
@@ -37,7 +49,7 @@ import java.util.Set;
 @Table(name = "solicitud_web")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SolicitudWeb extends EntidadAuditable {
+public class SolicitudWeb extends EntidadAuditable implements ConLineas<LineaPresupuestoWeb> {
 
     public static final int MAXIMO_FOTOS = 3;
     private static final Set<String> IDIOMAS = Set.of("es", "ca", "en", "fr");
@@ -124,6 +136,23 @@ public class SolicitudWeb extends EntidadAuditable {
     @JoinColumn(name = "atendida_por")
     private Usuario atendidaPor;
 
+    /** Precio de la hora del presupuesto: el del taller al empezarlo. */
+    @Column(name = "tarifa_hora", precision = 12, scale = 2)
+    private BigDecimal tarifaHora;
+
+    /** IVA impuesto a todo el presupuesto, o nulo si cada linea lleva el suyo. */
+    @Column(name = "tipo_iva", length = 20)
+    private String tipoIva;
+
+    /** La orden que se abrio cuando el cliente acepto el presupuesto. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "orden_trabajo_id")
+    private OrdenTrabajo ordenTrabajo;
+
+    @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("numeroLinea ASC")
+    private List<LineaPresupuestoWeb> lineas = new ArrayList<>();
+
     // ------------------------------------------------------------------
     // Llegada
     // ------------------------------------------------------------------
@@ -199,6 +228,192 @@ public class SolicitudWeb extends EntidadAuditable {
         this.presupuestadaEn = Instant.now();
         this.presupuestadaPor = quienLoHace;
         this.estado = EstadoSolicitud.PRESUPUESTADA;
+    }
+
+    /**
+     * Manda el presupuesto montado con lineas: el importe es su total.
+     *
+     * <p>A partir de aqui ya no se tocan las lineas: es lo que ha visto el
+     * cliente. Para cambiarlo se reescribe.
+     */
+    public void enviarPresupuesto(CanalPresupuesto canal, Usuario quienLoHace) {
+        if (lineas.isEmpty()) {
+            throw new ReglaNegocioException("El presupuesto no tiene ninguna linea todavia.");
+        }
+        enviarPresupuesto(total(), null, canal, quienLoHace);
+    }
+
+    /**
+     * El cliente no lo acepta tal cual: vuelve a pendiente para corregirlo y
+     * mandarlo otra vez. Las lineas se quedan donde estaban.
+     */
+    public void reescribirPresupuesto() {
+        if (estado != EstadoSolicitud.PRESUPUESTADA) {
+            throw new ConflictoException("Solo se reescribe un presupuesto que ya se ha mandado.");
+        }
+        this.estado = EstadoSolicitud.PENDIENTE;
+    }
+
+    /** El cliente acepta: la solicitud se cierra con la orden que se le ha abierto. */
+    public void aceptarPresupuesto(OrdenTrabajo orden, Usuario quienLoHace) {
+        if (estado != EstadoSolicitud.PRESUPUESTADA) {
+            throw new ConflictoException("Solo se acepta un presupuesto que ya se ha mandado.");
+        }
+        if (orden == null) {
+            throw new ReglaNegocioException("Falta la orden de trabajo que se le ha abierto.");
+        }
+        cerrar(EstadoSolicitud.ATENDIDA, "Presupuesto aceptado: orden " + orden.codigoVisible(), quienLoHace);
+        this.ordenTrabajo = orden;
+    }
+
+    /** El cliente no lo quiere. */
+    public void rechazarPresupuesto(String motivo, Usuario quienLoHace) {
+        String texto = textoONulo(motivo);
+        cerrar(EstadoSolicitud.DESCARTADA,
+                texto == null ? "Presupuesto rechazado." : "Presupuesto rechazado: " + texto, quienLoHace);
+    }
+
+    // ------------------------------------------------------------------
+    // Lineas del presupuesto
+    // ------------------------------------------------------------------
+
+    /** Se monta mientras esta pendiente; mandado, ya es lo que ha visto el cliente. */
+    public boolean permiteEditarLineas() {
+        return estado == EstadoSolicitud.PENDIENTE;
+    }
+
+    /** Al empezar el presupuesto se congela el precio de la hora del taller. */
+    public void empezarPresupuesto(BigDecimal tarifaDelTaller) {
+        if (tarifaHora == null) {
+            this.tarifaHora = tarifaDelTaller;
+        }
+    }
+
+    public void cambiarTarifaHora(BigDecimal nuevaTarifa) {
+        exigirLineasEditables();
+        if (nuevaTarifa == null || nuevaTarifa.signum() <= 0) {
+            throw new ReglaNegocioException("El precio de la hora tiene que ser mayor que cero.");
+        }
+        this.tarifaHora = nuevaTarifa;
+        lineas.stream().filter(LineaImporte::esManoDeObra).forEach(l -> l.repreciarManoDeObra(nuevaTarifa));
+    }
+
+    public LineaPresupuestoWeb anadirManoDeObra(String descripcion, BigDecimal horas, BigDecimal descuentoPct,
+                                                String tipoIva, BigDecimal porcentajeIva) {
+        exigirLineasEditables();
+        return anadir(LineaPresupuestoWeb.manoDeObra(this, siguienteNumeroDeLinea(), descripcion, horas,
+                tarifaHora, descuentoPct, tipoIva, porcentajeIva));
+    }
+
+    @Override
+    public LineaPresupuestoWeb anadirPieza(Pieza pieza, BigDecimal cantidad, BigDecimal descuentoPct,
+                                           BigDecimal porcentajeIva) {
+        exigirLineasEditables();
+        return anadir(LineaPresupuestoWeb.pieza(this, siguienteNumeroDeLinea(), pieza, cantidad, descuentoPct,
+                porcentajeIva));
+    }
+
+    @Override
+    public LineaPresupuestoWeb anadirTasa(String concepto, BigDecimal cantidad, BigDecimal importe,
+                                          String tipoIva, BigDecimal porcentajeIva) {
+        exigirLineasEditables();
+        return anadir(LineaPresupuestoWeb.tasa(this, siguienteNumeroDeLinea(), concepto, cantidad, importe,
+                tipoIva, porcentajeIva));
+    }
+
+    public void cambiarPrecioDeManoDeObra(LineaPresupuestoWeb linea, BigDecimal precioUnitario) {
+        exigirLineasEditables();
+        linea.repreciarManoDeObra(precioUnitario);
+    }
+
+    public void cambiarCantidadDeLinea(LineaPresupuestoWeb linea, BigDecimal cantidad) {
+        exigirLineasEditables();
+        linea.cambiarCantidad(cantidad, null);
+    }
+
+    public void cambiarDescuentoDeLinea(LineaPresupuestoWeb linea, BigDecimal descuentoPct) {
+        exigirLineasEditables();
+        linea.cambiarDescuento(descuentoPct);
+    }
+
+    /** El «hazme un 10 % en todo»: pisa los descuentos de cada linea. */
+    public void aplicarDescuentoGeneral(BigDecimal descuentoPct) {
+        exigirLineasEditables();
+        lineas.forEach(l -> l.cambiarDescuento(descuentoPct));
+    }
+
+    public void aplicarTipoIvaGeneral(String codigo, BigDecimal porcentaje) {
+        exigirLineasEditables();
+        this.tipoIva = codigo;
+        lineas.forEach(l -> l.cambiarTipoIva(codigo, porcentaje));
+    }
+
+    @Override
+    public void quitarLinea(LineaPresupuestoWeb linea) {
+        exigirLineasEditables();
+        if (!lineas.remove(linea)) {
+            throw new ReglaNegocioException("Esa linea no es de este presupuesto.");
+        }
+    }
+
+    public Optional<LineaPresupuestoWeb> buscarLinea(Long lineaId) {
+        return lineas.stream().filter(l -> lineaId.equals(l.getId())).findFirst();
+    }
+
+    @Override
+    public List<LineaPresupuestoWeb> getLineas() {
+        return Collections.unmodifiableList(lineas);
+    }
+
+    public BigDecimal importeBruto() {
+        return sumar(LineaImporte::importeBruto);
+    }
+
+    public BigDecimal totalDescuento() {
+        return sumar(LineaImporte::importeDescuento);
+    }
+
+    public BigDecimal baseImponible() {
+        return sumar(LineaImporte::getBaseImponible);
+    }
+
+    public BigDecimal totalIva() {
+        return sumar(LineaImporte::getCuotaIva);
+    }
+
+    /** Total con IVA. Lo calcula la base de datos linea a linea. */
+    public BigDecimal total() {
+        return sumar(LineaImporte::getTotal);
+    }
+
+    public BigDecimal horasManoDeObra() {
+        return lineas.stream().filter(LineaImporte::esManoDeObra).map(LineaImporte::getCantidad)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private LineaPresupuestoWeb anadir(LineaPresupuestoWeb linea) {
+        lineas.add(linea);
+        return linea;
+    }
+
+    private void exigirLineasEditables() {
+        exigirAbierta();
+        if (!permiteEditarLineas()) {
+            throw new ConflictoException(
+                    "Este presupuesto ya se ha mandado al cliente. Reescribelo para cambiarlo.");
+        }
+        if (tarifaHora == null) {
+            throw new ConflictoException("El presupuesto no se ha empezado todavia.");
+        }
+    }
+
+    private int siguienteNumeroDeLinea() {
+        return lineas.stream().mapToInt(LineaImporte::getNumeroLinea).max().orElse(0) + 1;
+    }
+
+    private BigDecimal sumar(Function<LineaImporte, BigDecimal> campo) {
+        return lineas.stream().map(campo).filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     // ------------------------------------------------------------------

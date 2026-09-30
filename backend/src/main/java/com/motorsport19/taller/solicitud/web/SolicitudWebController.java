@@ -7,7 +7,6 @@ import com.motorsport19.taller.solicitud.domain.FotoSolicitud;
 import com.motorsport19.taller.solicitud.service.SolicitudWebService;
 import com.motorsport19.taller.solicitud.domain.SolicitudWeb;
 import com.motorsport19.taller.solicitud.web.dto.NotaRequest;
-import com.motorsport19.taller.solicitud.web.dto.PresupuestoRequest;
 import com.motorsport19.taller.solicitud.web.dto.SolicitudWebResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
@@ -79,17 +78,6 @@ public class SolicitudWebController {
         return respuesta(servicio.darCita(id, p.fechaHora(), p.duracionEstimada(),
                 p.motoId(), p.clienteId(), p.contactoNombre(), p.contactoTelefono(),
                 p.descripcionMoto(), p.motivo(), p.tecnicoId(), p.observaciones(), usuarioActual.id()));
-    }
-
-    /**
-     * Apunta el presupuesto que se le manda. El mensaje lo envia quien lo atiende,
-     * desde su WhatsApp o su correo; la solicitud queda presupuestada, a la espera
-     * de que el cliente conteste.
-     */
-    @PostMapping("/{id}/presupuesto")
-    public SolicitudWebResponse enviarPresupuesto(@PathVariable Long id,
-                                                  @Valid @RequestBody PresupuestoRequest p) {
-        return respuesta(servicio.enviarPresupuesto(id, p.importe(), p.detalle(), p.canal(), usuarioActual.id()));
     }
 
     @PostMapping("/{id}/atencion")

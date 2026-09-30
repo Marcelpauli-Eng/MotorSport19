@@ -3,12 +3,17 @@ package com.motorsport19.taller.documento;
 import com.motorsport19.taller.configuracion.domain.ConfiguracionTaller;
 import com.motorsport19.taller.factura.domain.Factura;
 import com.motorsport19.taller.factura.domain.LineaFactura;
+import com.motorsport19.taller.orden.domain.LineaImporte;
 import com.motorsport19.taller.orden.domain.LineaOT;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
 import com.motorsport19.taller.orden.domain.TipoLinea;
+import com.motorsport19.taller.solicitud.domain.SolicitudWeb;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +33,8 @@ public class ArmadorDocumento {
 
     private static final BigDecimal CERO = BigDecimal.ZERO.setScale(2);
 
+    private static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
+
     /** Dias que se mantiene el precio de un presupuesto. */
     private static final int DIAS_VALIDEZ = 30;
 
@@ -35,39 +42,67 @@ public class ArmadorDocumento {
                                            ConfiguracionTaller cfg) {
         var cliente = orden.getCliente();
         var moto = orden.getMoto();
-
-        List<DocumentoImprimible.Linea> filas = new ArrayList<>();
-        agrupar(filas, lineas);
-
-        // Las tasas van en su casilla, no en el importe: importe - dto. + tasas = base.
-        List<LineaOT> tasas = lineas.stream().filter(l -> l.getTipo() == TipoLinea.TASA).toList();
-        List<LineaOT> resto = lineas.stream().filter(l -> l.getTipo() != TipoLinea.TASA).toList();
-        BigDecimal bruto = suma(resto, LineaOT::importeBruto);
-        BigDecimal descuento = suma(resto, LineaOT::importeDescuento);
-        BigDecimal base = suma(lineas, LineaOT::getBaseImponible);
-        BigDecimal iva = suma(lineas, LineaOT::getCuotaIva);
-
-        return new DocumentoImprimible(
-                "PRESUPUESTO",
-                "TOTAL PRESUPUESTO",
+        return presupuesto(
                 referenciaPresupuesto(orden),
-                "ORDINARIA",
-                orden.getFechaEntrada().atZone(java.time.ZoneId.of("Europe/Madrid")).toLocalDate(),
-                "S/N",
-                emisor(cfg),
+                orden.getFechaEntrada().atZone(MADRID).toLocalDate(),
                 new DocumentoImprimible.Cliente(
                         cliente.nombreCompleto(), cliente.getCiudad(),
                         cliente.getDocumento(), numeroCliente(cliente.getId()), cliente.getTelefono()),
                 new DocumentoImprimible.Vehiculo(
                         moto.getMatricula(), moto.getNumeroBastidor(), moto.descripcion(),
                         orden.getKmEntrada()),
+                lineas, cfg, orden.getObservaciones());
+    }
+
+    /**
+     * El presupuesto de una solicitud de la web, en el mismo papel que el de una
+     * orden. Quien lo pide todavia no es cliente del taller: sin numero de
+     * cliente, sin NIF y sin bastidor.
+     */
+    public DocumentoImprimible presupuestoWeb(SolicitudWeb solicitud, List<? extends LineaImporte> lineas,
+                                              ConfiguracionTaller cfg) {
+        Instant fecha = solicitud.getPresupuestadaEn() != null ? solicitud.getPresupuestadaEn() : Instant.now();
+        return presupuesto(
+                "WEB|PRE|%011d".formatted(solicitud.getId()),
+                fecha.atZone(MADRID).toLocalDate(),
+                new DocumentoImprimible.Cliente(solicitud.getNombre(), null, null, "", solicitud.getTelefono()),
+                new DocumentoImprimible.Vehiculo(
+                        solicitud.getMatricula(), null, solicitud.getMarca() + " " + solicitud.getModelo(), null),
+                lineas, cfg, null);
+    }
+
+    private DocumentoImprimible presupuesto(String referencia, LocalDate fecha,
+                                            DocumentoImprimible.Cliente cliente,
+                                            DocumentoImprimible.Vehiculo vehiculo,
+                                            List<? extends LineaImporte> lineas,
+                                            ConfiguracionTaller cfg, String observaciones) {
+        List<DocumentoImprimible.Linea> filas = new ArrayList<>();
+        agrupar(filas, lineas);
+
+        // Las tasas van en su casilla, no en el importe: importe - dto. + tasas = base.
+        List<? extends LineaImporte> tasas = lineas.stream().filter(l -> l.getTipo() == TipoLinea.TASA).toList();
+        List<? extends LineaImporte> resto = lineas.stream().filter(l -> l.getTipo() != TipoLinea.TASA).toList();
+        BigDecimal bruto = suma(resto, LineaImporte::importeBruto);
+        BigDecimal descuento = suma(resto, LineaImporte::importeDescuento);
+        BigDecimal base = suma(lineas, LineaImporte::getBaseImponible);
+        BigDecimal iva = suma(lineas, LineaImporte::getCuotaIva);
+
+        return new DocumentoImprimible(
+                "PRESUPUESTO",
+                "TOTAL PRESUPUESTO",
+                referencia,
+                "ORDINARIA",
+                fecha,
+                "S/N",
+                emisor(cfg),
+                cliente,
+                vehiculo,
                 "CONTADO",
-                orden.getFechaEntrada().atZone(java.time.ZoneId.of("Europe/Madrid"))
-                        .toLocalDate().plusDays(DIAS_VALIDEZ),
+                fecha.plusDays(DIAS_VALIDEZ),
                 filas,
-                totales(bruto, descuento, suma(tasas, LineaOT::getBaseImponible), base, iva,
+                totales(bruto, descuento, suma(tasas, LineaImporte::getBaseImponible), base, iva,
                         porcentajeDominante(lineas)),
-                orden.getObservaciones());
+                observaciones);
     }
 
     public DocumentoImprimible factura(Factura factura, List<LineaFactura> lineas,
@@ -125,17 +160,17 @@ public class ArmadorDocumento {
      * <p>Primero la mano de obra y luego el material, que es el orden en que lo
      * lee un cliente: primero lo que se ha hecho, despues lo que se ha puesto.
      */
-    private void agrupar(List<DocumentoImprimible.Linea> destino, List<LineaOT> lineas) {
+    private void agrupar(List<DocumentoImprimible.Linea> destino, List<? extends LineaImporte> lineas) {
         anadirBloque(destino, "MANO DE OBRA",
-                lineas.stream().filter(LineaOT::esManoDeObra).toList(),
-                l -> CODIGO_MANO_OBRA, LineaOT::getDescripcion, LineaOT::getCantidad,
-                LineaOT::getPrecioUnitario, LineaOT::getDescuentoPct, LineaOT::getBaseImponible);
+                lineas.stream().filter(LineaImporte::esManoDeObra).toList(),
+                l -> CODIGO_MANO_OBRA, LineaImporte::getDescripcion, LineaImporte::getCantidad,
+                LineaImporte::getPrecioUnitario, LineaImporte::getDescuentoPct, LineaImporte::getBaseImponible);
 
         anadirBloque(destino, "MATERIAL",
                 lineas.stream().filter(l -> !l.esManoDeObra()).toList(),
-                l -> l.skuPieza() == null ? "" : l.skuPieza(), LineaOT::getDescripcion,
-                LineaOT::getCantidad, LineaOT::getPrecioUnitario, LineaOT::getDescuentoPct,
-                LineaOT::getBaseImponible);
+                l -> l.skuPieza() == null ? "" : l.skuPieza(), LineaImporte::getDescripcion,
+                LineaImporte::getCantidad, LineaImporte::getPrecioUnitario, LineaImporte::getDescuentoPct,
+                LineaImporte::getBaseImponible);
     }
 
     private void agruparFactura(List<DocumentoImprimible.Linea> destino, List<LineaFactura> lineas) {
@@ -208,11 +243,11 @@ public class ArmadorDocumento {
      * <p>Con varios tipos en el mismo documento se enseña el de mayor base, que
      * es el que manda. El desglose completo sigue estando en la factura.
      */
-    private BigDecimal porcentajeDominante(List<LineaOT> lineas) {
+    private BigDecimal porcentajeDominante(List<? extends LineaImporte> lineas) {
         return lineas.stream()
                 .max(java.util.Comparator.comparing(l ->
                         l.getBaseImponible() == null ? BigDecimal.ZERO : l.getBaseImponible()))
-                .map(LineaOT::getPorcentajeIva)
+                .map(LineaImporte::getPorcentajeIva)
                 .orElse(CERO);
     }
 
@@ -232,8 +267,8 @@ public class ArmadorDocumento {
         return "%05d".formatted(id);
     }
 
-    private BigDecimal suma(List<LineaOT> lineas,
-                            java.util.function.Function<LineaOT, BigDecimal> campo) {
+    private BigDecimal suma(List<? extends LineaImporte> lineas,
+                            java.util.function.Function<LineaImporte, BigDecimal> campo) {
         return lineas.stream().map(campo)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

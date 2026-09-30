@@ -43,7 +43,10 @@ public record SolicitudWebResponse(
         Instant citaFechaHora,
         String nota,
         Instant atendidaEn,
-        String atendidaPor
+        String atendidaPor,
+        /** La orden que se abrio al aceptar el presupuesto. */
+        Long ordenTrabajoId,
+        String ordenTrabajoCodigo
 ) {
 
     public static SolicitudWebResponse de(SolicitudWeb s) {
@@ -59,7 +62,9 @@ public record SolicitudWebResponse(
                 s.getCita() == null ? null : s.getCita().getId(),
                 s.getCita() == null ? null : s.getCita().getFechaHora(),
                 s.getNota(), s.getAtendidaEn(),
-                s.getAtendidaPor() == null ? null : s.getAtendidaPor().getNombreCompleto());
+                s.getAtendidaPor() == null ? null : s.getAtendidaPor().getNombreCompleto(),
+                s.getOrdenTrabajo() == null ? null : s.getOrdenTrabajo().getId(),
+                s.getOrdenTrabajo() == null ? null : s.getOrdenTrabajo().codigoVisible());
     }
 
     /**
@@ -70,6 +75,7 @@ public record SolicitudWebResponse(
         return new SolicitudWebResponse(id, referencia, tipo, tipoDescripcion, estado, estadoDescripcion,
                 recibidaEn, idioma, nombre, telefono, email, marca, modelo, matricula, descripcionMoto,
                 necesita, fechaPreferida, fotos, null, presupuestoDetalle, presupuestoCanal,
-                presupuestadaEn, presupuestadaPor, citaId, citaFechaHora, nota, atendidaEn, atendidaPor);
+                presupuestadaEn, presupuestadaPor, citaId, citaFechaHora, nota, atendidaEn, atendidaPor,
+                ordenTrabajoId, ordenTrabajoCodigo);
     }
 }
