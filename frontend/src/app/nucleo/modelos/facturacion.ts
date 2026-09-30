@@ -120,6 +120,8 @@ export interface FacturaResumen {
   matricula: string | null;
   rectificaA: string | null;
   huella: string;
+  /** Del programa anterior (NEXTGO): sin ficha ni huella, solo su PDF original. */
+  anterior: boolean;
 }
 
 export interface SerieFactura {

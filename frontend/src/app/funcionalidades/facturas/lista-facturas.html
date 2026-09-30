@@ -74,6 +74,8 @@
       El <strong>JSON</strong> incluye las líneas y la cadena de huellas, con lo que la integridad
       del libro se puede comprobar sin este programa. La exportación lleva el libro entero del
       periodo, sin separar por IVA: es el documento que se entrega.
+      Las facturas de <strong>NEXTGO</strong>, el programa anterior, cuentan en las cifras y los
+      listados de abajo, pero no van en la exportación: ya las entregó aquel programa.
     </p>
 
     @if (informeVerificacion(); as inf) {
@@ -177,10 +179,4 @@
       <strong>Informes</strong>.
     </p>
   }
-
-  <!--
-    Las del programa anterior, aparte: no entran en el periodo, ni en las
-    cifras de arriba, ni en la exportación, porque ya las declaró aquel programa.
-  -->
-  <app-facturas-anteriores [conCliente]="true" [conMoto]="true" />
 </div>

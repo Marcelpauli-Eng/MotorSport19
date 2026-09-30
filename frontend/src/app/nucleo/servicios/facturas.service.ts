@@ -131,6 +131,15 @@ export class FacturasService {
     this.pdf.abrir(`${this.base}/${id}/pdf`, `factura-${id}.pdf`);
   }
 
+  /** El PDF de una fila del listado: las de NEXTGO tienen el suyo, el original. */
+  abrirPdfDe(f: FacturaResumen): void {
+    if (!f.anterior) return this.abrirPdf(f.id);
+    this.pdf.abrir(
+      `${environment.urlApi}/facturas-anteriores/${f.id}/pdf`,
+      `factura-${f.numeroCompleto.replace(/\W+/g, '-')}.pdf`,
+    );
+  }
+
   /** Descarga el libro registro en el formato indicado. */
   exportar(formato: 'csv' | 'json', desde?: string | null, hasta?: string | null): Observable<Blob> {
     let params = new HttpParams();

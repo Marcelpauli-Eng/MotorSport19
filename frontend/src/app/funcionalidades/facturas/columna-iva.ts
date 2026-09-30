@@ -39,7 +39,7 @@ export class ColumnaIvaComponente {
   readonly seleccionadas = input<ReadonlySet<number>>(new Set());
 
   readonly irAPagina = output<number>();
-  readonly abrirPdf = output<number>();
+  readonly abrirPdf = output<FacturaResumen>();
   readonly alternarSeleccion = output<number>();
   /** Marca o desmarca de golpe las facturas visibles en esta página. */
   readonly alternarPagina = output<boolean>();
@@ -79,7 +79,8 @@ export class ColumnaIvaComponente {
 
   /** La casilla de la cabecera solo sale marcada si lo están todas las de la página. */
   protected readonly paginaEntera = computed(() => {
-    const filas = this.facturas();
+    // Las de NEXTGO no se seleccionan: el ZIP es para la gestoría y esas ya las entregó aquel programa.
+    const filas = this.facturas().filter((f) => !f.anterior);
     return filas.length > 0 && filas.every((f) => this.seleccionadas().has(f.id));
   });
 }

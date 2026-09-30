@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { Component, WritableSignal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
-import { FacturasAnteriores } from '../../compartido/facturas-anteriores';
 import { Icono } from '../../compartido/icono';
 import { InformeIva } from '../../nucleo/modelos/estadisticas';
 import { FacturaResumen, InformeVerificacion } from '../../nucleo/modelos/facturacion';
@@ -49,7 +48,7 @@ function estadoColumna(): EstadoColumna {
  */
 @Component({
   selector: 'app-lista-facturas',
-  imports: [CommonModule, FormsModule, Cargando, Icono, ColumnaIvaComponente, FacturasAnteriores],
+  imports: [CommonModule, FormsModule, Cargando, Icono, ColumnaIvaComponente],
   templateUrl: './lista-facturas.html',
   styleUrl: './lista-facturas.scss',
 })
@@ -123,7 +122,7 @@ export class ListaFacturas {
     const visibles = (conIva ? this.conIva : this.sinIva).filas();
     this.seleccion.update((actual) => {
       const nueva = new Set(actual);
-      for (const f of visibles) {
+      for (const f of visibles.filter((v) => !v.anterior)) {
         if (marcar) nueva.add(f.id);
         else nueva.delete(f.id);
       }
@@ -273,7 +272,7 @@ export class ListaFacturas {
   }
 
   /** Abre el PDF de una factura. Va por HttpClient para que lleve el token. */
-  protected verPdf(id: number): void {
-    this.facturas.abrirPdf(id);
+  protected verPdf(f: FacturaResumen): void {
+    this.facturas.abrirPdfDe(f);
   }
 }

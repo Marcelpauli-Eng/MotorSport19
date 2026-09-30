@@ -161,13 +161,20 @@
           <div class="tabla-envoltorio">
             <table>
               <tbody>
-                @for (f of ultimasFacturas(); track f.id) {
+                @for (f of ultimasFacturas(); track (f.anterior ? 'a' : 'f') + f.id) {
                   <tr>
                     <td>
                       <div class="celda-doble">
-                        <a [routerLink]="['/facturas', f.id]" class="codigo">
-                          {{ f.numeroCompleto }}
-                        </a>
+                        @if (f.anterior) {
+                          <!-- De NEXTGO: no tiene ficha aquí, se abre su PDF original. -->
+                          <a href="" class="codigo" (click)="$event.preventDefault(); verPdf(f)">
+                            {{ f.numeroCompleto }}
+                          </a>
+                        } @else {
+                          <a [routerLink]="['/facturas', f.id]" class="codigo">
+                            {{ f.numeroCompleto }}
+                          </a>
+                        }
                         <span class="celda-doble__secundario truncado">{{ f.receptorNombre }}</span>
                       </div>
                     </td>
