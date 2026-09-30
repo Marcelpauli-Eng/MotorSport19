@@ -9,7 +9,7 @@ import { FacturaResumen, InformeVerificacion } from '../../nucleo/modelos/factur
 import { EstadisticasService } from '../../nucleo/servicios/estadisticas.service';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
-import { ColumnaIvaComponente } from './columna-iva';
+import { ColumnaIvaComponente, MesElegido } from './columna-iva';
 
 /** Listado y paginación de una de las dos columnas. */
 interface EstadoColumna {
@@ -18,6 +18,13 @@ interface EstadoColumna {
   pagina: WritableSignal<number>;
   totalPaginas: WritableSignal<number>;
   totalItems: WritableSignal<number>;
+  /** El mes que se ha pulsado en el mes a mes: la lista enseña solo sus facturas. */
+  mes: WritableSignal<MesElegido | null>;
+}
+
+/** «2026-09-01»: un día de un mes, como lo espera la API. */
+function diaDelMes(m: MesElegido, dia: number): string {
+  return `${m.anio}-${String(m.mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
 function estadoColumna(): EstadoColumna {
@@ -27,6 +34,7 @@ function estadoColumna(): EstadoColumna {
     pagina: signal(0),
     totalPaginas: signal(0),
     totalItems: signal(0),
+    mes: signal<MesElegido | null>(null),
   };
 }
 
@@ -105,8 +113,15 @@ export class ListaFacturas {
     // que ya no están en pantalla y el ZIP traería cosas que no se ven.
     this.seleccion.set(new Set());
     this.cargarInforme();
+    this.conIva.mes.set(null);
+    this.sinIva.mes.set(null);
     this.cargarColumna(true, 0);
     this.cargarColumna(false, 0);
+  }
+
+  protected elegirMes(conIva: boolean, mes: MesElegido | null): void {
+    (conIva ? this.conIva : this.sinIva).mes.set(mes);
+    this.cargarColumna(conIva, 0);
   }
 
   protected alternarSeleccion(id: number): void {
@@ -168,13 +183,14 @@ export class ListaFacturas {
   protected cargarColumna(conIva: boolean, pagina: number): void {
     const estado = conIva ? this.conIva : this.sinIva;
     estado.cargando.set(true);
+    const mes = estado.mes();
 
     this.facturas
       .buscar({
         pagina,
         tamano: 10,
-        desde: this.desde() || null,
-        hasta: this.hasta() || null,
+        desde: mes ? diaDelMes(mes, 1) : this.desde() || null,
+        hasta: mes ? diaDelMes(mes, new Date(mes.anio, mes.mes, 0).getDate()) : this.hasta() || null,
         tipo: this.tipo() || null,
         conIva,
       })

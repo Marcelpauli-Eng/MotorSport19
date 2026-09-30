@@ -124,6 +124,11 @@ export interface FacturaResumen {
   anterior: boolean;
 }
 
+/** El número que se enseña: «NEXTGO nº 38» cabe en una fila; «ORD|FAC|202600000000038», no. */
+export function numeroVisible(f: FacturaResumen): string {
+  return f.anterior ? `NEXTGO nº ${Number(f.numeroCompleto.slice(-6))}` : f.numeroCompleto;
+}
+
 export interface SerieFactura {
   id: number;
   codigo: string;

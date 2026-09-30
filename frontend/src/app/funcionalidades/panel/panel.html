@@ -167,8 +167,8 @@
                       <div class="celda-doble">
                         @if (f.anterior) {
                           <!-- De NEXTGO: no tiene ficha aquí, se abre su PDF original. -->
-                          <a href="" class="codigo" (click)="$event.preventDefault(); verPdf(f)">
-                            {{ f.numeroCompleto }}
+                          <a href="" class="codigo" [title]="f.numeroCompleto" (click)="$event.preventDefault(); verPdf(f)">
+                            {{ numeroVisible(f) }}
                           </a>
                         } @else {
                           <a [routerLink]="['/facturas', f.id]" class="codigo">
