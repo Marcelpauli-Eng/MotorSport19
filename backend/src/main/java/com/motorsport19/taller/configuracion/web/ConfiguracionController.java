@@ -109,7 +109,7 @@ public class ConfiguracionController {
                 : piezas.findById(peticion.piezaId()).orElseThrow(
                         () -> RecursoNoEncontradoException.de("la pieza", peticion.piezaId()));
         ReglaCobro nueva = ReglaCobro.crear(peticion.tipo(), peticion.familia(), pieza,
-                peticion.concepto(), peticion.valor());
+                peticion.concepto(), peticion.valor(), peticion.unidad());
         // La base ya lo impide, pero con la sentencia SQL entera como mensaje.
         if (reglas.findAll().stream().anyMatch(nueva::mismaQue)) {
             throw new ConflictoException(nueva.getTipo() == ReglaCobro.Tipo.TASA
@@ -130,26 +130,29 @@ public class ConfiguracionController {
     /**
      * @param familia el grupo; se ignora si viene la pieza
      * @param piezaId nulo para aplicarla a todo el grupo
-     * @param valor   euros por unidad en una tasa, tanto por ciento en un plus
+     * @param valor   euros por unidad o tanto por ciento, segun {@code unidad}
+     * @param unidad  nula para la de siempre: euros en una tasa, tanto por ciento en un plus
      */
     public record ReglaRequest(
             @NotNull(message = "Indica si es una tasa o un plus") ReglaCobro.Tipo tipo,
             @Size(max = 60, message = "El grupo no puede superar los 60 caracteres") String familia,
             Long piezaId,
             @Size(max = 300, message = "El concepto no puede superar los 300 caracteres") String concepto,
-            @NotNull(message = "Indica el valor") BigDecimal valor) {
+            @NotNull(message = "Indica el valor") BigDecimal valor,
+            ReglaCobro.Unidad unidad) {
     }
 
     /** @param familia el grupo de la regla o, si es de una pieza, el de la pieza */
     public record ReglaResponse(Long id, ReglaCobro.Tipo tipo, String familia, Long piezaId,
-                                String piezaNombre, String concepto, BigDecimal valor) {
+                                String piezaNombre, String concepto, BigDecimal valor,
+                                ReglaCobro.Unidad unidad) {
         static ReglaResponse de(ReglaCobro r) {
             Pieza p = r.getPieza();
             return new ReglaResponse(r.getId(), r.getTipo(),
                     p == null ? r.getFamilia() : p.getFamilia(),
                     p == null ? null : p.getId(),
                     p == null ? null : p.getSku() + " · " + p.getDescripcion(),
-                    r.getConcepto(), r.getValor());
+                    r.getConcepto(), r.getValor(), r.getUnidad());
         }
     }
 

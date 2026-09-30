@@ -199,9 +199,27 @@ public class LineaOT extends EntidadAuditable {
         this.descripcion = textoONulo(descripcion);
     }
 
+    /**
+     * Baja el precio de la pieza por un plus en euros (Ajustes &gt; Tasas y pluses).
+     *
+     * <p>Va al precio y no al descuento: el descuento de la linea es un tanto por
+     * ciento con dos decimales, y pasar unos euros exactos a porcentaje dejaba el
+     * importe un centimo arriba o abajo en las piezas caras. Nunca baja de cero.
+     */
+    public void rebajarPrecio(BigDecimal euros) {
+        precioUnitario = precioUnitario.subtract(euros).max(BigDecimal.ZERO);
+    }
+
     // ==================================================================
     // Consultas
     // ==================================================================
+
+    /** Lo que se cobra por cada unidad, ya con el descuento: sobre esto va una tasa en %. */
+    public BigDecimal precioNeto() {
+        BigDecimal cien = BigDecimal.valueOf(100);
+        BigDecimal descuento = descuentoPct == null ? BigDecimal.ZERO : descuentoPct;
+        return precioUnitario.multiply(cien.subtract(descuento)).divide(cien, 4, RoundingMode.HALF_UP);
+    }
 
     public boolean esDePieza() {
         return tipo == TipoLinea.PIEZA;

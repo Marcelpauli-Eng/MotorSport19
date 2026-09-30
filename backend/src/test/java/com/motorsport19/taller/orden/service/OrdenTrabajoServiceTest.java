@@ -706,7 +706,7 @@ class OrdenTrabajoServiceTest {
         @DisplayName("cada neumatico lleva su tasa, en una sola linea y al importe de la regla")
         void tasaPorUnidad() {
             OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos",
-                    null, "Tasa de reciclaje", new BigDecimal("1.50")));
+                    null, "Tasa de reciclaje", new BigDecimal("1.50"), null));
             Pieza delantero = pieza(9L, "Neumaticos");
             Pieza trasero = pieza(10L, "Neumaticos");
 
@@ -726,7 +726,7 @@ class OrdenTrabajoServiceTest {
         @DisplayName("la tasa sigue a los neumaticos: de 2 a 4 pasa a 4, y sin ellos se va")
         void sigueLaCantidad() {
             OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos",
-                    null, "Tasa de reciclaje", new BigDecimal("1.50")));
+                    null, "Tasa de reciclaje", new BigDecimal("1.50"), null));
             anadir(orden, pieza(9L, "Neumaticos"), "2", null);
             long id = 500L;
             for (LineaOT l : orden.getLineas()) {
@@ -745,14 +745,71 @@ class OrdenTrabajoServiceTest {
         void plus() {
             Pieza concreta = pieza(3L, "Filtros");
             OrdenTrabajo orden = preparadaCon(
-                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, "Filtros", null, null, BigDecimal.TEN),
-                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, null, concreta, null, new BigDecimal("25")));
+                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, "Filtros", null, null, BigDecimal.TEN, null),
+                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, null, concreta, null, new BigDecimal("25"), null));
             Pieza otra = pieza(4L, "Filtros");
 
             assertThat(anadir(orden, concreta, "1", null).getDescuentoPct()).isEqualByComparingTo("25");
             assertThat(anadir(orden, otra, "1", BigDecimal.ZERO).getDescuentoPct()).isEqualByComparingTo("10");
             assertThat(anadir(orden, otra, "1", new BigDecimal("5")).getDescuentoPct()).isEqualByComparingTo("5");
             assertThat(anadir(orden, pieza(5L, "Frenos"), "1", null).getDescuentoPct()).isZero();
+        }
+
+        @Test
+        @DisplayName("un plus en euros baja el precio de cada unidad, y el descuento de a mano sigue mandando")
+        void plusEnEuros() {
+            OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.PLUS, "Filtros", null, null,
+                    new BigDecimal("5"), ReglaCobro.Unidad.EUROS));
+            Pieza filtro = pieza(3L, "Filtros");
+
+            LineaOT conPlus = anadir(orden, filtro, "2", null);
+            assertThat(conPlus.getPrecioUnitario()).isEqualByComparingTo("15");
+            assertThat(conPlus.tieneDescuento()).isFalse();
+
+            LineaOT aMano = anadir(orden, filtro, "1", new BigDecimal("10"));
+            assertThat(aMano.getPrecioUnitario()).isEqualByComparingTo("20");
+            assertThat(aMano.getDescuentoPct()).isEqualByComparingTo("10");
+        }
+
+        @Test
+        @DisplayName("una tasa en % va sobre lo que se cobra por la pieza, y a precios distintos, lineas distintas")
+        void tasaEnPorcentaje() {
+            OrdenTrabajo orden = preparadaCon(
+                    ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos", null, "Tasa de gestion",
+                            new BigDecimal("10"), ReglaCobro.Unidad.PORCENTAJE),
+                    ReglaCobro.crear(ReglaCobro.Tipo.PLUS, "Neumaticos", null, null,
+                            new BigDecimal("25"), ReglaCobro.Unidad.PORCENTAJE));
+            Pieza barato = pieza(9L, "Neumaticos");
+            Pieza caro = pieza(10L, "Neumaticos");
+            ReflectionTestUtils.setField(caro, "precioVenta", new BigDecimal("40"));
+
+            anadir(orden, barato, "2", null);
+            anadir(orden, barato, "1", null);
+            anadir(orden, caro, "1", null);
+
+            // 20 € con un 25 % de plus son 15 €: la tasa del 10 % es 1,50 por unidad.
+            List<LineaOT> tasas = orden.getLineas().stream().filter(l -> l.getTipo() == TipoLinea.TASA).toList();
+            assertThat(tasas).hasSize(2);
+            assertThat(tasas.get(0).getPrecioUnitario()).isEqualByComparingTo("1.50");
+            assertThat(tasas.get(0).getCantidad()).isEqualByComparingTo("3");
+            assertThat(tasas.get(1).getPrecioUnitario()).isEqualByComparingTo("3.00");
+            assertThat(tasas.get(1).getCantidad()).isEqualByComparingTo("1");
+        }
+
+        @Test
+        @DisplayName("una tasa en % tambien sigue a la cantidad de su pieza")
+        void tasaEnPorcentajeSigueLaCantidad() {
+            OrdenTrabajo orden = preparadaCon(ReglaCobro.crear(ReglaCobro.Tipo.TASA, "Neumaticos", null,
+                    "Tasa de gestion", new BigDecimal("10"), ReglaCobro.Unidad.PORCENTAJE));
+            anadir(orden, pieza(9L, "Neumaticos"), "2", null);
+            long id = 500L;
+            for (LineaOT l : orden.getLineas()) {
+                ReflectionTestUtils.setField(l, "id", id++);
+            }
+
+            ordenService.cambiarCantidadDeLinea(orden.getId(), 500L, new BigDecimal("4"));
+            assertThat(tasaDe(orden).getCantidad()).isEqualByComparingTo("4");
+            assertThat(tasaDe(orden).getPrecioUnitario()).isEqualByComparingTo("2.00");
         }
     }
 }
