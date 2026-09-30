@@ -523,27 +523,31 @@ public class OrdenTrabajoService {
         TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, pieza.getTipoIva()));
 
         List<ReglaCobro> reglas = reglaRepository.findAll();
-        LineaOT linea = orden.anadirPieza(pieza, cantidad, conPlus(reglas, pieza, descuentoPct),
-                tipoIva.getPorcentaje());
+        LineaOT linea = anadirConPlus(orden, reglas, pieza, cantidad, descuentoPct, tipoIva.getPorcentaje());
         servirSiYaSeEstaReparando(orden, linea, usuarioId);
-        anadirTasa(orden, reglas, pieza, cantidad);
+        anadirTasa(orden, reglas, linea, cantidad);
         anotar(orden, "añadió pieza: %s × %s".formatted(pieza.getSku(), cantidad.stripTrailingZeros().toPlainString()));
         return linea;
     }
 
     /**
-     * El descuento con el que nace la linea de una pieza.
+     * Anade la linea de una pieza con el plus que le toque.
      *
-     * <p>El que se haya puesto a mano manda; si no hay ninguno, el plus que
-     * tenga la pieza o su grupo en Ajustes &gt; Tasas y pluses.
+     * <p>El descuento puesto a mano manda; si no hay ninguno, el plus que tenga
+     * la pieza o su grupo en Ajustes &gt; Tasas y pluses. En tanto por ciento va
+     * como descuento de la linea; en euros baja el precio de cada unidad.
      */
-    private static BigDecimal conPlus(List<ReglaCobro> reglas, Pieza pieza, BigDecimal descuentoPct) {
-        if (descuentoPct != null && descuentoPct.signum() > 0) {
-            return descuentoPct;
+    private static LineaOT anadirConPlus(OrdenTrabajo orden, List<ReglaCobro> reglas, Pieza pieza,
+                                         BigDecimal cantidad, BigDecimal descuentoPct,
+                                         BigDecimal porcentajeIva) {
+        ReglaCobro plus = descuentoPct != null && descuentoPct.signum() > 0 ? null
+                : ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.PLUS, pieza).orElse(null);
+        BigDecimal descuento = plus != null && plus.enPorcentaje() ? plus.getValor() : descuentoPct;
+        LineaOT linea = orden.anadirPieza(pieza, cantidad, descuento, porcentajeIva);
+        if (plus != null && !plus.enPorcentaje()) {
+            linea.rebajarPrecio(plus.getValor());
         }
-        return ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.PLUS, pieza)
-                .map(ReglaCobro::getValor)
-                .orElse(descuentoPct);
+        return linea;
     }
 
     /**
@@ -559,21 +563,26 @@ public class OrdenTrabajoService {
      * concepto: dos neumaticos son dos tasas, pero en la factura del cliente eso
      * es una linea de dos unidades, no dos lineas de una.
      *
+     * <p>Una tasa en tanto por ciento va sobre lo que se cobra por la pieza, ya
+     * con su descuento o su plus.
+     *
      * <p>Devuelve la linea de la tasa, o nulo si la pieza no lleva.
      */
-    private LineaOT anadirTasa(OrdenTrabajo orden, List<ReglaCobro> reglas, Pieza pieza,
+    private LineaOT anadirTasa(OrdenTrabajo orden, List<ReglaCobro> reglas, LineaOT lineaPieza,
                                BigDecimal cantidad) {
-        ReglaCobro regla = ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.TASA, pieza).orElse(null);
+        ReglaCobro regla = ReglaCobro.laQueManda(reglas, ReglaCobro.Tipo.TASA, lineaPieza.getPieza())
+                .orElse(null);
         if (regla == null) {
             return null;
         }
-        LineaOT yaPuesta = lineaDeTasa(orden, regla);
+        BigDecimal importe = regla.importeDeTasa(lineaPieza.precioNeto());
+        LineaOT yaPuesta = lineaDeTasa(orden, regla, importe);
         if (yaPuesta != null) {
             yaPuesta.cambiarCantidad(yaPuesta.getCantidad().add(cantidad), null);
             return yaPuesta;
         }
         TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, null));
-        return orden.anadirTasa(regla.getConcepto(), cantidad, regla.getValor(), tipoIva.getCodigo(),
+        return orden.anadirTasa(regla.getConcepto(), cantidad, importe, tipoIva.getCodigo(),
                 tipoIva.getPorcentaje());
     }
 
@@ -585,12 +594,12 @@ public class OrdenTrabajoService {
      * neumatico la tasa se seguia cobrando. Solo se corrige la linea de tasa que
      * ya haya; si alguien la quito a mano, no se vuelve a poner.
      */
-    private void moverTasa(OrdenTrabajo orden, Pieza pieza, BigDecimal diferencia) {
-        if (pieza == null || diferencia.signum() == 0) {
+    private void moverTasa(OrdenTrabajo orden, LineaOT lineaPieza, BigDecimal diferencia) {
+        if (lineaPieza.getPieza() == null || diferencia.signum() == 0) {
             return;
         }
-        ReglaCobro.laQueManda(reglaRepository.findAll(), ReglaCobro.Tipo.TASA, pieza)
-                .map(regla -> lineaDeTasa(orden, regla))
+        ReglaCobro.laQueManda(reglaRepository.findAll(), ReglaCobro.Tipo.TASA, lineaPieza.getPieza())
+                .map(regla -> lineaDeTasa(orden, regla, regla.importeDeTasa(lineaPieza.precioNeto())))
                 .ifPresent(tasa -> {
                     BigDecimal nueva = tasa.getCantidad().add(diferencia);
                     if (nueva.signum() > 0) {
@@ -601,11 +610,16 @@ public class OrdenTrabajoService {
                 });
     }
 
-    /** La linea de la orden que ya cobra esa tasa: se reconoce por su concepto. */
-    private static LineaOT lineaDeTasa(OrdenTrabajo orden, ReglaCobro regla) {
+    /**
+     * La linea de la orden que ya cobra esa tasa: se reconoce por su concepto.
+     * Una en tanto por ciento, ademas, por su importe: dos neumaticos de precio
+     * distinto pagan tasas distintas y no caben en una linea.
+     */
+    private static LineaOT lineaDeTasa(OrdenTrabajo orden, ReglaCobro regla, BigDecimal importe) {
         return orden.getLineas().stream()
                 .filter(l -> l.getTipo() == TipoLinea.TASA
-                        && l.getDescripcion().equalsIgnoreCase(regla.getConcepto()))
+                        && l.getDescripcion().equalsIgnoreCase(regla.getConcepto())
+                        && (!regla.enPorcentaje() || l.getPrecioUnitario().compareTo(importe) == 0))
                 .findFirst()
                 .orElse(null);
     }
@@ -672,14 +686,14 @@ public class OrdenTrabajoService {
             } else {
                 Pieza pieza = plantilla.getPieza();
                 TipoIva tipoIva = cargarTipoIva(tipoDeLaLinea(orden, pieza.getTipoIva()));
-                LineaOT linea = orden.anadirPieza(pieza, plantilla.getCantidad(),
-                        conPlus(reglas, pieza, null), tipoIva.getPorcentaje());
+                LineaOT linea = anadirConPlus(orden, reglas, pieza, plantilla.getCantidad(), null,
+                        tipoIva.getPorcentaje());
                 servirSiYaSeEstaReparando(orden, linea, usuarioId);
                 anadidas.add(linea);
                 // Una plantilla de cambio de neumatico tambien lleva su tasa: si
                 // solo se pusiera en el alta suelta, volcar la plantilla —que es
                 // el camino rapido— seria justo el que se la salta.
-                LineaOT tasa = anadirTasa(orden, reglas, pieza, plantilla.getCantidad());
+                LineaOT tasa = anadirTasa(orden, reglas, linea, plantilla.getCantidad());
                 if (tasa != null && !anadidas.contains(tasa)) {
                     anadidas.add(tasa);
                 }
@@ -699,7 +713,7 @@ public class OrdenTrabajoService {
         LineaOT linea = buscarLinea(orden, lineaId);
         BigDecimal anterior = linea.getCantidad();
         linea.cambiarCantidad(cantidad, consumoDe(linea));
-        moverTasa(orden, linea.getPieza(), cantidad.subtract(anterior));
+        moverTasa(orden, linea, cantidad.subtract(anterior));
         anotar(orden, "cambió la cantidad de la línea %d (%s) a %s".formatted(linea.getNumeroLinea(),
                 linea.getDescripcion(), cantidad.stripTrailingZeros().toPlainString()));
         return conPiezaCargada(linea);
@@ -796,7 +810,7 @@ public class OrdenTrabajoService {
                             consumido.toPlainString(), linea.skuPieza()));
         }
         orden.quitarLinea(linea);
-        moverTasa(orden, linea.getPieza(), linea.getCantidad().negate());
+        moverTasa(orden, linea, linea.getCantidad().negate());
         anotar(orden, "quitó la línea %d (%s)".formatted(linea.getNumeroLinea(), linea.getDescripcion()));
     }
 

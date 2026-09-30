@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,11 +31,11 @@ import java.util.Optional;
  * sobre la regla general de su grupo.
  *
  * <ul>
- *   <li><b>TASA</b>: una linea aparte de {@code valor} euros por unidad, con la
- *       misma cantidad que la pieza. La tasa de reciclaje de neumaticos es el
- *       caso de siempre.</li>
- *   <li><b>PLUS</b>: un descuento de {@code valor} por ciento en la propia
- *       linea de la pieza.</li>
+ *   <li><b>TASA</b>: una linea aparte, con la misma cantidad que la pieza, de
+ *       {@code valor} euros por unidad o del {@code valor} % del precio de la
+ *       pieza. La tasa de reciclaje de neumaticos es el caso de siempre.</li>
+ *   <li><b>PLUS</b>: en la propia linea de la pieza, un descuento del
+ *       {@code valor} % o una rebaja de {@code valor} euros por unidad.</li>
  * </ul>
  */
 @Entity
@@ -44,6 +45,9 @@ import java.util.Optional;
 public class ReglaCobro extends EntidadAuditable {
 
     public enum Tipo { TASA, PLUS }
+
+    /** En que va {@code valor}: euros por unidad o tanto por ciento del precio de la pieza. */
+    public enum Unidad { EUROS, PORCENTAJE }
 
     private static final BigDecimal CIEN = new BigDecimal("100");
 
@@ -68,16 +72,23 @@ public class ReglaCobro extends EntidadAuditable {
     @Column(name = "concepto", length = 300)
     private String concepto;
 
-    /** Euros por unidad en una tasa; tanto por ciento en un plus. */
+    /** Euros por unidad o tanto por ciento, segun {@link #unidad}. */
     @Column(name = "valor", nullable = false, precision = 12, scale = 2)
     private BigDecimal valor;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "unidad", nullable = false, length = 10)
+    private Unidad unidad;
 
     /**
      * Con una pieza, la regla es solo para ella y el grupo se ignora: el grupo
      * de la pieza puede cambiar despues, y la regla tiene que seguirla.
      */
+    /**
+     * @param unidad nula para la de siempre: euros en una tasa, tanto por ciento en un plus
+     */
     public static ReglaCobro crear(Tipo tipo, String familia, Pieza pieza, String concepto,
-                                   BigDecimal valor) {
+                                   BigDecimal valor, Unidad unidad) {
         if (tipo == null) {
             throw new ReglaNegocioException("Indica si es una tasa o un plus.");
         }
@@ -98,11 +109,27 @@ public class ReglaCobro extends EntidadAuditable {
             throw new ReglaNegocioException(
                     "Pon el concepto de la tasa: es el texto que sale en el presupuesto.");
         }
-        if (tipo == Tipo.PLUS && valor.compareTo(CIEN) > 0) {
-            throw new ReglaNegocioException("El descuento no puede pasar del 100 %.");
+        regla.unidad = unidad != null ? unidad : (tipo == Tipo.TASA ? Unidad.EUROS : Unidad.PORCENTAJE);
+        if (regla.unidad == Unidad.PORCENTAJE && valor.compareTo(CIEN) > 0) {
+            throw new ReglaNegocioException("Un tanto por ciento no puede pasar del 100 %.");
         }
         regla.valor = valor;
         return regla;
+    }
+
+    public boolean enPorcentaje() {
+        return unidad == Unidad.PORCENTAJE;
+    }
+
+    /**
+     * Lo que cobra una tasa por unidad de su pieza.
+     *
+     * @param precioNeto lo que se cobra por cada unidad de la pieza, ya con su descuento
+     */
+    public BigDecimal importeDeTasa(BigDecimal precioNeto) {
+        return enPorcentaje()
+                ? precioNeto.multiply(valor).divide(CIEN, 2, RoundingMode.HALF_UP)
+                : valor;
     }
 
     /** Si esta regla alcanza a la pieza, sea por ella misma o por su grupo. */

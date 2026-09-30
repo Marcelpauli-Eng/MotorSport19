@@ -26,6 +26,7 @@ interface NuevaRegla {
   piezaId: number | null;
   concepto: string;
   valor: number | null;
+  unidad: ReglaCobro['unidad'];
 }
 
 /**
@@ -264,6 +265,14 @@ export class Ajustes {
     piezaId: null,
     concepto: '',
     valor: null,
+    unidad: 'EUROS',
+  });
+
+  /** Qué se escribe en la casilla del valor, según sea tasa o plus y en € o en %. */
+  protected readonly etiquetaValor = computed(() => {
+    const n = this.nuevaRegla();
+    if (n.tipo === 'TASA') return n.unidad === 'EUROS' ? '€ por unidad, sin IVA' : '% del precio de la pieza';
+    return n.unidad === 'EUROS' ? '€ menos por unidad' : 'Descuento (%)';
   });
 
   protected readonly puedeAnadirRegla = computed(() => {
@@ -273,7 +282,8 @@ export class Ajustes {
       !!n.familia &&
       !!n.valor &&
       n.valor > 0 &&
-      (n.tipo === 'PLUS' ? n.valor <= 100 : !!n.concepto.trim())
+      (n.unidad === 'EUROS' || n.valor <= 100) &&
+      (n.tipo === 'PLUS' || !!n.concepto.trim())
     );
   });
 
@@ -309,6 +319,7 @@ export class Ajustes {
         piezaId: n.piezaId,
         concepto: n.tipo === 'TASA' ? n.concepto.trim() : null,
         valor: n.valor!,
+        unidad: n.unidad,
       })
       .subscribe({
         next: (r) => {

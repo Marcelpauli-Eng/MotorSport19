@@ -51,6 +51,8 @@ export interface ReglaCobro {
   piezaNombre: string | null;
   concepto: string | null;
   valor: number;
+  /** En qué va el valor: euros por unidad o tanto por ciento del precio de la pieza. */
+  unidad: 'EUROS' | 'PORCENTAJE';
 }
 
 export interface Usuario {

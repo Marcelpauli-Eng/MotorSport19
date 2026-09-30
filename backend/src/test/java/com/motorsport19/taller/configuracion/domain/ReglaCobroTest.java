@@ -31,7 +31,7 @@ class ReglaCobroTest {
     }
 
     private static ReglaCobro tasaDeGrupo(String familia, String euros) {
-        return ReglaCobro.crear(Tipo.TASA, familia, null, "Tasa " + familia, new BigDecimal(euros));
+        return ReglaCobro.crear(Tipo.TASA, familia, null, "Tasa " + familia, new BigDecimal(euros), null);
     }
 
     @Test
@@ -51,7 +51,7 @@ class ReglaCobroTest {
     void piezaConcreta() {
         Pieza grande = pieza(9, "Neumaticos");
         ReglaCobro suya = ReglaCobro.crear(Tipo.TASA, "Neumaticos", grande, "Tasa grande",
-                new BigDecimal("2.50"));
+                new BigDecimal("2.50"), null);
         List<ReglaCobro> reglas = List.of(tasaDeGrupo("Neumaticos", "1.50"), suya);
 
         assertThat(ReglaCobro.laQueManda(reglas, Tipo.TASA, grande)).contains(suya);
@@ -64,14 +64,35 @@ class ReglaCobroTest {
     @Test
     @DisplayName("una tasa necesita concepto e importe; un plus, un descuento de hasta el 100 %")
     void validaciones() {
-        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.TASA, "Neumaticos", null, " ", BigDecimal.ONE))
+        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.TASA, "Neumaticos", null, " ", BigDecimal.ONE, null))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("concepto");
         assertThatThrownBy(() -> tasaDeGrupo("Neumaticos", "0"))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("mayor que cero");
-        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.PLUS, "Filtros", null, null, new BigDecimal("101")))
+        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.PLUS, "Filtros", null, null, new BigDecimal("101"), null))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("100");
-        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.PLUS, " ", null, null, BigDecimal.TEN))
+        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.PLUS, " ", null, null, BigDecimal.TEN, null))
                 .isInstanceOf(ReglaNegocioException.class).hasMessageContaining("grupo o la pieza");
+    }
+
+    @Test
+    @DisplayName("sin unidad, la de siempre; en % no pasa del 100 y en euros si puede")
+    void unidades() {
+        assertThat(tasaDeGrupo("Neumaticos", "1").getUnidad()).isEqualTo(ReglaCobro.Unidad.EUROS);
+        assertThat(ReglaCobro.crear(Tipo.PLUS, "Filtros", null, null, BigDecimal.TEN, null).getUnidad())
+                .isEqualTo(ReglaCobro.Unidad.PORCENTAJE);
+        assertThatThrownBy(() -> ReglaCobro.crear(Tipo.TASA, "Neumaticos", null, "Tasa", new BigDecimal("101"),
+                ReglaCobro.Unidad.PORCENTAJE)).isInstanceOf(ReglaNegocioException.class).hasMessageContaining("100");
+        assertThat(ReglaCobro.crear(Tipo.PLUS, "Motores", null, null, new BigDecimal("150"),
+                ReglaCobro.Unidad.EUROS).getValor()).isEqualByComparingTo("150");
+    }
+
+    @Test
+    @DisplayName("una tasa en % es ese tanto del precio neto de la pieza; en euros, su importe")
+    void importeDeTasa() {
+        assertThat(ReglaCobro.crear(Tipo.TASA, "Neumaticos", null, "Tasa", new BigDecimal("2.5"),
+                ReglaCobro.Unidad.PORCENTAJE).importeDeTasa(new BigDecimal("127.03"))).isEqualByComparingTo("3.18");
+        assertThat(tasaDeGrupo("Neumaticos", "1.50").importeDeTasa(new BigDecimal("127.03")))
+                .isEqualByComparingTo("1.50");
     }
 
     @Test
@@ -79,6 +100,6 @@ class ReglaCobroTest {
     void repetidas() {
         assertThat(tasaDeGrupo("Neumaticos", "1").mismaQue(tasaDeGrupo("neumaticos", "2"))).isTrue();
         assertThat(tasaDeGrupo("Neumaticos", "1").mismaQue(
-                ReglaCobro.crear(Tipo.PLUS, "Neumaticos", null, null, BigDecimal.TEN))).isFalse();
+                ReglaCobro.crear(Tipo.PLUS, "Neumaticos", null, null, BigDecimal.TEN, null))).isFalse();
     }
 }
