@@ -127,7 +127,7 @@ public class ConfiguracionSeguridad {
                 // poder hacer cualquiera que entre, y ver las horas de uno
                 // mismo es un derecho del trabajador, no una concesion.
                 .requestMatchers("/fichajes/jornada", "/fichajes/jornada/**").authenticated()
-                .requestMatchers(HttpMethod.GET, "/fichajes/mias").authenticated()
+                .requestMatchers(HttpMethod.GET, "/fichajes/mias", "/fichajes/mias/**").authenticated()
                 // Lo demas es el registro de todo el taller.
                 .requestMatchers("/fichajes/**").hasAuthority(p(Permiso.FICHAJES_VER))
 

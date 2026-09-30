@@ -81,6 +81,8 @@ export class App {
           icono: 'inventario',
           permisos: ['ALMACEN_VER'],
         },
+        // Sin permisos: cada uno ve sus horas, y el historial si se las cambian.
+        { ruta: '/mis-horas', texto: 'Mis horas', icono: 'reloj' },
       ],
     },
     {

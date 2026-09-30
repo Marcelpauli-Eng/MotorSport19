@@ -42,6 +42,18 @@ export interface ApunteActividad {
   enlaceId: number | null;
 }
 
+/** Un cambio a mano en las horas de una jornada: qué había y qué se puso. */
+export interface CambioFichaje {
+  fecha: string;
+  usuarioNombre: string | null;
+  motivo: string;
+  inicioAnterior: string;
+  /** Nula si estaba abierta: se fue sin fichar la salida. */
+  finAnterior: string | null;
+  inicioNuevo: string;
+  finNuevo: string;
+}
+
 export interface PorTrabajador {
   usuarioId: number;
   usuarioNombre: string;
@@ -112,6 +124,44 @@ export class FichajesService {
     return `${Math.floor(segundos / 3600)}:${dos(Math.floor(segundos / 60) % 60)}:${dos(segundos % 60)}`;
   }
 
+  /**
+   * «08:02 – 17:30». Si la salida cae en otro día se le pone la fecha, que una
+   * jornada de 08:02 a 08:10 del día siguiente no parezca de ocho minutos.
+   */
+  static tramo(inicio: string, fin: string | null): string {
+    const hora = (d: Date) => d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    const desde = new Date(inicio);
+    if (!fin) return `${hora(desde)} – sin salida`;
+    const hasta = new Date(fin);
+    const otroDia = hasta.toDateString() !== desde.toDateString();
+    const dia = otroDia ? hasta.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) + ' ' : '';
+    return `${hora(desde)} – ${dia}${hora(hasta)}`;
+  }
+
+  /** «2026-09-28», en hora local: lo que esperan los filtros y la API. */
+  static dia(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  /** El lunes de esta semana y el día 1 de este mes, para los filtros rápidos. */
+  static inicioDe(rango: 'semana' | 'mes'): string {
+    const d = new Date();
+    // getDay() da 0 el domingo; se quiere el lunes como primer día.
+    if (rango === 'semana') d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    else d.setDate(1);
+    return FichajesService.dia(d);
+  }
+
+  /** Guarda lo descargado con el nombre que se le diga. */
+  static guardar(blob: Blob, nombre: string): void {
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement('a');
+    enlace.href = url;
+    enlace.download = nombre;
+    enlace.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }
+
   /** Pone el reloj en hora con el del servidor a partir de una jornada abierta. */
   private ajustarReloj(inicio: string | null, segundos: number): void {
     if (!inicio) return;
@@ -156,6 +206,26 @@ export class FichajesService {
     });
   }
 
+  /** El historial de una jornada mía. De una ajena el servidor devuelve nada. */
+  misCambios(fichajeId: number): Observable<CambioFichaje[]> {
+    return this.http.get<CambioFichaje[]>(`${this.base}/mias/${fichajeId}/cambios`);
+  }
+
+  /** Mi registro de jornada en CSV, con sus cambios. */
+  exportarMias(desde: string, hasta: string): Observable<Blob> {
+    return this.http.get(`${this.base}/mias/exportacion`, {
+      params: new HttpParams().set('desde', desde).set('hasta', hasta),
+      responseType: 'blob',
+    });
+  }
+
+  /** El de todos, o el de una persona, en CSV. Requiere FICHAJES_VER. */
+  exportar(desde: string, hasta: string, usuarioId?: number | null): Observable<Blob> {
+    let params = new HttpParams().set('desde', desde).set('hasta', hasta);
+    if (usuarioId) params = params.set('usuarioId', usuarioId);
+    return this.http.get(`${this.base}/exportacion`, { params, responseType: 'blob' });
+  }
+
   /** Las de todo el taller. Requiere el permiso FICHAJES_VER. */
   periodo(desde: string, hasta: string, usuarioId?: number | null): Observable<ResumenFichajes> {
     let params = new HttpParams().set('desde', desde).set('hasta', hasta);
@@ -166,6 +236,11 @@ export class FichajesService {
   /** Lo que esa persona hizo durante esa jornada. */
   actividad(fichajeId: number): Observable<ApunteActividad[]> {
     return this.http.get<ApunteActividad[]>(`${this.base}/${fichajeId}/actividad`);
+  }
+
+  /** El historial de cambios a mano de esa jornada, del primero al último. */
+  cambios(fichajeId: number): Observable<CambioFichaje[]> {
+    return this.http.get<CambioFichaje[]>(`${this.base}/${fichajeId}/cambios`);
   }
 
   abiertas(): Observable<Fichaje[]> {

@@ -39,7 +39,7 @@
                 <td>{{ f.inicio | date: 'HH:mm' : undefined : 'es' }}</td>
                 <td class="horas horas--vivo">{{ transcurrido(f) }}</td>
                 <td style="text-align: right">
-                  <button type="button" class="boton" (click)="abrirCierre(f)">Cerrar a mano</button>
+                  <button type="button" class="boton" (click)="abrirEdicion(f)">Cerrar a mano</button>
                 </td>
               </tr>
             }
@@ -76,7 +76,7 @@
                 <td>{{ f.inicio | date: "d MMM 'a las' HH:mm" : undefined : 'es' }}</td>
                 <td class="horas horas--alerta">{{ transcurrido(f) }}</td>
                 <td style="text-align: right">
-                  <button type="button" class="boton" (click)="abrirCierre(f)">Cerrar a mano</button>
+                  <button type="button" class="boton" (click)="abrirEdicion(f)">Cerrar a mano</button>
                 </td>
               </tr>
             }
@@ -91,7 +91,7 @@
       <h2>Horas por trabajador</h2>
     </div>
 
-    <div class="fila" style="gap: var(--e2); flex-wrap: wrap; align-items: flex-end">
+    <div class="mandos">
       <div class="fila" style="gap: 4px">
         <button
           type="button"
@@ -131,14 +131,26 @@
       </div>
       <div class="campo">
         <label for="quien">Trabajador</label>
-        <select id="quien" [ngModel]="usuarioId()" (ngModelChange)="usuarioId.set($event ? +$event : null)">
+        <select
+          id="quien"
+          [ngModel]="usuarioId()"
+          (ngModelChange)="usuarioId.set($event ? +$event : null); cargar()"
+        >
           <option [ngValue]="null">Todos</option>
           @for (u of usuarios(); track u.id) {
             <option [ngValue]="u.id">{{ u.nombreCompleto }}</option>
           }
         </select>
       </div>
-      <button type="button" class="boton boton--principal" (click)="cargar()">Ver</button>
+      <button
+        type="button"
+        class="boton"
+        style="margin-left: auto"
+        (click)="descargar()"
+      >
+        <app-icono nombre="descargar" [tamano]="15" />
+        Descargar
+      </button>
     </div>
 
     @if (cargando()) {
@@ -154,12 +166,12 @@
           <div class="dato__pie">Jornadas</div>
         </div>
         <div class="dato">
-          <div class="dato__valor">{{ r.trabajadores.length }}</div>
-          <div class="dato__pie">Trabajadores</div>
+          <div class="dato__valor">{{ r.trabajadores.length }} de {{ filas().length }}</div>
+          <div class="dato__pie">Han fichado</div>
         </div>
       </div>
 
-      @if (!r.trabajadores.length) {
+      @if (!filas().length) {
         <p class="silenciado" style="margin-top: var(--e3)">
           No hay ninguna jornada fichada en esas fechas.
         </p>
@@ -170,36 +182,40 @@
               <tr>
                 <th>Trabajador</th>
                 <th>Jornadas</th>
-                <th>Horas</th>
+                <th class="num">Horas</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              @for (t of r.trabajadores; track t.usuarioId) {
-                <tr class="fila-trabajador" (click)="alternar(t.usuarioId)">
-                  <td>{{ t.usuarioNombre }}</td>
-                  <td>{{ t.jornadas }}</td>
-                  <td class="horas">{{ totalDe(t) }}</td>
-                  <td style="text-align: right">
-                    <app-icono
-                      nombre="flecha-abajo"
-                      [tamano]="15"
-                      [class.girada]="desplegado() === t.usuarioId"
-                    />
-                  </td>
-                </tr>
+              @for (t of filas(); track t.usuarioId) {
+                @if (!t.jornadas) {
+                  <tr class="fila-trabajador fila-trabajador--vacia">
+                    <td>{{ t.usuarioNombre }}</td>
+                    <td>Sin jornadas</td>
+                    <td class="num horas">0:00:00</td>
+                    <td></td>
+                  </tr>
+                } @else {
+                  <tr class="fila-trabajador" (click)="alternar(t.usuarioId)">
+                    <td>{{ t.usuarioNombre }}</td>
+                    <td>{{ t.jornadas }}</td>
+                    <td class="num horas">{{ totalDe(t) }}</td>
+                    <td class="acciones">
+                      <app-icono
+                        nombre="flecha-abajo"
+                        [tamano]="15"
+                        [class.girada]="desplegado() === t.usuarioId"
+                      />
+                    </td>
+                  </tr>
+                }
 
                 @if (desplegado() === t.usuarioId) {
                   @for (f of t.detalle; track f.id) {
                     <tr class="detalle fila-jornada" (click)="alternarActividad(f)">
                       <td>{{ f.inicio | date: "EEE d MMM" : undefined : 'es' }}</td>
-                      <td colspan="2">
-                        {{ f.inicio | date: 'HH:mm' : undefined : 'es' }} –
-                        {{ f.fin ? (f.fin | date: 'HH:mm' : undefined : 'es') : '…' }}
-                        <span class="horas" [class.horas--vivo]="f.abierta">
-                          {{ transcurrido(f) }}
-                        </span>
-
+                      <td>
+                        <span class="tabular">{{ tramo(f.inicio, f.fin) }}</span>
                         @if (f.abierta) {
                           <span class="marca marca--abierta">Sin cerrar</span>
                         }
@@ -209,22 +225,26 @@
                           </span>
                         }
                         @if (f.corregida) {
-                          <!-- Lo que se fichó de verdad, para poder comparar. -->
-                          <span
-                            class="marca marca--corregida"
-                            [title]="
-                              'Se fichó ' +
-                              (f.inicioFichado | date: 'HH:mm' : undefined : 'es') +
-                              ' – ' +
-                              (f.finFichado ? (f.finFichado | date: 'HH:mm' : undefined : 'es') : '…') +
-                              '. ' + (f.motivoCorreccion ?? '')
-                            "
-                          >
-                            Corregida
+                          <span class="marca marca--corregida" [title]="f.motivoCorreccion ?? ''">
+                            Cambiada
                           </span>
                         }
                       </td>
-                      <td style="text-align: right">
+                      <td
+                        class="num horas"
+                        [class.horas--vivo]="f.abierta && esDeHoy(f.inicio)"
+                        [class.horas--alerta]="f.abierta && !esDeHoy(f.inicio)"
+                      >
+                        {{ transcurrido(f) }}
+                      </td>
+                      <td class="acciones">
+                        <button
+                          type="button"
+                          class="boton boton--plano boton--pequeno"
+                          (click)="abrirEdicion(f, $event)"
+                        >
+                          {{ f.abierta ? 'Cerrar a mano' : 'Cambiar horas' }}
+                        </button>
                         <app-icono
                           nombre="flecha-abajo"
                           [tamano]="13"
@@ -234,14 +254,18 @@
                     </tr>
 
                     <!--
-                      Lo que hizo en esa jornada. Se pide al desplegar y no al
-                      cargar la tabla: son seis tablas por jornada, y de un mes
-                      entero normalmente se mira una.
+                      Lo que hizo en esa jornada y, si se tocó a mano, cómo
+                      estaba antes de cada cambio. Se pide al desplegar y no al
+                      cargar la tabla: de un mes entero normalmente se mira una.
                     -->
                     @if (jornadaAbierta() === f.id) {
                       <tr class="detalle">
                         <td></td>
                         <td colspan="3">
+                          <app-historial-jornada [cambios]="cambios()" />
+                          @if (cambios().length) {
+                            <p class="detalle__titulo">Actividad</p>
+                          }
                           @if (cargandoActividad()) {
                             <span class="silenciado pequeno">Buscando…</span>
                           } @else if (!actividad().length) {
@@ -285,13 +309,28 @@
   </section>
 </div>
 
-<!-- Cierre a mano de una jornada olvidada -->
-@if (cerrando(); as f) {
+<!--
+  Cambio a mano de las horas. Abierta, se cierra poniendo la salida; cerrada,
+  se corrige entrada y salida. Las dos quedan en el historial de la jornada.
+-->
+@if (editando(); as f) {
   <app-dialogo
-    [titulo]="'Cerrar la jornada de ' + f.usuarioNombre"
-    [subtitulo]="subtituloCierre()"
-    (cerrar)="cancelarCierre()"
+    [titulo]="(f.abierta ? 'Cerrar la jornada de ' : 'Cambiar las horas de ') + f.usuarioNombre"
+    [subtitulo]="subtituloEdicion()"
+    (cerrar)="cancelarEdicion()"
   >
+    @if (!f.abierta) {
+      <div class="campo">
+        <label for="inicio-manual">Hora de entrada</label>
+        <input
+          id="inicio-manual"
+          type="datetime-local"
+          [ngModel]="inicioManual()"
+          (ngModelChange)="inicioManual.set($event)"
+        />
+      </div>
+    }
+
     <div class="campo">
       <label for="fin-manual">Hora de salida</label>
       <input
@@ -306,21 +345,28 @@
       <label for="motivo-manual">Motivo <span class="silenciado">(obligatorio)</span></label>
       <input
         id="motivo-manual"
+        maxlength="300"
         [ngModel]="motivoManual()"
         (ngModelChange)="motivoManual.set($event)"
-        placeholder="Se fue sin fichar la salida"
+        [placeholder]="f.abierta ? 'Se fue sin fichar la salida' : 'Fichó la salida al día siguiente'"
       />
     </div>
 
     <ng-container pie>
-      <button type="button" class="boton" (click)="cancelarCierre()">Cancelar</button>
+      <button type="button" class="boton" (click)="cancelarEdicion()">Cancelar</button>
       <button
         type="button"
         class="boton boton--principal"
-        [disabled]="!motivoManual().trim() || !finManual() || guardandoCierre()"
-        (click)="confirmarCierre()"
+        [disabled]="
+          !motivoManual().trim() || !finManual() || !inicioManual() || sinCambios() || guardandoEdicion()
+        "
+        (click)="guardarEdicion()"
       >
-        {{ guardandoCierre() ? 'Cerrando…' : 'Cerrar jornada' }}
+        @if (guardandoEdicion()) {
+          Guardando…
+        } @else {
+          {{ f.abierta ? 'Cerrar jornada' : 'Guardar cambio' }}
+        }
       </button>
     </ng-container>
   </app-dialogo>

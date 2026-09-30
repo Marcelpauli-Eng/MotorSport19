@@ -212,5 +212,48 @@ class FichajeTest {
                     f.getFin().plus(1, ChronoUnit.HOURS), null, "x", jefe()))
                     .isInstanceOf(ReglaNegocioException.class);
         }
+
+        @Test
+        @DisplayName("una correccion que no cambia nada no se apunta")
+        void sinCambios() {
+            Fichaje f = jornadaDe(8);
+
+            assertThatThrownBy(() -> f.corregir(null, null, "x", jefe()))
+                    .isInstanceOf(ReglaNegocioException.class);
+            assertThat(f.getCambios()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("Historial de cambios")
+    class Historial {
+
+        @Test
+        @DisplayName("cada cambio guarda las horas que habia antes, uno tras otro")
+        void encadenado() {
+            Fichaje f = Fichaje.empezar(trabajador());
+            Instant entrada = Instant.now().minus(20, ChronoUnit.HOURS);
+            ReflectionTestUtils.setField(f, "inicio", entrada);
+            Instant salida1 = entrada.plus(9, ChronoUnit.HOURS);
+            Instant salida2 = entrada.plus(8, ChronoUnit.HOURS);
+
+            f.cerrarPorOlvido(salida1, "Se fue sin fichar", jefe());
+            f.corregir(null, salida2, "Se fue a las cinco, no a las seis", jefe());
+
+            assertThat(f.getCambios()).hasSize(2);
+
+            CambioFichaje cierre = f.getCambios().get(0);
+            assertThat(cierre.getFinAnterior()).as("estaba abierta").isNull();
+            assertThat(cierre.getFinNuevo()).isEqualTo(salida1);
+
+            CambioFichaje correccion = f.getCambios().get(1);
+            assertThat(correccion.getFinAnterior())
+                    .as("la segunda no borra la primera: se ve lo que habia")
+                    .isEqualTo(salida1);
+            assertThat(correccion.getFinNuevo()).isEqualTo(salida2);
+            assertThat(correccion.getInicioAnterior()).isEqualTo(entrada);
+            assertThat(correccion.getMotivo()).isEqualTo("Se fue a las cinco, no a las seis");
+            assertThat(correccion.getUsuario().getUsername()).isEqualTo("admin");
+        }
     }
 }
