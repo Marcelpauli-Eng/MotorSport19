@@ -248,6 +248,31 @@ la lista ni siquiera llega a ver la pantalla de entrada, y eso deja fuera a
 cualquiera que ande probando URLs. Es gratis hasta 50 usuarios y se configura en
 dos minutos.
 
+### Solicitudes de la web
+
+La web pública (19racingmotorsport.com) deja las citas y presupuestos que piden
+los clientes en **Solicitudes web**. Para eso necesita pasar por Access, pero
+solo por su puerta:
+
+1. En el `.env`, pon `CLAVE_SOLICITUDES_WEB=` con una clave nueva
+   (`openssl rand -base64 48`) y reinicia:
+   `docker compose -f docker-compose.taller.yml up -d`. Sin ella la entrada está
+   cerrada.
+2. **Access → Service credentials → Service Tokens → Create Service Token**, nombre
+   `web-19racing`. Guarda el *Client ID* y el *Client Secret*: el secreto solo se
+   ve una vez.
+3. **Access → Applications → Add an application → Self-hosted**: tu dominio del
+   taller con la ruta `api/publico/solicitudes-web`, y una política con acción
+   **Service Auth** que incluya ese token. Access aplica la aplicación más
+   concreta: esa ruta queda abierta solo para la web y el resto sigue pidiendo el
+   login de siempre.
+4. En el Worker de la web van la misma clave (`INTRANET_CLAVE`) y el token
+   (`CF_ACCESS_CLIENT_ID`, `CF_ACCESS_CLIENT_SECRET`). Los pasos están en el
+   README de la web.
+
+Si el servidor está apagado cuando alguien rellena el formulario, la solicitud
+no se pierde: llega igual por email, avisando de que no se pudo guardar aquí.
+
 ---
 
 # Mantenimiento

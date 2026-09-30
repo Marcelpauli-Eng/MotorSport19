@@ -24,6 +24,11 @@
                 <a [routerLink]="enlace.ruta" routerLinkActive="activo">
                   <app-icono [nombre]="enlace.icono" [tamano]="17" />
                   <span class="lateral__enlace-texto">{{ enlace.texto }}</span>
+                  @if (enlace.contador && solicitudesPendientes()) {
+                    <span class="lateral__contador" [attr.aria-label]="solicitudesPendientes() + ' pendientes'">
+                      {{ solicitudesPendientes() }}
+                    </span>
+                  }
                 </a>
               </li>
             }

@@ -53,6 +53,8 @@ services:
       # Origin; pero desarrollando con `npm start` la peticion sale del 4200 y
       # llega con Origin, y sin este permiso la API responde 403 hasta al login.
       MOTORSPORT19_SEGURIDAD_ORIGENES_CORS: ${CORS_ORIGENES:-http://localhost:4200,http://127.0.0.1:4200}
+      # Entrada de solicitudes de la web publica. Vacia = cerrada.
+      MOTORSPORT19_SOLICITUDES_WEB_CLAVE: ${CLAVE_SOLICITUDES_WEB:-}
 
       TZ: ${TZ:-Europe/Madrid}
     ports:

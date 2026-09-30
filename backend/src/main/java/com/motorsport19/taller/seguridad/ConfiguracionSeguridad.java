@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.servlet.DispatcherType;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -103,6 +105,10 @@ public class ConfiguracionSeguridad {
                 // ----- Publico -----
                 .requestMatchers("/auth/login").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
+                // La web publica deja aqui lo que piden los clientes. No lleva
+                // usuario: la guarda FiltroClaveWeb con una clave compartida, y
+                // por delante Cloudflare Access con su token de servicio.
+                .requestMatchers(HttpMethod.POST, "/publico/solicitudes-web").permitAll()
                 // El canal de avisos (/eventos) sigue abierto en un hilo aparte;
                 // quien lo abrió ya pasó el control de token al conectarse.
                 .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
@@ -176,6 +182,14 @@ public class ConfiguracionSeguridad {
                 // ----- Agenda -----
                 .requestMatchers(HttpMethod.GET, "/citas/**").hasAuthority(p(Permiso.AGENDA_VER))
                 .requestMatchers("/citas/**").hasAuthority(p(Permiso.AGENDA_GESTIONAR))
+
+                // ----- Solicitudes de la web -----
+                // Darle cita apunta una cita en la agenda: hacen falta los dos
+                // permisos, o atender solicitudes seria una puerta trasera a la agenda.
+                .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/cita").access(AuthorizationManagers.allOf(
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.AGENDA_GESTIONAR))))
+                .requestMatchers("/solicitudes-web/**").hasAuthority(p(Permiso.SOLICITUDES_WEB))
 
                 // ----- Facturacion -----
                 // Abrir o cerrar una serie es decidir con que numeracion factura

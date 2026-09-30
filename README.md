@@ -448,6 +448,36 @@ ENTREGADA y enlazado a su factura (migración `V26`), así que no sale como
 trabajo sin facturar ni admite otra factura; el resto queda PRESUPUESTADA.
 
 
+### Solicitudes de la web
+
+Lo que piden los clientes desde el formulario de 19racingmotorsport.com (cita o
+presupuesto, con hasta tres fotos) entra en la bandeja **Solicitudes web**. No
+crea clientes, motos ni citas por su cuenta: mostrador la lee y decide.
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `POST` | `/publico/solicitudes-web` | Entrada de la web. **Sin usuario**: pide la cabecera `X-Clave-Web` (ver abajo) |
+| `GET` | `/solicitudes-web?estado=PENDIENTE` | La bandeja: `PENDIENTE`, `ATENDIDA` o `DESCARTADA` |
+| `GET` | `/solicitudes-web/pendientes` | El número del menú |
+| `GET` | `/solicitudes-web/{id}/fotos/{1..3}` | Una foto, tal cual llegó |
+| `POST` | `/solicitudes-web/{id}/cita` | Le da cita en la agenda y la cierra, todo o nada |
+| `POST` | `/solicitudes-web/{id}/atencion` · `/descarte` | La cierra con una nota opcional |
+
+- **Permiso `SOLICITUDES_WEB`**, que la migración V28 concede a quien ya tenía
+  `AGENDA_GESTIONAR`. Dar cita pide además `AGENDA_GESTIONAR`: si no, atender
+  solicitudes sería una puerta trasera a la agenda.
+- **La entrada está cerrada por defecto.** Se abre con
+  `MOTORSPORT19_SOLICITUDES_WEB_CLAVE` (en el `.env` del taller,
+  `CLAVE_SOLICITUDES_WEB`), de al menos 32 caracteres: con menos la API no
+  arranca. La comprueba `FiltroClaveWeb` en tiempo constante, y por delante
+  Cloudflare Access solo deja pasar a la web con su token de servicio
+  (ver [INSTALACION-TALLER.md](INSTALACION-TALLER.md#solicitudes-de-la-web)).
+- **Sin duplicados.** Cada envío trae una referencia; si la web reintenta, se
+  devuelve la solicitud que ya había.
+- **Las fotos se validan por sus bytes**, no por lo que diga quien las manda:
+  solo JPEG, PNG o WebP, 3 MB como mucho cada una. Se guardan en la base, como
+  los PDF de las facturas anteriores, y entran en la copia de seguridad.
+
 ### Órdenes de trabajo (fase 3)
 
 Cada transición tiene su propio endpoint con nombre de negocio, en vez de un

@@ -85,6 +85,15 @@ motorsport19:
     # Vercel) no hace falta, porque frontend y API comparten dominio.
     origenes-cors: ${MOTORSPORT19_SEGURIDAD_ORIGENES_CORS:}
 
+  # Solicitudes de la web publica (19racingmotorsport.com). La funcion del
+  # formulario presenta esta clave en la cabecera X-Clave-Web. Vacia = la
+  # entrada esta cerrada. Con menos de 32 caracteres la aplicacion no arranca.
+  #
+  #   Genérela con:  openssl rand -base64 48
+  #   Variable de entorno: MOTORSPORT19_SOLICITUDES_WEB_CLAVE
+  solicitudes-web:
+    clave: ${MOTORSPORT19_SOLICITUDES_WEB_CLAVE:}
+
   # Primer administrador, solo cuando la base no tiene ningun usuario. Si se deja
   # la contrasena vacia se genera una al azar y se escribe en el log de arranque:
   # asi no hay ninguna contrasena por defecto en el repositorio.

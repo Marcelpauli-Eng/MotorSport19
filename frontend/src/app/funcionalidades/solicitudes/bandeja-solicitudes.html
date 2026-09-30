@@ -1,0 +1,162 @@
+<div class="pagina-cabecera">
+  <div class="pagina-cabecera__texto">
+    <h1>Solicitudes web</h1>
+    <p class="pagina-cabecera__sub">
+      Citas y presupuestos que piden los clientes desde 19racingmotorsport.com. Nada entra en la
+      agenda hasta que se atiende aquí.
+    </p>
+  </div>
+</div>
+
+<div class="apilado">
+  <div class="pestanas pestanas--compactas">
+    <button type="button" class="pestana" [class.pestana--activa]="estado() === 'PENDIENTE'" (click)="cambiarEstado('PENDIENTE')">
+      Pendientes
+    </button>
+    <button type="button" class="pestana" [class.pestana--activa]="estado() === 'ATENDIDA'" (click)="cambiarEstado('ATENDIDA')">
+      Atendidas
+    </button>
+    <button type="button" class="pestana" [class.pestana--activa]="estado() === 'DESCARTADA'" (click)="cambiarEstado('DESCARTADA')">
+      Descartadas
+    </button>
+  </div>
+
+  @if (cargando()) {
+    <p class="silenciado">Cargando…</p>
+  } @else if (solicitudes().length === 0) {
+    <div class="tarjeta bandeja-vacia">
+      @if (estado() === 'PENDIENTE') {
+        <p>No hay solicitudes pendientes. Las nuevas aparecen aquí solas.</p>
+      } @else {
+        <p class="silenciado">Todavía no hay ninguna.</p>
+      }
+    </div>
+  } @else {
+    <ul class="bandeja">
+      @for (s of solicitudes(); track s.id) {
+        <li class="tarjeta solicitud">
+          <div class="solicitud__cabecera">
+            <span class="etiqueta" [class.etiqueta--azul]="s.tipo === 'CITA'" [class.etiqueta--morado]="s.tipo === 'PRESUPUESTO'">
+              {{ s.tipoDescripcion }}
+            </span>
+            @if (s.idioma !== 'es') {
+              <span class="etiqueta etiqueta--ambar">Escribió en {{ idioma(s) }}</span>
+            }
+            <span class="pequeno silenciado solicitud__cuando">
+              {{ s.recibidaEn | date: "d 'de' MMMM, HH:mm" : undefined : 'es' }}
+            </span>
+          </div>
+
+          <h2 class="solicitud__nombre">{{ s.nombre }}</h2>
+          <p class="solicitud__contacto">
+            <a [href]="'tel:' + s.telefono">{{ s.telefono }}</a>
+            <a class="solicitud__whatsapp" [href]="whatsapp(s.telefono)" target="_blank" rel="noopener">
+              <app-icono nombre="whatsapp" [tamano]="15" /> WhatsApp
+            </a>
+            @if (s.email) {
+              <a [href]="'mailto:' + s.email">{{ s.email }}</a>
+            }
+          </p>
+
+          <dl class="datos">
+            <dt>Moto</dt>
+            <dd>{{ s.descripcionMoto }}</dd>
+            @if (s.fechaPreferida) {
+              <dt>Le va bien</dt>
+              <dd>{{ s.fechaPreferida | date: "EEEE d 'de' MMMM" : undefined : 'es' }}</dd>
+            }
+          </dl>
+
+          <p class="etiqueta-campo prosa__titulo">Qué necesita</p>
+          <p class="prosa">{{ s.necesita }}</p>
+
+          @if (s.fotos > 0) {
+            @if (fotos()[s.id]; as urls) {
+              <div class="solicitud__fotos">
+                @for (url of urls; track $index) {
+                  <a [href]="url" target="_blank" rel="noopener" [attr.aria-label]="'Foto ' + ($index + 1) + ' a tamaño completo'">
+                    <img [src]="url" [alt]="'Foto ' + ($index + 1) + ' que adjuntó ' + s.nombre" />
+                  </a>
+                }
+              </div>
+            } @else {
+              <button type="button" class="boton boton--pequeno" (click)="verFotos(s)">
+                Ver {{ s.fotos === 1 ? 'la foto' : 'las ' + s.fotos + ' fotos' }}
+              </button>
+            }
+          }
+
+          @if (s.estado !== 'PENDIENTE') {
+            <p class="pequeno silenciado solicitud__cierre">
+              {{ s.estadoDescripcion }}
+              @if (s.atendidaPor) { por {{ s.atendidaPor }} }
+              el {{ s.atendidaEn | date: "d 'de' MMMM, HH:mm" : undefined : 'es' }}.
+              @if (s.citaFechaHora) {
+                Cita el {{ s.citaFechaHora | date: "EEEE d 'de' MMMM 'a las' HH:mm" : undefined : 'es' }}.
+              }
+            </p>
+            @if (s.nota) {
+              <p class="prosa">{{ s.nota }}</p>
+            }
+          } @else {
+            <div class="fila solicitud__acciones">
+              <button type="button" class="boton boton--plano" (click)="abrirCierre(s, 'descartar')">Descartar</button>
+              <button type="button" class="boton" (click)="abrirCierre(s, 'atender')">Marcar atendida</button>
+              @if (puedeDarCita) {
+                <button type="button" class="boton boton--principal" (click)="dandoCita.set(s)">Dar cita</button>
+              }
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>
+
+@if (dandoCita(); as s) {
+  <app-formulario-cita
+    [solicitudId]="s.id"
+    [borrador]="borrador()"
+    (cerrar)="dandoCita.set(null)"
+    (guardado)="trasDarCita()"
+  />
+}
+
+@if (cerrando(); as c) {
+  <app-dialogo
+    [titulo]="c.accion === 'atender' ? 'Marcar como atendida' : 'Descartar solicitud'"
+    [subtitulo]="c.s.nombre + ' · ' + c.s.descripcionMoto"
+    (cerrar)="cerrando.set(null)"
+  >
+    <div class="campo">
+      <label for="notaSolicitud">
+        Nota <span class="silenciado">(opcional)</span>
+      </label>
+      <textarea
+        id="notaSolicitud"
+        maxlength="500"
+        [ngModel]="nota()"
+        (ngModelChange)="nota.set($event)"
+        [placeholder]="
+          c.accion === 'atender'
+            ? 'Presupuesto dado por teléfono: 180 € con montaje.'
+            : 'Duplicada, spam, ya no la necesita…'
+        "
+      ></textarea>
+    </div>
+
+    <ng-container pie>
+      <button type="button" class="boton" (click)="cerrando.set(null)">Cancelar</button>
+      <button
+        type="button"
+        class="boton"
+        [class.boton--principal]="c.accion === 'atender'"
+        [class.boton--peligro]="c.accion === 'descartar'"
+        [disabled]="trabajando()"
+        (click)="confirmarCierre()"
+      >
+        {{ trabajando() ? 'Guardando…' : c.accion === 'atender' ? 'Marcar atendida' : 'Descartar' }}
+      </button>
+    </ng-container>
+  </app-dialogo>
+}
