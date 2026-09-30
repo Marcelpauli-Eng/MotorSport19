@@ -89,6 +89,7 @@ public enum Permiso {
     // ------------------------------------------------------------------
     AGENDA_VER(Grupo.AGENDA, "Ver la agenda"),
     AGENDA_GESTIONAR(Grupo.AGENDA, "Dar y mover citas"),
+    SOLICITUDES_WEB(Grupo.AGENDA, "Atender las solicitudes de la web", "Citas y presupuestos que piden los clientes desde la pagina"),
     SERVICIOS_VER(Grupo.AGENDA, "Ver los servicios tipo"),
     SERVICIOS_GESTIONAR(Grupo.AGENDA, "Definir servicios tipo", "Las plantillas de trabajo y sus horas"),
 

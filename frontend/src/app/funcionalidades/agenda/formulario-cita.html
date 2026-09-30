@@ -1,6 +1,10 @@
 <app-dialogo
   [titulo]="esAlta() ? 'Nueva cita' : 'Editar cita'"
-  subtitulo="Aparta un hueco. La orden de trabajo se abre cuando la moto llegue."
+  [subtitulo]="
+    solicitudId()
+      ? 'Con los datos que dejó en la web: revísalos antes de guardar.'
+      : 'Aparta un hueco. La orden de trabajo se abre cuando la moto llegue.'
+  "
   (cerrar)="cerrar.emit()"
 >
   <div class="rejilla">

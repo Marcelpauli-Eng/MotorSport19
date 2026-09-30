@@ -7,6 +7,7 @@ import { FichajesService } from './nucleo/servicios/fichajes.service';
 import { NotificacionesService } from './nucleo/servicios/notificaciones.service';
 import { Permiso, SesionService } from './nucleo/servicios/sesion.service';
 import { SinConexionService } from './nucleo/servicios/sin-conexion.service';
+import { SolicitudesService } from './nucleo/servicios/solicitudes.service';
 import { TiempoRealService, alCambiarDatos } from './nucleo/servicios/tiempo-real.service';
 
 interface Enlace {
@@ -22,6 +23,8 @@ interface Enlace {
    * entrar: no encajaba en ninguno de los tres perfiles de siempre.
    */
   permisos?: Permiso[];
+  /** Lleva al lado el número de solicitudes de la web pendientes. */
+  contador?: boolean;
 }
 
 interface Grupo {
@@ -59,6 +62,13 @@ export class App {
       enlaces: [
         { ruta: '/panel', texto: 'Panel', icono: 'panel' },
         { ruta: '/agenda', texto: 'Agenda', icono: 'agenda', permisos: ['AGENDA_VER'] },
+        {
+          ruta: '/solicitudes',
+          texto: 'Solicitudes web',
+          icono: 'bandeja',
+          permisos: ['SOLICITUDES_WEB'],
+          contador: true,
+        },
         {
           ruta: '/ordenes',
           texto: 'Órdenes de trabajo',
@@ -134,6 +144,10 @@ export class App {
   protected readonly cerrandoJornada = signal(false);
 
   protected readonly tiempoReal = inject(TiempoRealService);
+  private readonly solicitudes = inject(SolicitudesService);
+
+  /** Solicitudes de la web sin atender, para el número del menú. */
+  protected readonly solicitudesPendientes = this.solicitudes.pendientes;
   protected readonly sinConexion = inject(SinConexionService);
 
   /**
@@ -174,6 +188,13 @@ export class App {
   });
 
   constructor() {
+    // Al entrar, y cada vez que otro puesto cambia algo: una solicitud nueva
+    // de la web llega por el mismo aviso que cualquier otro cambio.
+    effect(() => {
+      if (this.sesion.autenticado()) this.contarSolicitudes();
+    });
+    alCambiarDatos(() => this.contarSolicitudes());
+
     // Cada segundo: un contador que no se mueve parece averiado.
     const reloj = setInterval(() => this.ahora.set(Date.now()), 1000);
     inject(DestroyRef).onDestroy(() => clearInterval(reloj));
@@ -256,5 +277,10 @@ export class App {
   protected salir(): void {
     this.sesion.salir();
     void this.router.navigate(['/entrar']);
+  }
+
+  private contarSolicitudes(): void {
+    if (!this.sesion.autenticado() || !this.sesion.tienePermiso('SOLICITUDES_WEB')) return;
+    this.solicitudes.contarPendientes();
   }
 }

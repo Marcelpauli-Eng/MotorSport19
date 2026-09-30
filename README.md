@@ -453,6 +453,46 @@ de NEXTGO de ese año, así que la primera de aquí es la siguiente (la 42 si
 NEXTGO llegó a la 41). Una serie que ya ha emitido no se renumera nunca.
 
 
+### Solicitudes de la web
+
+Lo que piden los clientes desde el formulario de 19racingmotorsport.com (cita o
+presupuesto, con hasta tres fotos) entra en la bandeja **Solicitudes web**. No
+crea clientes, motos ni citas por su cuenta: mostrador la lee y decide.
+
+Desde la bandeja se le **manda un presupuesto** (se abre WhatsApp o el correo de
+quien lo atiende con el mensaje escrito en el idioma en que el cliente rellenó
+la web), se le **da cita**, se marca como atendida o se descarta. La
+presupuestada sigue abierta a la espera de respuesta: si el cliente acepta, se
+le da cita desde ahí.
+
+| Método | Ruta | Qué hace |
+|--------|------|----------|
+| `POST` | `/publico/solicitudes-web` | Entrada de la web. **Sin usuario**: pide la cabecera `X-Clave-Web` (ver abajo) |
+| `GET` | `/solicitudes-web?estado=PENDIENTE` | La bandeja: `PENDIENTE`, `PRESUPUESTADA`, `ATENDIDA` o `DESCARTADA` |
+| `GET` | `/solicitudes-web/pendientes` | El número del menú |
+| `GET` | `/solicitudes-web/{id}/fotos/{1..3}` | Una foto, tal cual llegó |
+| `POST` | `/solicitudes-web/{id}/presupuesto` | Apunta el presupuesto mandado (importe, detalle, WhatsApp o email) y la deja presupuestada |
+| `POST` | `/solicitudes-web/{id}/cita` | Le da cita en la agenda y la cierra, todo o nada |
+| `POST` | `/solicitudes-web/{id}/atencion` · `/descarte` | La cierra con una nota opcional |
+
+- **Permiso `SOLICITUDES_WEB`**, que la migración V29 concede a quien ya tenía
+  `AGENDA_GESTIONAR`. Dar cita pide además `AGENDA_GESTIONAR`: si no, atender
+  solicitudes sería una puerta trasera a la agenda. Mandar un presupuesto pide
+  además `IMPORTES_VER`, y quien no lo tiene ve la bandeja sin el importe.
+- **La entrada está cerrada por defecto.** Se abre con
+  `MOTORSPORT19_SOLICITUDES_WEB_CLAVE` (en el `.env` del taller,
+  `CLAVE_SOLICITUDES_WEB`), de al menos 32 caracteres: con menos la API no
+  arranca. La comprueba `FiltroClaveWeb` en tiempo constante, y por delante
+  Cloudflare Access solo deja pasar a la web con su token de servicio
+  (ver [INSTALACION-TALLER.md](INSTALACION-TALLER.md#solicitudes-de-la-web)).
+- **Sin duplicados.** Cada envío trae una referencia; si la web reintenta, se
+  devuelve la solicitud que ya había.
+- **Las fotos se validan por sus bytes**, no por lo que diga quien las manda:
+  solo JPEG, PNG o WebP, 3 MB como mucho cada una. Se guardan en la base, como
+  los PDF de las facturas anteriores, y entran en la copia de seguridad. Se
+  sirven sin caché: tras restaurar una copia el número de una solicitud puede
+  repetirse, y el navegador enseñaría la foto de otro cliente.
+
 ### Órdenes de trabajo (fase 3)
 
 Cada transición tiene su propio endpoint con nombre de negocio, en vez de un

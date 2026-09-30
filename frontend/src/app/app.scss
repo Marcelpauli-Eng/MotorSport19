@@ -162,6 +162,34 @@
 
 .lateral nav a.activo:hover { background: var(--marca-tenue); }
 
+/* Solicitudes de la web sin atender. Texto oscuro sobre el rosa: el blanco no da contraste. */
+.lateral__contador {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--marca);
+  color: var(--marca-tinta);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Colapsada, el número se queda sobre el icono. */
+.armazon--colapsado .lateral__contador {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 0.625rem;
+}
+
 .lateral__pie {
   margin-top: auto;
   padding: var(--e3);

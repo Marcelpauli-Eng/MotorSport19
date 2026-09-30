@@ -53,6 +53,10 @@ services:
       # deliberado, para que nadie deje el taller con una clave por defecto.
       MOTORSPORT19_SEGURIDAD_CLAVE_JWT: "${CLAVE_JWT:?Falta CLAVE_JWT en el .env. Generala con openssl rand -base64 48}"
 
+      # Clave con la que la web publica entrega las solicitudes de cita y
+      # presupuesto. Vacia = no se reciben.
+      MOTORSPORT19_SOLICITUDES_WEB_CLAVE: ${CLAVE_SOLICITUDES_WEB:-}
+
       TZ: ${TZ:-Europe/Madrid}
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/api/actuator/health | grep -q UP"]

@@ -34,7 +34,8 @@ export type NombreIcono =
   | 'agenda'
   | 'lapiz'
   | 'papelera'
-  | 'filtro';
+  | 'filtro'
+  | 'bandeja';
 
 /**
  * Trazos de cada icono, sin el `<svg>` que los envuelve.
@@ -114,6 +115,9 @@ const TRAZOS: Record<NombreIcono, string> = {
     '<path d="M6.5 6.5v12.2c0 .9.7 1.6 1.6 1.6h7.8c.9 0 1.6-.7 1.6-1.6V6.5"/>' +
     '<path d="M10 10.5v6"/><path d="M14 10.5v6"/>',
   filtro: '<path d="M3.5 5.5h17l-6.8 8v5.5l-3.4 1.7V13.5z"/>',
+  bandeja:
+    '<path d="M4 13.5h4.2l1.6 2.8h4.4l1.6-2.8H20"/>' +
+    '<path d="M6.2 5h11.6L20 13.5V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-5.5z"/>',
 };
 
 /**

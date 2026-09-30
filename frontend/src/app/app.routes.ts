@@ -44,6 +44,15 @@ export const routes: Routes = [
         loadComponent: () => import('./funcionalidades/agenda/agenda').then((m) => m.Agenda),
       },
 
+      // Lo que piden los clientes desde la web pública: citas y presupuestos.
+      {
+        path: 'solicitudes',
+        title: 'Solicitudes web · MotorSport19',
+        canActivate: [permisoGuard('SOLICITUDES_WEB')],
+        loadComponent: () =>
+          import('./funcionalidades/solicitudes/bandeja-solicitudes').then((m) => m.BandejaSolicitudes),
+      },
+
       {
         path: 'ordenes',
         title: 'Órdenes de trabajo · MotorSport19',

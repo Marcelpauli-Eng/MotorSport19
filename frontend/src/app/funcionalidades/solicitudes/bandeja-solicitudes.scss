@@ -1,0 +1,96 @@
+.bandeja {
+  display: grid;
+  gap: var(--e4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bandeja-vacia {
+  text-align: center;
+  padding: var(--e8) var(--e5);
+}
+
+.solicitud {
+  display: grid;
+  gap: var(--e2);
+  max-width: 820px;
+}
+
+.solicitud__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--e2);
+}
+
+.solicitud__cuando {
+  margin-left: auto;
+}
+
+.solicitud__nombre {
+  margin: var(--e1) 0 0;
+  font-size: 1.125rem;
+}
+
+.solicitud__contacto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  margin: 0;
+}
+
+.solicitud__whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.solicitud > .boton {
+  justify-self: start;
+}
+
+.solicitud__fotos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--e2);
+
+  img {
+    width: 132px;
+    height: 132px;
+    object-fit: cover;
+    border-radius: var(--radio);
+    border: var(--borde);
+  }
+}
+
+.solicitud__presupuesto {
+  display: grid;
+  gap: var(--e1);
+  margin-top: var(--e2);
+  padding: var(--e3) var(--e4);
+  border-radius: var(--radio);
+  background: var(--morado-suave);
+  border: 1px solid var(--morado-borde);
+
+  p {
+    margin: 0;
+  }
+}
+
+.solicitud__importe {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.solicitud__cierre {
+  margin: var(--e2) 0 0;
+}
+
+.solicitud__acciones {
+  justify-content: flex-end;
+  gap: var(--e2);
+  margin-top: var(--e2);
+  padding-top: var(--e3);
+  border-top: var(--borde);
+}

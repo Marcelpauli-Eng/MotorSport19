@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Observable } from 'rxjs';
 import { Dialogo } from '../../compartido/dialogo';
 import { Cita } from '../../nucleo/modelos/agenda';
 import { Tecnico } from '../../nucleo/modelos/configuracion';
@@ -9,6 +10,7 @@ import { CitasService, DatosCita } from '../../nucleo/servicios/citas.service';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
+import { SolicitudesService } from '../../nucleo/servicios/solicitudes.service';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 
 /** `2026-08-07T09:30` — lo que espera un input datetime-local, en hora local. */
@@ -16,6 +18,16 @@ function paraInput(iso: string): string {
   const f = new Date(iso);
   const dos = (n: number) => `${n}`.padStart(2, '0');
   return `${f.getFullYear()}-${dos(f.getMonth() + 1)}-${dos(f.getDate())}T${dos(f.getHours())}:${dos(f.getMinutes())}`;
+}
+
+/** Lo que se sabe de antemano al dar cita a una solicitud de la web. */
+export interface BorradorCita {
+  contactoNombre: string;
+  contactoTelefono: string;
+  descripcionMoto: string;
+  motivo: string;
+  /** `2026-10-20`, si el cliente dijo qué día le va bien. */
+  dia: string | null;
 }
 
 /**
@@ -37,11 +49,18 @@ export class FormularioCita {
   private readonly motos = inject(MotosService);
   private readonly usuarios = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
+  private readonly solicitudes = inject(SolicitudesService);
 
   /** Cita que se edita. Sin ella, se da una nueva. */
   readonly cita = input<Cita | null>(null);
   /** Día que venía propuesto al pulsar el «+» de una columna. */
   readonly diaPropuesto = input<string | null>(null);
+  /**
+   * Solicitud de la web a la que se da cita. Con ella el formulario sale ya
+   * relleno y, al guardar, la cita se apunta y la solicitud se cierra de una vez.
+   */
+  readonly solicitudId = input<number | null>(null);
+  readonly borrador = input<BorradorCita | null>(null);
 
   readonly cerrar = output<void>();
   readonly guardado = output<void>();
@@ -98,8 +117,16 @@ export class FormularioCita {
         this.observaciones.set(c.observaciones ?? '');
         return;
       }
-      // Cita nueva: se propone el día que se pulsó, a las nueve de la mañana.
-      const dia = this.diaPropuesto();
+      const b = this.borrador();
+      if (b) {
+        this.contactoNombre.set(b.contactoNombre);
+        this.contactoTelefono.set(b.contactoTelefono);
+        this.descripcionMoto.set(b.descripcionMoto);
+        this.motivo.set(b.motivo);
+      }
+      // Cita nueva: se propone el día que se pulsó (o el que pidió el cliente),
+      // a las nueve de la mañana.
+      const dia = this.diaPropuesto() ?? b?.dia ?? null;
       this.fechaHora.set(dia ? `${dia}T09:00` : paraInput(new Date().toISOString()));
     });
   }
@@ -123,9 +150,12 @@ export class FormularioCita {
     };
 
     const existente = this.cita();
-    const peticion = existente
+    const solicitud = this.solicitudId();
+    const peticion: Observable<unknown> = existente
       ? this.servicio.actualizar(existente.id, datos)
-      : this.servicio.agendar(datos);
+      : solicitud
+        ? this.solicitudes.darCita(solicitud, datos)
+        : this.servicio.agendar(datos);
 
     peticion.subscribe({
       next: () => {
