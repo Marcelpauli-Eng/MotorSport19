@@ -9,6 +9,7 @@ import { SesionService } from '../../nucleo/servicios/sesion.service';
 import { SolicitudesService } from '../../nucleo/servicios/solicitudes.service';
 import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { BorradorCita, FormularioCita } from '../agenda/formulario-cita';
+import { EnviarPresupuesto, enlaceWhatsapp } from './enviar-presupuesto';
 
 const IDIOMAS: Record<SolicitudWeb['idioma'], string> = {
   es: 'castellano',
@@ -21,13 +22,14 @@ const IDIOMAS: Record<SolicitudWeb['idioma'], string> = {
  * Bandeja de lo que piden los clientes desde la web: citas y presupuestos.
  *
  * <p>Nada de lo que llega entra solo en la agenda ni en clientes. Desde aquí se
- * le da cita (con el formulario de la agenda ya relleno), se marca como
- * atendida —el presupuesto se dio por teléfono— o se descarta.
+ * le manda un presupuesto por WhatsApp o email, se le da cita (con el
+ * formulario de la agenda ya relleno), se marca como atendida o se descarta.
+ * La presupuestada sigue abierta hasta que el cliente contesta.
  */
 @Component({
   selector: 'app-bandeja-solicitudes',
   standalone: true,
-  imports: [CommonModule, FormsModule, Dialogo, Icono, FormularioCita],
+  imports: [CommonModule, FormsModule, Dialogo, Icono, FormularioCita, EnviarPresupuesto],
   templateUrl: './bandeja-solicitudes.html',
   styleUrl: './bandeja-solicitudes.scss',
 })
@@ -37,6 +39,8 @@ export class BandejaSolicitudes {
 
   /** Dar cita apunta en la agenda: sin ese permiso solo se puede cerrar o descartar. */
   protected readonly puedeDarCita = inject(SesionService).tienePermiso('AGENDA_GESTIONAR');
+  /** Mandar un presupuesto es poner precio: lo hace quien ve importes. */
+  protected readonly puedePresupuestar = inject(SesionService).tienePermiso('IMPORTES_VER');
 
   protected readonly estado = signal<EstadoSolicitud>('PENDIENTE');
   protected readonly solicitudes = signal<SolicitudWeb[]>([]);
@@ -46,6 +50,7 @@ export class BandejaSolicitudes {
   protected readonly fotos = signal<Record<number, string[]>>({});
 
   protected readonly dandoCita = signal<SolicitudWeb | null>(null);
+  protected readonly presupuestando = signal<SolicitudWeb | null>(null);
   protected readonly cerrando = signal<{ s: SolicitudWeb; accion: 'atender' | 'descartar' } | null>(null);
   protected readonly nota = signal('');
   protected readonly trabajando = signal(false);
@@ -105,14 +110,13 @@ export class BandejaSolicitudes {
     return IDIOMAS[s.idioma];
   }
 
-  /**
-   * Enlace de WhatsApp. Un número de nueve cifras sin prefijo es español; los
-   * de Francia llegan con su +33 porque así los pide el formulario.
-   */
   protected whatsapp(telefono: string): string {
-    let cifras = telefono.replace(/\D/g, '');
-    if (!telefono.trim().startsWith('+') && cifras.length === 9) cifras = '34' + cifras;
-    return `https://wa.me/${cifras}`;
+    return enlaceWhatsapp(telefono);
+  }
+
+  protected trasPresupuestar(): void {
+    this.presupuestando.set(null);
+    this.cargar();
   }
 
   protected trasDarCita(): void {

@@ -4,6 +4,7 @@ import com.motorsport19.taller.agenda.domain.Cita;
 import com.motorsport19.taller.agenda.service.CitaService;
 import com.motorsport19.taller.common.error.RecursoNoEncontradoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
+import com.motorsport19.taller.solicitud.domain.CanalPresupuesto;
 import com.motorsport19.taller.solicitud.domain.EstadoSolicitud;
 import com.motorsport19.taller.solicitud.domain.FotoSolicitud;
 import com.motorsport19.taller.solicitud.domain.SolicitudWeb;
@@ -110,7 +111,7 @@ public class SolicitudWebService {
 
     @Transactional(readOnly = true)
     public SolicitudWeb obtener(Long id) {
-        return solicitudes.findById(id)
+        return solicitudes.findConRelacionesById(id)
                 .orElseThrow(() -> new RecursoNoEncontradoException("No existe la solicitud " + id));
     }
 
@@ -140,11 +141,19 @@ public class SolicitudWebService {
         SolicitudWeb solicitud = obtener(id);
         // Antes de crear la cita, y no despues: si ya estaba atendida no debe
         // quedar una cita suelta en la agenda.
-        solicitud.exigirPendiente();
+        solicitud.exigirAbierta();
         Cita cita = citaService.agendar(fechaHora, duracionEstimada, motoId, clienteId,
                 contactoNombre, contactoTelefono, descripcionMoto, motivo, tecnicoId,
                 observaciones, usuarioId);
         solicitud.darCita(cita, usuario(usuarioId));
+        return solicitud;
+    }
+
+    @Transactional
+    public SolicitudWeb enviarPresupuesto(Long id, BigDecimal importe, String detalle,
+                                          CanalPresupuesto canal, Long usuarioId) {
+        SolicitudWeb solicitud = obtener(id);
+        solicitud.enviarPresupuesto(importe, detalle, canal, usuario(usuarioId));
         return solicitud;
     }
 

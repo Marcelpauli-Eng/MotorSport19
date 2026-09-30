@@ -1,9 +1,11 @@
 package com.motorsport19.taller.solicitud.web.dto;
 
+import com.motorsport19.taller.solicitud.domain.CanalPresupuesto;
 import com.motorsport19.taller.solicitud.domain.EstadoSolicitud;
 import com.motorsport19.taller.solicitud.domain.SolicitudWeb;
 import com.motorsport19.taller.solicitud.domain.TipoSolicitud;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -30,6 +32,13 @@ public record SolicitudWebResponse(
         /** Cuantas fotos pedir a /fotos/{1..n}. */
         int fotos,
 
+        /** Nulo para quien no puede ver importes. */
+        BigDecimal presupuestoImporte,
+        String presupuestoDetalle,
+        CanalPresupuesto presupuestoCanal,
+        Instant presupuestadaEn,
+        String presupuestadaPor,
+
         Long citaId,
         Instant citaFechaHora,
         String nota,
@@ -44,9 +53,23 @@ public record SolicitudWebResponse(
                 s.getNombre(), s.getTelefono(), s.getEmail(), s.getMarca(), s.getModelo(),
                 s.getMatricula(), s.descripcionMoto(), s.getNecesita(), s.getFechaPreferida(),
                 s.getNumFotos(),
+                s.getPresupuestoImporte(), s.getPresupuestoDetalle(), s.getPresupuestoCanal(),
+                s.getPresupuestadaEn(),
+                s.getPresupuestadaPor() == null ? null : s.getPresupuestadaPor().getNombreCompleto(),
                 s.getCita() == null ? null : s.getCita().getId(),
                 s.getCita() == null ? null : s.getCita().getFechaHora(),
                 s.getNota(), s.getAtendidaEn(),
                 s.getAtendidaPor() == null ? null : s.getAtendidaPor().getNombreCompleto());
+    }
+
+    /**
+     * La misma ficha sin el importe, para quien no puede ver dinero. El detalle
+     * se queda: dice que se ofrecio, no cuanto cuesta.
+     */
+    public SolicitudWebResponse sinImportes() {
+        return new SolicitudWebResponse(id, referencia, tipo, tipoDescripcion, estado, estadoDescripcion,
+                recibidaEn, idioma, nombre, telefono, email, marca, modelo, matricula, descripcionMoto,
+                necesita, fechaPreferida, fotos, null, presupuestoDetalle, presupuestoCanal,
+                presupuestadaEn, presupuestadaPor, citaId, citaFechaHora, nota, atendidaEn, atendidaPor);
     }
 }

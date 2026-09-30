@@ -5,7 +5,9 @@ import com.motorsport19.taller.seguridad.UsuarioActual;
 import com.motorsport19.taller.solicitud.domain.EstadoSolicitud;
 import com.motorsport19.taller.solicitud.domain.FotoSolicitud;
 import com.motorsport19.taller.solicitud.service.SolicitudWebService;
+import com.motorsport19.taller.solicitud.domain.SolicitudWeb;
 import com.motorsport19.taller.solicitud.web.dto.NotaRequest;
+import com.motorsport19.taller.solicitud.web.dto.PresupuestoRequest;
 import com.motorsport19.taller.solicitud.web.dto.SolicitudWebResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.CacheControl;
@@ -20,7 +22,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /** Bandeja de solicitudes de la web, para quien atiende mostrador. */
 @RestController
@@ -38,7 +39,7 @@ public class SolicitudWebController {
     @GetMapping
     public List<SolicitudWebResponse> bandeja(
             @RequestParam(defaultValue = "PENDIENTE") EstadoSolicitud estado) {
-        return servicio.bandeja(estado).stream().map(SolicitudWebResponse::de).toList();
+        return servicio.bandeja(estado).stream().map(this::respuesta).toList();
     }
 
     /** Para el numero del menu. */
@@ -52,36 +53,60 @@ public class SolicitudWebController {
 
     @GetMapping("/{id}")
     public SolicitudWebResponse obtener(@PathVariable Long id) {
-        return SolicitudWebResponse.de(servicio.obtener(id));
+        return respuesta(servicio.obtener(id));
     }
 
-    /** La foto tal cual la mando el cliente. No cambia nunca: se puede guardar en cache. */
+    /**
+     * La foto tal cual la mando el cliente.
+     *
+     * <p>Sin cache a proposito. La direccion lleva el numero de la solicitud, y
+     * tras restaurar una copia de seguridad ese numero puede volver a usarse: el
+     * navegador enseñaria la foto de otro cliente. Ademas son fotos de clientes
+     * y no tienen por que quedarse en el disco del ordenador del mostrador.
+     */
     @GetMapping("/{id}/fotos/{orden}")
     public ResponseEntity<byte[]> foto(@PathVariable Long id, @PathVariable int orden) {
         FotoSolicitud foto = servicio.foto(id, orden);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(foto.getTipoContenido()))
-                .cacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePrivate())
+                .cacheControl(CacheControl.noStore())
                 .body(foto.getDatos());
     }
 
     /** Le da cita en la agenda con los datos del formulario de la cita. */
     @PostMapping("/{id}/cita")
     public SolicitudWebResponse darCita(@PathVariable Long id, @Valid @RequestBody GuardarCitaRequest p) {
-        return SolicitudWebResponse.de(servicio.darCita(id, p.fechaHora(), p.duracionEstimada(),
+        return respuesta(servicio.darCita(id, p.fechaHora(), p.duracionEstimada(),
                 p.motoId(), p.clienteId(), p.contactoNombre(), p.contactoTelefono(),
                 p.descripcionMoto(), p.motivo(), p.tecnicoId(), p.observaciones(), usuarioActual.id()));
+    }
+
+    /**
+     * Apunta el presupuesto que se le manda. El mensaje lo envia quien lo atiende,
+     * desde su WhatsApp o su correo; la solicitud queda presupuestada, a la espera
+     * de que el cliente conteste.
+     */
+    @PostMapping("/{id}/presupuesto")
+    public SolicitudWebResponse enviarPresupuesto(@PathVariable Long id,
+                                                  @Valid @RequestBody PresupuestoRequest p) {
+        return respuesta(servicio.enviarPresupuesto(id, p.importe(), p.detalle(), p.canal(), usuarioActual.id()));
     }
 
     @PostMapping("/{id}/atencion")
     public SolicitudWebResponse marcarAtendida(@PathVariable Long id,
                                                @Valid @RequestBody(required = false) NotaRequest p) {
-        return SolicitudWebResponse.de(servicio.marcarAtendida(id, p == null ? null : p.nota(), usuarioActual.id()));
+        return respuesta(servicio.marcarAtendida(id, p == null ? null : p.nota(), usuarioActual.id()));
     }
 
     @PostMapping("/{id}/descarte")
     public SolicitudWebResponse descartar(@PathVariable Long id,
                                           @Valid @RequestBody(required = false) NotaRequest p) {
-        return SolicitudWebResponse.de(servicio.descartar(id, p == null ? null : p.nota(), usuarioActual.id()));
+        return respuesta(servicio.descartar(id, p == null ? null : p.nota(), usuarioActual.id()));
+    }
+
+    /** Quien no puede ver dinero ve la ficha sin el importe del presupuesto. */
+    private SolicitudWebResponse respuesta(SolicitudWeb s) {
+        SolicitudWebResponse r = SolicitudWebResponse.de(s);
+        return usuarioActual.sinImportes() ? r.sinImportes() : r;
     }
 }

@@ -85,6 +85,68 @@ class SolicitudWebTest {
     }
 
     @Nested
+    @DisplayName("Presupuesto")
+    class Presupuesto {
+
+        @Test
+        @DisplayName("mandarlo la deja presupuestada, abierta, con importe y canal")
+        void enviar() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            s.enviarPresupuesto(new BigDecimal("1450.00"), "  Carenado completo y montaje  ",
+                    CanalPresupuesto.WHATSAPP, null);
+
+            assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.PRESUPUESTADA);
+            assertThat(s.getEstado().abierta()).isTrue();
+            assertThat(s.getPresupuestoImporte()).isEqualByComparingTo("1450");
+            assertThat(s.getPresupuestoDetalle()).isEqualTo("Carenado completo y montaje");
+            assertThat(s.getPresupuestoCanal()).isEqualTo(CanalPresupuesto.WHATSAPP);
+            assertThat(s.getPresupuestadaEn()).isNotNull();
+            assertThat(s.getAtendidaEn()).isNull();
+        }
+
+        @Test
+        @DisplayName("si el cliente acepta, se le da cita desde la presupuestada")
+        void aceptado() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            s.enviarPresupuesto(new BigDecimal("180"), null, CanalPresupuesto.WHATSAPP, null);
+            Cita cita = Cita.agendar(Instant.now().plus(2, ChronoUnit.DAYS), BigDecimal.ONE, null, null,
+                    s.getNombre(), s.getTelefono(), s.descripcionMoto(), s.getNecesita(), null, null, null);
+
+            s.darCita(cita, null);
+
+            assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.ATENDIDA);
+            assertThat(s.getPresupuestoImporte()).isEqualByComparingTo("180");
+        }
+
+        @Test
+        @DisplayName("se puede volver a mandar corregido: queda el ultimo")
+        void corregido() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            s.enviarPresupuesto(new BigDecimal("200"), null, CanalPresupuesto.WHATSAPP, null);
+            s.enviarPresupuesto(new BigDecimal("180"), "Con descuento", CanalPresupuesto.WHATSAPP, null);
+
+            assertThat(s.getPresupuestoImporte()).isEqualByComparingTo("180");
+            assertThat(s.getPresupuestoDetalle()).isEqualTo("Con descuento");
+        }
+
+        @Test
+        @DisplayName("sin importe, sin email para mandarlo por email, o ya cerrada: no")
+        void noValidos() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO); // llego sin email
+            assertThatThrownBy(() -> s.enviarPresupuesto(BigDecimal.ZERO, null, CanalPresupuesto.WHATSAPP, null))
+                    .isInstanceOf(ReglaNegocioException.class);
+            assertThatThrownBy(() -> s.enviarPresupuesto(BigDecimal.TEN, null, CanalPresupuesto.EMAIL, null))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("WhatsApp");
+            assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.PENDIENTE);
+
+            s.descartar(null, null);
+            assertThatThrownBy(() -> s.enviarPresupuesto(BigDecimal.TEN, null, CanalPresupuesto.WHATSAPP, null))
+                    .isInstanceOf(ConflictoException.class);
+        }
+    }
+
+    @Nested
     @DisplayName("Cierre")
     class Cierre {
 

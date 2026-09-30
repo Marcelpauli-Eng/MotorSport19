@@ -1,0 +1,64 @@
+<app-dialogo
+  [titulo]="solicitud().presupuestadaEn ? 'Volver a enviar el presupuesto' : 'Enviar presupuesto'"
+  [subtitulo]="solicitud().nombre + ' · ' + solicitud().descripcionMoto"
+  (cerrar)="cerrar.emit()"
+>
+  <p class="prosa" style="margin-bottom: var(--e4)">{{ solicitud().necesita }}</p>
+
+  <div class="campo">
+    <label for="presupuestoImporte">Total, IVA incluido <span class="silenciado">(obligatorio)</span></label>
+    <input
+      id="presupuestoImporte"
+      type="number"
+      min="0.01"
+      step="0.01"
+      inputmode="decimal"
+      placeholder="0,00"
+      style="max-width: 12rem"
+      [ngModel]="importe()"
+      (ngModelChange)="importe.set($event === null || $event === '' ? null : +$event)"
+    />
+  </div>
+
+  <div class="campo">
+    <label for="presupuestoDetalle">Qué incluye</label>
+    <textarea
+      id="presupuestoDetalle"
+      maxlength="3000"
+      [ngModel]="detalle()"
+      (ngModelChange)="detalle.set($event)"
+      placeholder="Carenado completo de circuito, pintura y montaje. Plazo: una semana."
+    ></textarea>
+  </div>
+
+  <div class="campo">
+    <label for="presupuestoMensaje">
+      Mensaje al cliente <span class="silenciado">(en {{ idioma() }}, como escribió en la web)</span>
+    </label>
+    <textarea
+      id="presupuestoMensaje"
+      rows="9"
+      [ngModel]="mensaje()"
+      (ngModelChange)="retocar($event)"
+    ></textarea>
+    <span class="pequeno silenciado">
+      Se abre tu WhatsApp o tu correo con este texto. Puedes retocarlo antes de enviarlo.
+    </span>
+  </div>
+
+  <ng-container pie>
+    <button type="button" class="boton" (click)="cerrar.emit()">Cancelar</button>
+    <button
+      type="button"
+      class="boton"
+      [disabled]="!puedeEnviar() || !solicitud().email"
+      [title]="solicitud().email ? '' : 'El cliente no dejó email'"
+      (click)="enviar('EMAIL')"
+    >
+      Enviar por email
+    </button>
+    <button type="button" class="boton boton--principal" [disabled]="!puedeEnviar()" (click)="enviar('WHATSAPP')">
+      <app-icono nombre="whatsapp" [tamano]="16" /> Enviar por WhatsApp
+    </button>
+  </ng-container>
+</app-dialogo>

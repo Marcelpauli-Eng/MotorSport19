@@ -3,7 +3,7 @@
     <h1>Solicitudes web</h1>
     <p class="pagina-cabecera__sub">
       Citas y presupuestos que piden los clientes desde 19racingmotorsport.com. Nada entra en la
-      agenda hasta que se atiende aquí.
+      agenda hasta que se atiende aquí. Las presupuestadas esperan la respuesta del cliente.
     </p>
   </div>
 </div>
@@ -12,6 +12,9 @@
   <div class="pestanas pestanas--compactas">
     <button type="button" class="pestana" [class.pestana--activa]="estado() === 'PENDIENTE'" (click)="cambiarEstado('PENDIENTE')">
       Pendientes
+    </button>
+    <button type="button" class="pestana" [class.pestana--activa]="estado() === 'PRESUPUESTADA'" (click)="cambiarEstado('PRESUPUESTADA')">
+      Presupuestadas
     </button>
     <button type="button" class="pestana" [class.pestana--activa]="estado() === 'ATENDIDA'" (click)="cambiarEstado('ATENDIDA')">
       Atendidas
@@ -27,6 +30,8 @@
     <div class="tarjeta bandeja-vacia">
       @if (estado() === 'PENDIENTE') {
         <p>No hay solicitudes pendientes. Las nuevas aparecen aquí solas.</p>
+      } @else if (estado() === 'PRESUPUESTADA') {
+        <p class="silenciado">Ningún presupuesto esperando respuesta.</p>
       } @else {
         <p class="silenciado">Todavía no hay ninguna.</p>
       }
@@ -86,7 +91,23 @@
             }
           }
 
-          @if (s.estado !== 'PENDIENTE') {
+          @if (s.presupuestadaEn) {
+            <div class="solicitud__presupuesto">
+              <p class="pequeno silenciado">
+                Presupuesto enviado por {{ s.presupuestoCanal === 'EMAIL' ? 'email' : 'WhatsApp' }}
+                @if (s.presupuestadaPor) { por {{ s.presupuestadaPor }} }
+                el {{ s.presupuestadaEn | date: "d 'de' MMMM, HH:mm" : undefined : 'es' }}
+              </p>
+              @if (s.presupuestoImporte !== null) {
+                <p class="solicitud__importe">{{ s.presupuestoImporte | currency: 'EUR' : 'symbol' : '1.2-2' : 'es' }}</p>
+              }
+              @if (s.presupuestoDetalle) {
+                <p class="prosa">{{ s.presupuestoDetalle }}</p>
+              }
+            </div>
+          }
+
+          @if (s.estado === 'ATENDIDA' || s.estado === 'DESCARTADA') {
             <p class="pequeno silenciado solicitud__cierre">
               {{ s.estadoDescripcion }}
               @if (s.atendidaPor) { por {{ s.atendidaPor }} }
@@ -99,11 +120,31 @@
               <p class="prosa">{{ s.nota }}</p>
             }
           } @else {
+            <!-- El botón principal es el siguiente paso natural: si pidió presupuesto
+                 y aún no se le ha mandado, mandárselo; si no, darle cita. -->
+            @let primeroPresupuesto = s.tipo === 'PRESUPUESTO' && s.estado === 'PENDIENTE';
             <div class="fila solicitud__acciones">
               <button type="button" class="boton boton--plano" (click)="abrirCierre(s, 'descartar')">Descartar</button>
               <button type="button" class="boton" (click)="abrirCierre(s, 'atender')">Marcar atendida</button>
+              @if (puedePresupuestar) {
+                <button
+                  type="button"
+                  class="boton"
+                  [class.boton--principal]="primeroPresupuesto"
+                  (click)="presupuestando.set(s)"
+                >
+                  {{ s.presupuestadaEn ? 'Volver a enviar presupuesto' : 'Enviar presupuesto' }}
+                </button>
+              }
               @if (puedeDarCita) {
-                <button type="button" class="boton boton--principal" (click)="dandoCita.set(s)">Dar cita</button>
+                <button
+                  type="button"
+                  class="boton"
+                  [class.boton--principal]="!primeroPresupuesto || !puedePresupuestar"
+                  (click)="dandoCita.set(s)"
+                >
+                  Dar cita
+                </button>
               }
             </div>
           }
@@ -120,6 +161,10 @@
     (cerrar)="dandoCita.set(null)"
     (guardado)="trasDarCita()"
   />
+}
+
+@if (presupuestando(); as s) {
+  <app-enviar-presupuesto [solicitud]="s" (cerrar)="presupuestando.set(null)" (enviado)="trasPresupuestar()" />
 }
 
 @if (cerrando(); as c) {

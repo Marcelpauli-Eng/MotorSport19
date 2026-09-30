@@ -101,7 +101,7 @@ class SolicitudWebServiceTest {
         SolicitudWeb atendida = SolicitudWeb.recibir("ref-1", TipoSolicitud.CITA, "es", "Ana", "600100200",
                 null, "Honda", "CBR", null, "Frenos", null, 0);
         atendida.marcarAtendida(null, null);
-        when(solicitudes.findById(7L)).thenReturn(Optional.of(atendida));
+        when(solicitudes.findConRelacionesById(7L)).thenReturn(Optional.of(atendida));
 
         assertThatThrownBy(() -> servicio.darCita(7L, Instant.now(), BigDecimal.ONE, null, null, "Ana",
                 "600100200", "Honda CBR", "Frenos", null, null, 1L))

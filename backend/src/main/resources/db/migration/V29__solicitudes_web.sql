@@ -1,11 +1,11 @@
 -- =====================================================================
--- V28 - Solicitudes que llegan desde la web publica
+-- V29 - Solicitudes que llegan desde la web publica
 -- =====================================================================
 -- La web del taller (19racingmotorsport.com) tiene un formulario donde el
 -- cliente pide cita o presupuesto, con hasta tres fotos. Cada envio entra aqui
--- como una solicitud pendiente, y mostrador la atiende: le da cita en la
--- agenda, la marca como atendida (presupuesto dado por telefono, por ejemplo)
--- o la descarta.
+-- como una solicitud pendiente, y mostrador la atiende: le manda un
+-- presupuesto (por WhatsApp o email), le da cita en la agenda, la marca como
+-- atendida o la descarta.
 --
 -- A proposito NO crea clientes, motos ni citas por su cuenta. Lo que escribe un
 -- desconocido en un formulario no se mezcla con los datos del taller hasta que
@@ -34,6 +34,14 @@ CREATE TABLE solicitud_web (
     -- bandeja sabe cuantas pedir sin cargar las imagenes para contarlas.
     num_fotos       SMALLINT     NOT NULL DEFAULT 0,
 
+    -- Presupuesto que se le mando, si se le mando. Se puede volver a mandar
+    -- corregido: aqui queda el ultimo.
+    presupuesto_importe NUMERIC(10,2),
+    presupuesto_detalle TEXT,
+    presupuesto_canal   VARCHAR(10),
+    presupuestada_en    TIMESTAMPTZ,
+    presupuestada_por   BIGINT,
+
     -- Cita que se le dio, si se atendio asi.
     cita_id         BIGINT,
     -- Lo que apunta quien la cierra: «presupuesto por telefono, 180 €».
@@ -49,13 +57,18 @@ CREATE TABLE solicitud_web (
 
     CONSTRAINT uq_solicitud_web_referencia UNIQUE (referencia),
     CONSTRAINT ck_solicitud_web_tipo   CHECK (tipo   IN ('CITA', 'PRESUPUESTO')),
-    CONSTRAINT ck_solicitud_web_estado CHECK (estado IN ('PENDIENTE', 'ATENDIDA', 'DESCARTADA')),
+    CONSTRAINT ck_solicitud_web_estado CHECK (estado IN ('PENDIENTE', 'PRESUPUESTADA', 'ATENDIDA', 'DESCARTADA')),
     CONSTRAINT ck_solicitud_web_idioma CHECK (idioma IN ('es', 'ca', 'en', 'fr')),
     CONSTRAINT ck_solicitud_web_fotos  CHECK (num_fotos BETWEEN 0 AND 3),
-    -- Una solicitud cerrada dice cuando y quien la cerro; una pendiente, no.
-    CONSTRAINT ck_solicitud_web_cierre CHECK ((estado = 'PENDIENTE') = (atendida_en IS NULL)),
+    -- Una solicitud cerrada dice cuando y quien la cerro; una abierta, no.
+    CONSTRAINT ck_solicitud_web_cierre CHECK ((estado IN ('PENDIENTE', 'PRESUPUESTADA')) = (atendida_en IS NULL)),
+    -- Presupuestada es haber mandado un presupuesto, con su importe.
+    CONSTRAINT ck_solicitud_web_presupuesto CHECK (estado <> 'PRESUPUESTADA' OR presupuesto_importe IS NOT NULL),
+    CONSTRAINT ck_solicitud_web_importe CHECK (presupuesto_importe IS NULL OR presupuesto_importe > 0),
+    CONSTRAINT ck_solicitud_web_canal   CHECK (presupuesto_canal IS NULL OR presupuesto_canal IN ('WHATSAPP', 'EMAIL')),
     CONSTRAINT fk_solicitud_web_cita     FOREIGN KEY (cita_id)      REFERENCES cita (id),
-    CONSTRAINT fk_solicitud_web_atendida FOREIGN KEY (atendida_por) REFERENCES usuario (id)
+    CONSTRAINT fk_solicitud_web_atendida FOREIGN KEY (atendida_por) REFERENCES usuario (id),
+    CONSTRAINT fk_solicitud_web_presupuestada FOREIGN KEY (presupuestada_por) REFERENCES usuario (id)
 );
 
 -- La bandeja se mira siempre por estado y de la mas nueva a la mas vieja.

@@ -20,6 +20,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
@@ -91,6 +92,24 @@ public class SolicitudWeb extends EntidadAuditable {
     @Column(name = "num_fotos", nullable = false, updatable = false)
     private short numFotos;
 
+    /** El ultimo presupuesto que se le mando. */
+    @Column(name = "presupuesto_importe", precision = 10, scale = 2)
+    private BigDecimal presupuestoImporte;
+
+    @Column(name = "presupuesto_detalle", columnDefinition = "text")
+    private String presupuestoDetalle;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "presupuesto_canal", length = 10)
+    private CanalPresupuesto presupuestoCanal;
+
+    @Column(name = "presupuestada_en")
+    private Instant presupuestadaEn;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "presupuestada_por")
+    private Usuario presupuestadaPor;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cita_id")
     private Cita cita;
@@ -142,6 +161,47 @@ public class SolicitudWeb extends EntidadAuditable {
     }
 
     // ------------------------------------------------------------------
+    // Presupuesto
+    // ------------------------------------------------------------------
+
+    private static final BigDecimal IMPORTE_MAXIMO = new BigDecimal("99999999.99");
+
+    /**
+     * Apunta el presupuesto que se le manda. La solicitud sigue abierta: queda a
+     * la espera de que el cliente conteste, y si lo acepta se le da cita.
+     *
+     * <p>Se puede volver a mandar corregido; se queda el ultimo. El mensaje en si
+     * lo manda quien lo atiende, desde su WhatsApp o su correo: aqui solo queda
+     * constancia de que se mando, cuanto y por donde.
+     */
+    public void enviarPresupuesto(BigDecimal importe, String detalle, CanalPresupuesto canal,
+                                  Usuario quienLoHace) {
+        exigirAbierta();
+        if (importe == null || importe.signum() <= 0) {
+            throw new ReglaNegocioException("El presupuesto necesita un importe mayor que cero.");
+        }
+        if (importe.compareTo(IMPORTE_MAXIMO) > 0 || importe.scale() > 2) {
+            throw new ReglaNegocioException("Importe de presupuesto no valido.");
+        }
+        if (canal == null) {
+            throw new ReglaNegocioException("Falta por donde se manda el presupuesto.");
+        }
+        if (canal == CanalPresupuesto.EMAIL && email == null) {
+            throw new ReglaNegocioException("El cliente no dejo email: mandale el presupuesto por WhatsApp.");
+        }
+        String texto = textoONulo(detalle);
+        if (texto != null && texto.length() > 3000) {
+            throw new ReglaNegocioException("El detalle del presupuesto no puede superar los 3000 caracteres.");
+        }
+        this.presupuestoImporte = importe;
+        this.presupuestoDetalle = texto;
+        this.presupuestoCanal = canal;
+        this.presupuestadaEn = Instant.now();
+        this.presupuestadaPor = quienLoHace;
+        this.estado = EstadoSolicitud.PRESUPUESTADA;
+    }
+
+    // ------------------------------------------------------------------
     // Cierre
     // ------------------------------------------------------------------
 
@@ -165,19 +225,19 @@ public class SolicitudWeb extends EntidadAuditable {
     }
 
     /**
-     * Falla si ya se atendio o descarto.
+     * Falla si ya se atendio o descarto. Presupuestada sigue abierta.
      *
      * <p>Dos puestos abriendo la misma solicitud a la vez es lo normal en
      * mostrador: el segundo tiene que enterarse de que ya esta hecha.
      */
-    public void exigirPendiente() {
-        if (estado != EstadoSolicitud.PENDIENTE) {
+    public void exigirAbierta() {
+        if (!estado.abierta()) {
             throw new ConflictoException("Esta solicitud ya esta %s.".formatted(estado.getDescripcion().toLowerCase()));
         }
     }
 
     private void cerrar(EstadoSolicitud nuevo, String nota, Usuario quienLoHace) {
-        exigirPendiente();
+        exigirAbierta();
         String texto = textoONulo(nota);
         if (texto != null && texto.length() > 500) {
             throw new ReglaNegocioException("La nota no puede superar los 500 caracteres.");

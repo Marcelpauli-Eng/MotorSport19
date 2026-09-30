@@ -4,16 +4,19 @@ package com.motorsport19.taller.solicitud.domain;
  * Estados de una solicitud de la web.
  *
  * <pre>
- *   PENDIENTE ──→ ATENDIDA
- *       └──────→ DESCARTADA
+ *   PENDIENTE ──→ PRESUPUESTADA ──→ ATENDIDA
+ *       │               │     ↺
+ *       └───────────────┴──────→ DESCARTADA
  * </pre>
  *
- * <p>Solo se sale de PENDIENTE, y una sola vez: la solicitud es el aviso de que
- * alguien espera respuesta, y lo que pasa despues (la cita, la orden) ya tiene
- * su propio historial.
+ * <p>PRESUPUESTADA sigue abierta: se le ha mandado un presupuesto y se espera
+ * respuesta. Desde ahi se le da cita si lo acepta, se vuelve a mandar corregido,
+ * o se cierra. ATENDIDA y DESCARTADA son finales: lo que pase despues (la cita,
+ * la orden) ya tiene su propio historial.
  */
 public enum EstadoSolicitud {
     PENDIENTE("Pendiente"),
+    PRESUPUESTADA("Presupuestada"),
     ATENDIDA("Atendida"),
     DESCARTADA("Descartada");
 
@@ -25,5 +28,10 @@ public enum EstadoSolicitud {
 
     public String getDescripcion() {
         return descripcion;
+    }
+
+    /** Todavia espera algo del taller o del cliente. */
+    public boolean abierta() {
+        return this == PENDIENTE || this == PRESUPUESTADA;
     }
 }

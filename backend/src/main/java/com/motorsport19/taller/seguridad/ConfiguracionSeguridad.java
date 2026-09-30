@@ -189,6 +189,10 @@ public class ConfiguracionSeguridad {
                 .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/cita").access(AuthorizationManagers.allOf(
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
                         AuthorityAuthorizationManager.hasAuthority(p(Permiso.AGENDA_GESTIONAR))))
+                // Mandar un presupuesto es poner precio: pide tambien ver importes.
+                .requestMatchers(HttpMethod.POST, "/solicitudes-web/*/presupuesto").access(AuthorizationManagers.allOf(
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.SOLICITUDES_WEB)),
+                        AuthorityAuthorizationManager.hasAuthority(p(Permiso.IMPORTES_VER))))
                 .requestMatchers("/solicitudes-web/**").hasAuthority(p(Permiso.SOLICITUDES_WEB))
 
                 // ----- Facturacion -----
