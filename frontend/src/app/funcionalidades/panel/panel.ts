@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { Icono } from '../../compartido/icono';
 import { AlertaStock, EstadoOT, OrdenTrabajoResumen } from '../../nucleo/modelos/taller';
-import { FacturaResumen } from '../../nucleo/modelos/facturacion';
+import { FacturaResumen, numeroVisible } from '../../nucleo/modelos/facturacion';
 import { FacturasService } from '../../nucleo/servicios/facturas.service';
 import { InventarioService } from '../../nucleo/servicios/inventario.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
@@ -166,6 +166,8 @@ export class Panel {
     { estado: 'ESPERANDO_PIEZAS', titulo: 'Esperando piezas' },
     { estado: 'LISTA', titulo: 'Listas para entregar' },
   ];
+
+  protected readonly numeroVisible = numeroVisible;
 
   protected verPdf(f: FacturaResumen): void {
     this.facturas.abrirPdfDe(f);

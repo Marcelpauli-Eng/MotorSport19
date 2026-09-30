@@ -141,10 +141,16 @@
   @if (cargandoInforme()) {
     <app-cargando mensaje="Calculando el reparto por IVA…" />
   } @else {
-    <div class="columnas-iva">
+    <!-- Si una de las dos está vacía, la otra se queda con todo el ancho: al lado no hay nada que comparar. -->
+    <div
+      class="columnas-iva"
+      [class.columnas-iva--una]="!informe()?.conIva?.numeroFacturas || !informe()?.sinIva?.numeroFacturas"
+    >
       <app-columna-iva
         [resumen]="informe()?.conIva ?? null"
         [facturas]="conIva.filas()"
+        [mes]="conIva.mes()"
+        (elegirMes)="elegirMes(true, $event)"
         [cargando]="conIva.cargando()"
         [pagina]="conIva.pagina()"
         [totalPaginas]="conIva.totalPaginas()"
@@ -158,6 +164,8 @@
       <app-columna-iva
         [resumen]="informe()?.sinIva ?? null"
         [facturas]="sinIva.filas()"
+        [mes]="sinIva.mes()"
+        (elegirMes)="elegirMes(false, $event)"
         [cargando]="sinIva.cargando()"
         [pagina]="sinIva.pagina()"
         [totalPaginas]="sinIva.totalPaginas()"
