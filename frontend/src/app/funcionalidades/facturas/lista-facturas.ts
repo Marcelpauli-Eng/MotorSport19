@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, WritableSignal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
+import { FacturasAnteriores } from '../../compartido/facturas-anteriores';
 import { Icono } from '../../compartido/icono';
 import { InformeIva } from '../../nucleo/modelos/estadisticas';
 import { FacturaResumen, InformeVerificacion } from '../../nucleo/modelos/facturacion';
@@ -48,7 +49,7 @@ function estadoColumna(): EstadoColumna {
  */
 @Component({
   selector: 'app-lista-facturas',
-  imports: [CommonModule, FormsModule, Cargando, Icono, ColumnaIvaComponente],
+  imports: [CommonModule, FormsModule, Cargando, Icono, ColumnaIvaComponente, FacturasAnteriores],
   templateUrl: './lista-facturas.html',
   styleUrl: './lista-facturas.scss',
 })
