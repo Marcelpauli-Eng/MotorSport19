@@ -23,6 +23,10 @@ import java.util.List;
  * {@code generate_series}, de modo que un mes sin actividad sale con ceros en
  * lugar de desaparecer. Un grafico al que le faltan meses miente sobre la forma
  * de la curva.
+ *
+ * <p>Las facturas se leen de {@code v_factura_cifras} (V27), que junta las de
+ * este programa con las de NEXTGO: si no, el año empezaria a cero el dia del
+ * cambio de programa. El libro y la exportacion no pasan por aqui.
  */
 @Repository
 public class EstadisticasRepository {
@@ -65,7 +69,7 @@ public class EstadisticasRepository {
                        SUM(f.total_iva)                         AS iva,
                        SUM(f.total)                             AS total,
                        COUNT(*)                                 AS facturas
-                  FROM factura f
+                  FROM v_factura_cifras f
                  WHERE EXTRACT(YEAR FROM f.fecha_emision) = :ejercicio
                  GROUP BY 1
             ),
@@ -74,8 +78,8 @@ public class EstadisticasRepository {
                 SELECT EXTRACT(MONTH FROM f.fecha_emision)::int AS mes,
                        SUM(CASE WHEN l.tipo = 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS mano_obra,
                        SUM(CASE WHEN l.tipo <> 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS piezas
-                  FROM linea_factura l
-                  JOIN factura f ON f.id = l.factura_id
+                  FROM v_linea_factura_cifras l
+                  JOIN v_factura_cifras f ON f.id = l.factura_id
                  WHERE EXTRACT(YEAR FROM f.fecha_emision) = :ejercicio
                  GROUP BY 1
             ),
@@ -99,7 +103,7 @@ public class EstadisticasRepository {
                        SUM(-m.cantidad * COALESCE(m.precio_coste_unitario, p.precio_coste)) AS coste
                   FROM movimiento_stock m
                   JOIN pieza p   ON p.id = m.pieza_id
-                  JOIN factura f ON f.orden_trabajo_id = m.orden_trabajo_id
+                  JOIN v_factura_cifras f ON f.orden_trabajo_id = m.orden_trabajo_id
                  WHERE m.orden_trabajo_id IS NOT NULL
                    AND EXTRACT(YEAR FROM f.fecha_emision) = :ejercicio
                  GROUP BY 1
@@ -184,7 +188,7 @@ public class EstadisticasRepository {
                        f.base_imponible,
                        f.total_iva,
                        f.total
-                  FROM factura f
+                  FROM v_factura_cifras f
                  WHERE f.fecha_emision BETWEEN :desde AND :hasta
             ),
             facturado AS (
@@ -200,7 +204,7 @@ public class EstadisticasRepository {
                 SELECT c.inicio, c.con_iva,
                        SUM(CASE WHEN l.tipo = 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS mano_obra,
                        SUM(CASE WHEN l.tipo <> 'MANO_DE_OBRA' THEN l.base_imponible ELSE 0 END) AS piezas
-                  FROM linea_factura l
+                  FROM v_linea_factura_cifras l
                   JOIN clasificadas c ON c.id = l.factura_id
                  GROUP BY 1, 2
             ),
@@ -256,7 +260,7 @@ public class EstadisticasRepository {
      */
     public LocalDate[] rangoDelLibro() {
         Object[] fila = (Object[]) em.createNativeQuery(
-                "SELECT MIN(fecha_emision), MAX(fecha_emision) FROM factura")
+                "SELECT MIN(fecha_emision), MAX(fecha_emision) FROM v_factura_cifras")
                 .getSingleResult();
 
         if (fila[0] == null || fila[1] == null) {
@@ -315,7 +319,7 @@ public class EstadisticasRepository {
     public List<Integer> ejerciciosConFacturas() {
         List<Number> anios = em.createNativeQuery("""
             SELECT DISTINCT EXTRACT(YEAR FROM fecha_emision)::int
-              FROM factura
+              FROM v_factura_cifras
              ORDER BY 1 DESC
             """).getResultList();
         return anios.stream().map(Number::intValue).toList();
@@ -326,7 +330,7 @@ public class EstadisticasRepository {
         @SuppressWarnings("unchecked")
         List<Object[]> filas = em.createNativeQuery("""
             SELECT f.receptor_nombre, SUM(f.total), COUNT(*)
-              FROM factura f
+              FROM v_factura_cifras f
              WHERE f.fecha_emision BETWEEN :desde AND :hasta
              GROUP BY f.receptor_nombre
              ORDER BY 2 DESC

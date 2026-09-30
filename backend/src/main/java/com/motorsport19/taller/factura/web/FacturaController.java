@@ -2,10 +2,12 @@ package com.motorsport19.taller.factura.web;
 
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.factura.domain.Factura;
+import com.motorsport19.taller.factura.domain.FacturaAnterior;
 import com.motorsport19.taller.factura.domain.LineaAFacturar;
 import com.motorsport19.taller.factura.domain.SerieFactura;
 import com.motorsport19.taller.factura.domain.TipoEventoFactura;
 import com.motorsport19.taller.factura.domain.TipoFactura;
+import com.motorsport19.taller.factura.repository.FacturaAnteriorRepository;
 import com.motorsport19.taller.factura.service.ExportacionFacturacionService;
 import com.motorsport19.taller.factura.service.FacturacionService;
 import com.motorsport19.taller.documento.ArmadorDocumento;
@@ -26,6 +28,8 @@ import jakarta.validation.Valid;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -43,7 +47,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * Facturacion.
@@ -63,6 +69,7 @@ public class FacturaController {
     private final ExportacionFacturacionService exportacionService;
     private final RegistroEventosService registroEventos;
     private final UsuarioActual usuarioActual;
+    private final FacturaAnteriorRepository facturasAnteriores;
 
     public FacturaController(FacturacionService facturacionService,
                              GeneradorPdfDocumento generadorDocumento,
@@ -70,7 +77,8 @@ public class FacturaController {
                              ConfiguracionTallerService configuracion,
                              ExportacionFacturacionService exportacionService,
                              RegistroEventosService registroEventos,
-                             UsuarioActual usuarioActual) {
+                             UsuarioActual usuarioActual,
+                             FacturaAnteriorRepository facturasAnteriores) {
         this.facturacionService = facturacionService;
         this.generadorDocumento = generadorDocumento;
         this.armador = armador;
@@ -78,6 +86,7 @@ public class FacturaController {
         this.exportacionService = exportacionService;
         this.registroEventos = registroEventos;
         this.usuarioActual = usuarioActual;
+        this.facturasAnteriores = facturasAnteriores;
     }
 
     // ------------------------------------------------------------------
@@ -93,8 +102,29 @@ public class FacturaController {
             @RequestParam(required = false) Boolean conIva,
             @PageableDefault(size = 20) Pageable pageable) {
 
-        Page<Factura> pagina = facturacionService.buscar(tipo, desde, hasta, receptorId, conIva, pageable);
-        return PaginaResponse.de(pagina, FacturaResumenResponse::de);
+        // Las de NEXTGO salen tambien, como ordinarias: el listado es lo que se ha
+        // facturado. El libro y la exportacion, que son lo que se declara, no las llevan.
+        List<FacturaAnterior> anteriores = tipo == TipoFactura.RECTIFICATIVA ? List.of()
+                : facturasAnteriores.buscar(desde, hasta, receptorId, conIva);
+        if (anteriores.isEmpty()) {
+            Page<Factura> pagina = facturacionService.buscar(tipo, desde, hasta, receptorId, conIva, pageable);
+            return PaginaResponse.de(pagina, FacturaResumenResponse::de);
+        }
+
+        // Las dos fuentes van por fecha, de la mas reciente a la mas antigua: basta
+        // con traer de las de aqui hasta el final de la pagina pedida y mezclar.
+        // ponytail: se traen enteras las anteriores; son las de un programa que ya no se usa y no crecen.
+        Page<Factura> actuales = facturacionService.buscar(tipo, desde, hasta, receptorId, conIva,
+                PageRequest.of(0, (int) (pageable.getOffset() + pageable.getPageSize())));
+        List<FacturaResumenResponse> filas = Stream.concat(
+                        actuales.stream().map(FacturaResumenResponse::de),
+                        anteriores.stream().map(FacturaResumenResponse::de))
+                .sorted(Comparator.comparing(FacturaResumenResponse::fechaEmision).reversed())
+                .skip(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .toList();
+        return PaginaResponse.de(
+                new PageImpl<>(filas, pageable, actuales.getTotalElements() + anteriores.size()), f -> f);
     }
 
     @GetMapping("/{id}")

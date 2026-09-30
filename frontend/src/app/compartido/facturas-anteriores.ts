@@ -11,8 +11,6 @@ interface FacturaAnterior {
   origen: string;
   numero: string;
   fecha: string;
-  clienteId: number;
-  cliente: string;
   motoId: number | null;
   matricula: string | null;
   conceptos: string[];
@@ -44,9 +42,6 @@ interface FacturaAnterior {
               <tr>
                 <th>Factura</th>
                 <th>Fecha</th>
-                @if (conCliente()) {
-                  <th>Cliente</th>
-                }
                 @if (conMoto()) {
                   <th>Moto</th>
                 }
@@ -60,11 +55,6 @@ interface FacturaAnterior {
                 <tr>
                   <td class="mono pequeno">{{ f.numero }}</td>
                   <td class="pequeno" style="white-space: nowrap">{{ f.fecha | date: 'dd/MM/yy' }}</td>
-                  @if (conCliente()) {
-                    <td class="pequeno">
-                      <a [routerLink]="['/clientes', f.clienteId]">{{ f.cliente }}</a>
-                    </td>
-                  }
                   @if (conMoto()) {
                     <td class="pequeno" style="white-space: nowrap">
                       @if (f.motoId) {
@@ -94,10 +84,8 @@ export class FacturasAnteriores {
   private readonly http = inject(HttpClient);
   private readonly pdf = inject(PdfService);
 
-  /** De quién son: «clientes/7» o «motos/12». Vacío: todas, para el listado de facturas. */
-  readonly de = input('');
-  /** En el listado de facturas hace falta decir de quién es cada una. */
-  readonly conCliente = input(false);
+  /** De quién son: «clientes/7» o «motos/12». */
+  readonly de = input.required<string>();
   /** En la ficha del cliente se dice de qué moto era cada una; en la de la moto sobra. */
   readonly conMoto = input(false);
 
@@ -112,7 +100,7 @@ export class FacturasAnteriores {
       if (!this.puedeVer) return;
       untracked(() =>
         this.http
-          .get<FacturaAnterior[]>(`${environment.urlApi}${de ? '/' + de : ''}/facturas-anteriores`)
+          .get<FacturaAnterior[]>(`${environment.urlApi}/${de}/facturas-anteriores`)
           .subscribe((f) => this.facturas.set(f)),
       );
     });
