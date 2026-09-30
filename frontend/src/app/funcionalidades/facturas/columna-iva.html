@@ -1,4 +1,17 @@
 @if (resumen(); as r) {
+  <!--
+    Sin facturas, la columna ocupaba una pantalla entera de ceros para decir que
+    no hay nada. Ahora es una línea: qué caería aquí y ya.
+  -->
+  @if (!hayMovimiento()) {
+    <section class="tarjeta columna columna--vacia" [class.columna--sin]="!conIva()">
+      <h2>
+        {{ r.titulo }}
+        <span class="contador">0</span>
+      </h2>
+      <span class="pequeno silenciado">{{ explicacionVacia() }}</span>
+    </section>
+  } @else {
   <section class="tarjeta columna" [class.columna--sin]="!conIva()">
     <div class="tarjeta__titulo">
       <h2>
@@ -8,105 +21,86 @@
       <span class="pequeno silenciado">{{ r.pesoPorcentaje | number: '1.0-1' : 'es' }} % de lo facturado</span>
     </div>
 
-    <p class="pequeno silenciado explicacion">{{ explicacion() }}</p>
-
     <!--
-      Acumulado del periodo.
-
-      Seis cifras del mismo tamaño no son un resumen, son una tabla sin
-      cabecera: hay que leerlas todas para saber cuál importa. Ahora manda una
-      —lo que se ha facturado— y las demás la explican en dos grupos: de qué se
-      compone ese total, y qué queda después del material.
+      Una cifra manda —lo facturado— y las demás la explican al lado. Seis
+      cifras del mismo tamaño no son un resumen, son una tabla sin cabecera.
     -->
-    <div class="total-periodo">
-      <span class="total-periodo__valor">{{ r.totalFacturado | number: '1.2-2' : 'es' }} €</span>
-      <span class="total-periodo__etiqueta">
-        Facturado
-        <span class="silenciado">
-          · {{ r.numeroFacturas }} {{ r.numeroFacturas === 1 ? 'factura' : 'facturas' }}
+    <div class="resumen">
+      <div class="total-periodo">
+        <span class="total-periodo__valor">{{ r.totalFacturado | number: '1.2-2' : 'es' }} €</span>
+        <span class="total-periodo__etiqueta">
+          Facturado
+          <span class="silenciado">
+            · {{ r.numeroFacturas }} {{ r.numeroFacturas === 1 ? 'factura' : 'facturas' }}
+          </span>
         </span>
-      </span>
-    </div>
+      </div>
 
-    <div class="cifras">
-      <!-- El desglose del total. También en la columna del 0 %, donde el IVA
-           sale cero: las dos rejillas llevan las mismas casillas en el mismo
-           sitio para poder leerse en paralelo, y ese cero es justo lo que se
-           quiere ver ahí. -->
-      <div class="cifra">
-        <span class="cifra__valor">{{ r.baseFacturada | number: '1.2-2' : 'es' }} €</span>
-        <span class="cifra__etiqueta">Base imponible</span>
-      </div>
-      <div class="cifra">
-        <span class="cifra__valor">{{ r.ivaRepercutido | number: '1.2-2' : 'es' }} €</span>
-        <span class="cifra__etiqueta">IVA repercutido</span>
-      </div>
-      <div class="cifra">
-        <span class="cifra__valor">{{ r.ticketMedio | number: '1.2-2' : 'es' }} €</span>
-        <span class="cifra__etiqueta">Factura media</span>
-      </div>
-    </div>
-
-    <div class="cifras cifras--margen">
-      <div class="cifra">
-        <!-- El signo solo si hay gasto: «−0,00 €» se lee como un error. -->
-        <span class="cifra__valor" [class.negativo]="r.gastoMaterial > 0">
-          @if (r.gastoMaterial > 0) { − }{{ r.gastoMaterial | number: '1.2-2' : 'es' }} €
-        </span>
-        <span class="cifra__etiqueta">Gasto de material</span>
-      </div>
-      <div class="cifra cifra--ancha">
-        <span class="cifra__valor" [class.negativo]="r.margenBruto < 0">
-          {{ r.margenBruto | number: '1.2-2' : 'es' }} €
-        </span>
-        <span class="cifra__etiqueta">
-          Margen · {{ r.margenPorcentaje | number: '1.0-1' : 'es' }} % sobre la base
-        </span>
+      <div class="cifras">
+        <div class="cifra">
+          <span class="cifra__valor">{{ r.baseFacturada | number: '1.2-2' : 'es' }} €</span>
+          <span class="cifra__etiqueta">Base imponible</span>
+        </div>
+        <div class="cifra">
+          <span class="cifra__valor">{{ r.ivaRepercutido | number: '1.2-2' : 'es' }} €</span>
+          <span class="cifra__etiqueta">IVA repercutido</span>
+        </div>
+        <div class="cifra">
+          <span class="cifra__valor">{{ r.ticketMedio | number: '1.2-2' : 'es' }} €</span>
+          <span class="cifra__etiqueta">Factura media</span>
+        </div>
       </div>
     </div>
 
     <!--
-      De dónde sale cada cifra.
-
-      Las dos de arriba se leen juntas pero no salen del mismo sitio, y eso
-      confunde: lo facturado son las líneas de la factura, y el gasto son los
-      movimientos de almacén de la orden que hay detrás. La consecuencia
-      —material servido y no facturado baja el margen— es justo lo que interesa
-      ver, pero hay que decirlo o parece un error de cuentas.
+      El margen va solo sobre las facturas de este programa: las de NEXTGO no
+      traen lo que costó el material, y con ellas salía un «100 %» que no era tal.
     -->
-    @if (hayMovimiento()) {
+    @if (conMargen()) {
+      <div class="cifras cifras--margen">
+        <div class="cifra">
+          <!-- El signo solo si hay gasto: «−0,00 €» se lee como un error. -->
+          <span class="cifra__valor" [class.negativo]="r.gastoMaterial > 0">
+            @if (r.gastoMaterial > 0) { − }{{ r.gastoMaterial | number: '1.2-2' : 'es' }} €
+          </span>
+          <span class="cifra__etiqueta">Gasto de material</span>
+        </div>
+        <div class="cifra">
+          <span class="cifra__valor" [class.negativo]="r.margenBruto < 0">
+            {{ r.margenBruto | number: '1.2-2' : 'es' }} €
+          </span>
+          <span class="cifra__etiqueta">
+            Margen · {{ r.margenPorcentaje | number: '1.0-1' : 'es' }} % sobre la base
+          </span>
+        </div>
+      </div>
       <p class="pequeno silenciado procedencia">
-        <strong>Facturado</strong> sale de las líneas de las facturas.
-        <strong>Gasto</strong> sale del material que salió del almacén para esas órdenes, valorado
-        al precio de coste que tenía la pieza ese día. Si una pieza se sirvió y no se facturó,
-        cuenta como gasto igual: la pagaste tú y no te la han pagado.
+        <strong>Gasto</strong> es el material que salió del almacén para esas órdenes, al precio de
+        coste que tenía ese día. Una pieza servida y no facturada cuenta igual: la pagaste tú.
+        @if (margenParcial()) {
+          El margen es de las facturas hechas aquí ({{ r.baseConCoste | number: '1.2-2' : 'es' }} € de base):
+          las de NEXTGO no traen lo que costó el material.
+        }
+      </p>
+    } @else {
+      <p class="pequeno silenciado procedencia">
+        Sin margen que calcular: las facturas de NEXTGO no traen lo que costó el material. Saldrá
+        con las que se hagan aquí.
       </p>
     }
 
-    <!--
-      Sin facturas, esta columna decía tres veces lo mismo: seis ceros, «ninguna
-      factura de este tipo» y «ninguna factura que enseñar aquí». Ahora lo dice
-      una vez y explica qué caería aquí, que es la pregunta real de quien mira
-      una columna vacía.
-    -->
-    @if (!hayMovimiento()) {
-      <div class="vacio columna__vacia">
-        <app-icono class="vacio__icono" nombre="facturas" [tamano]="26" />
-        <span class="vacio__titulo">Sin facturas de este tipo</span>
-        <span class="pequeno">{{ explicacionVacia() }}</span>
-      </div>
-    } @else {
-
-    <!-- Mes a mes -->
-    <h3 class="subtitulo">Mes a mes</h3>
-      <div class="tabla-envoltorio tabla-meses">
-        <table>
+    <details class="plegable" open>
+      <summary>Mes a mes</summary>
+      <div class="tabla-envoltorio">
+        <table class="tabla-meses">
           <thead>
             <tr>
               <th>Mes</th>
               <th class="num">Facturado</th>
-              <th class="num">Gasto</th>
-              <th class="num">Margen</th>
+              @if (conMargen()) {
+                <th class="num">Gasto</th>
+                <th class="num">Margen</th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -133,10 +127,14 @@
                   }
                 </td>
                 <td class="num importe">{{ m.totalFacturado | number: '1.2-2' : 'es' }}</td>
-                <td class="num importe silenciado">{{ m.gastoMaterial | number: '1.2-2' : 'es' }}</td>
-                <td class="num importe" [class.negativo]="m.margenBruto < 0">
-                  {{ m.margenBruto | number: '1.2-2' : 'es' }}
-                </td>
+                @if (conMargen()) {
+                  <td class="num importe silenciado">
+                    @if (m.baseConCoste > 0) { {{ m.gastoMaterial | number: '1.2-2' : 'es' }} } @else { — }
+                  </td>
+                  <td class="num importe" [class.negativo]="m.margenBruto < 0">
+                    @if (m.baseConCoste > 0) { {{ m.margenBruto | number: '1.2-2' : 'es' }} } @else { — }
+                  </td>
+                }
               </tr>
             }
           </tbody>
@@ -144,140 +142,149 @@
             <tr>
               <th>Total</th>
               <th class="num importe">{{ r.totalFacturado | number: '1.2-2' : 'es' }}</th>
-              <th class="num importe">{{ r.gastoMaterial | number: '1.2-2' : 'es' }}</th>
-              <th class="num importe">{{ r.margenBruto | number: '1.2-2' : 'es' }}</th>
+              @if (conMargen()) {
+                <th class="num importe">{{ r.gastoMaterial | number: '1.2-2' : 'es' }}</th>
+                <th class="num importe">{{ r.margenBruto | number: '1.2-2' : 'es' }}</th>
+              }
             </tr>
           </tfoot>
         </table>
       </div>
-      <p class="pequeno silenciado ayuda-meses">Pulsa un mes para ver abajo solo sus facturas.</p>
+      <p class="pequeno silenciado ayuda-meses">Pulsa un mes para ver solo sus facturas.</p>
+    </details>
 
-    <!-- Facturas de esta columna -->
-    <h3 class="subtitulo lista__titulo" #lista>
-      @if (etiquetaElegida(); as e) {
-        Facturas de {{ e }}
-        <button type="button" class="boton boton--pequeno" (click)="elegirMes.emit(null)">Ver todas</button>
-      } @else {
-        Facturas
-        @if (totalItems()) {
-          <span class="pequeno silenciado">{{ totalItems() }} en el periodo</span>
+    <!-- Plegada de entrada: 40 filas seguidas no se leen. Se abre al pulsar un mes. -->
+    <details class="plegable" #lista [open]="listaAbierta()" (toggle)="listaAbierta.set(lista.open)">
+      <summary>
+        @if (etiquetaElegida(); as e) {
+          Facturas de {{ e }}
+        } @else {
+          Facturas
         }
-      }
-    </h3>
+        @if (totalItems()) {
+          <span class="contador">{{ totalItems() }}</span>
+        }
+      </summary>
 
-    @if (cargando()) {
-      <app-cargando mensaje="Cargando facturas…" />
-    } @else if (!facturas().length) {
-      <p class="vacio pequeno">Ninguna factura que enseñar aquí.</p>
-    } @else {
-      <div class="tabla-envoltorio">
-        <table>
-          <thead>
-            <tr>
-              <th class="col-marca">
-                @if (haySeleccionables()) {
-                  <input
-                    type="checkbox"
-                    [checked]="paginaEntera()"
-                    (change)="alternarPagina.emit(!paginaEntera())"
-                    [attr.aria-label]="'Seleccionar las facturas de esta página'"
-                  />
-                }
-              </th>
-              <th>Factura</th>
-              <th>Fecha</th>
-              <th class="num">Total</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (f of facturas(); track (f.anterior ? 'a' : 'f') + f.id) {
-              <tr [class.fila--marcada]="!f.anterior && estaMarcada(f.id)">
-                <td class="col-marca">
-                  @if (!f.anterior) {
+      @if (etiquetaElegida()) {
+        <button type="button" class="boton boton--pequeno ver-todas" (click)="elegirMes.emit(null)">
+          Ver todas las del periodo
+        </button>
+      }
+
+      @if (cargando()) {
+        <app-cargando mensaje="Cargando facturas…" />
+      } @else if (!facturas().length) {
+        <p class="vacio pequeno">Ninguna factura que enseñar aquí.</p>
+      } @else {
+        <div class="tabla-envoltorio">
+          <table class="tabla-facturas">
+            <thead>
+              <tr>
+                <th class="col-marca">
+                  @if (haySeleccionables()) {
                     <input
                       type="checkbox"
-                      [checked]="estaMarcada(f.id)"
-                      (change)="alternarSeleccion.emit(f.id)"
-                      [attr.aria-label]="'Seleccionar la factura ' + f.numeroCompleto"
+                      [checked]="paginaEntera()"
+                      (change)="alternarPagina.emit(!paginaEntera())"
+                      [attr.aria-label]="'Seleccionar las facturas de esta página'"
                     />
                   }
-                </td>
-                <td>
-                  <div class="celda-doble">
-                    @if (f.anterior) {
-                      <a
-                        href=""
-                        class="codigo"
-                        [title]="f.numeroCompleto + ' · del programa anterior: se abre su PDF'"
-                        (click)="$event.preventDefault(); abrirPdf.emit(f)"
-                        >{{ numeroVisible(f) }}</a
-                      >
-                    } @else {
-                      <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
-                    }
-                    <span class="celda-doble__secundario">
-                      {{ f.receptorNombre }}@if (f.matricula) { · {{ f.matricula }} }
-                    </span>
-                    @if (f.tipo === 'RECTIFICATIVA') {
-                      <span class="celda-doble__secundario">
-                        rectificativa@if (f.rectificaA) { de {{ f.rectificaA }} }
-                      </span>
-                    }
-                  </div>
-                </td>
-                <td class="silenciado sin-envolver">
-                  {{ f.fechaEmision | date: 'd MMM yy' : undefined : 'es' }}
-                </td>
-                <td class="num">
-                  <div class="celda-doble total-y-base">
-                    <span class="importe importe--fuerte" [class.negativo]="f.total < 0">
-                      {{ f.total | number: '1.2-2' : 'es' }}
-                    </span>
-                    <span class="celda-doble__secundario">base {{ f.baseImponible | number: '1.2-2' : 'es' }}</span>
-                  </div>
-                </td>
-                <td class="num">
-                  <button
-                    type="button"
-                    class="boton boton--pequeno"
-                    (click)="abrirPdf.emit(f)"
-                    title="Ver el PDF de la factura"
-                  >
-                    <app-icono nombre="documento" [tamano]="14" />
-                  </button>
-                </td>
+                </th>
+                <th>Factura</th>
+                <th>Fecha</th>
+                <th class="num">Total</th>
+                <th></th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      @if (totalPaginas() > 1) {
-        <div class="paginacion">
-          <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
-          <div class="fila">
-            <button
-              type="button"
-              class="boton boton--pequeno"
-              [disabled]="pagina() === 0"
-              (click)="irAPagina.emit(pagina() - 1)"
-            >
-              <app-icono nombre="flecha-izquierda" [tamano]="14" />
-            </button>
-            <button
-              type="button"
-              class="boton boton--pequeno"
-              [disabled]="pagina() + 1 >= totalPaginas()"
-              (click)="irAPagina.emit(pagina() + 1)"
-            >
-              <app-icono nombre="flecha-derecha" [tamano]="14" />
-            </button>
-          </div>
+            </thead>
+            <tbody>
+              @for (f of facturas(); track (f.anterior ? 'a' : 'f') + f.id) {
+                <tr [class.fila--marcada]="!f.anterior && estaMarcada(f.id)">
+                  <td class="col-marca">
+                    @if (!f.anterior) {
+                      <input
+                        type="checkbox"
+                        [checked]="estaMarcada(f.id)"
+                        (change)="alternarSeleccion.emit(f.id)"
+                        [attr.aria-label]="'Seleccionar la factura ' + f.numeroCompleto"
+                      />
+                    }
+                  </td>
+                  <td>
+                    <div class="celda-doble">
+                      @if (f.anterior) {
+                        <a
+                          href=""
+                          class="codigo"
+                          [title]="f.numeroCompleto + ' · del programa anterior: se abre su PDF'"
+                          (click)="$event.preventDefault(); abrirPdf.emit(f)"
+                          >{{ numeroVisible(f) }}</a
+                        >
+                      } @else {
+                        <a [routerLink]="['/facturas', f.id]" class="codigo">{{ f.numeroCompleto }}</a>
+                      }
+                      <span class="celda-doble__secundario">
+                        {{ f.receptorNombre }}@if (f.matricula) { · {{ f.matricula }} }
+                      </span>
+                      @if (f.tipo === 'RECTIFICATIVA') {
+                        <span class="celda-doble__secundario">
+                          rectificativa@if (f.rectificaA) { de {{ f.rectificaA }} }
+                        </span>
+                      }
+                    </div>
+                  </td>
+                  <td class="silenciado sin-envolver">
+                    {{ f.fechaEmision | date: 'd MMM yy' : undefined : 'es' }}
+                  </td>
+                  <td class="num">
+                    <div class="celda-doble total-y-base">
+                      <span class="importe importe--fuerte" [class.negativo]="f.total < 0">
+                        {{ f.total | number: '1.2-2' : 'es' }}
+                      </span>
+                      <span class="celda-doble__secundario">base {{ f.baseImponible | number: '1.2-2' : 'es' }}</span>
+                    </div>
+                  </td>
+                  <td class="num">
+                    <button
+                      type="button"
+                      class="boton boton--pequeno"
+                      (click)="abrirPdf.emit(f)"
+                      title="Ver el PDF de la factura"
+                    >
+                      <app-icono nombre="documento" [tamano]="14" />
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
-      }
-    }
 
-    }
+        @if (totalPaginas() > 1) {
+          <div class="paginacion">
+            <span class="pequeno silenciado">Página {{ pagina() + 1 }} de {{ totalPaginas() }}</span>
+            <div class="fila">
+              <button
+                type="button"
+                class="boton boton--pequeno"
+                [disabled]="pagina() === 0"
+                (click)="irAPagina.emit(pagina() - 1)"
+              >
+                <app-icono nombre="flecha-izquierda" [tamano]="14" />
+              </button>
+              <button
+                type="button"
+                class="boton boton--pequeno"
+                [disabled]="pagina() + 1 >= totalPaginas()"
+                (click)="irAPagina.emit(pagina() + 1)"
+              >
+                <app-icono nombre="flecha-derecha" [tamano]="14" />
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </details>
   </section>
+  }
 }

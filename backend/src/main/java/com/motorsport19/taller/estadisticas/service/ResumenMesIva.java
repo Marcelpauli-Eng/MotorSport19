@@ -29,6 +29,8 @@ public record ResumenMesIva(
         BigDecimal ingresoManoDeObra,
         BigDecimal ingresoPiezas,
         BigDecimal gastoMaterial,
+        /** Sobre lo que se calcula el margen: las facturas de este programa. */
+        BigDecimal baseConCoste,
         BigDecimal margenBruto,
         BigDecimal margenPorcentaje
 ) {
@@ -39,7 +41,8 @@ public record ResumenMesIva(
     };
 
     public static ResumenMesIva de(FilaMesIva f) {
-        BigDecimal margen = f.baseFacturada().subtract(f.costeMaterialVendido());
+        // Solo con las facturas de este programa: las de NEXTGO no traen coste.
+        BigDecimal margen = f.baseConCoste().subtract(f.costeMaterialVendido());
 
         return new ResumenMesIva(
                 f.anio(),
@@ -53,8 +56,9 @@ public record ResumenMesIva(
                 redondear(f.ingresoManoDeObra()),
                 redondear(f.ingresoPiezas()),
                 redondear(f.costeMaterialVendido()),
+                redondear(f.baseConCoste()),
                 redondear(margen),
-                porcentaje(margen, f.baseFacturada()));
+                porcentaje(margen, f.baseConCoste()));
     }
 
     static BigDecimal porcentaje(BigDecimal parte, BigDecimal total) {

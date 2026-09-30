@@ -23,6 +23,8 @@ public record TotalesEjercicio(
         BigDecimal ivaSoportado,
         BigDecimal ivaALiquidar,
         BigDecimal costeMaterialVendido,
+        /** Base de las facturas de este programa, sobre la que va el margen. */
+        BigDecimal baseConCoste,
         BigDecimal margenBruto,
         BigDecimal margenPorcentaje,
         BigDecimal ticketMedio,

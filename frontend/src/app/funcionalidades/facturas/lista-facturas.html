@@ -6,13 +6,13 @@
 </div>
 
 <div class="apilado">
-  <!-- Exportación para la gestoría: la acción principal de esta pantalla -->
+  <!--
+    Periodo y entrega a la gestoría: la acción principal de esta pantalla. Antes
+    ocupaba media pantalla (filtros en tres filas y un párrafo de ayuda); ahora
+    los filtros van en una fila y la ayuda se despliega si se quiere leer.
+  -->
   <section class="tarjeta exportacion">
-    <div class="tarjeta__titulo">
-      <h2>Preparar facturas para la gestoría</h2>
-    </div>
-
-    <div class="rejilla">
+    <div class="periodo">
       <div class="campo">
         <label for="desde">Desde</label>
         <input id="desde" type="date" [ngModel]="desde()" (ngModelChange)="desde.set($event)" />
@@ -29,22 +29,19 @@
           <option value="RECTIFICATIVA">Solo rectificativas</option>
         </select>
       </div>
+      <div class="fila atajos">
+        <button type="button" class="boton boton--pequeno" (click)="trimestreAnterior()">
+          Trimestre anterior
+        </button>
+        <button type="button" class="boton boton--pequeno" (click)="anioActual()">Año actual</button>
+        <button type="button" class="boton boton--pequeno" (click)="limpiarFiltros()">Todo</button>
+        <button type="button" class="boton boton--pequeno boton--principal" (click)="cargar()">
+          Aplicar
+        </button>
+      </div>
     </div>
 
-    <div class="fila">
-      <button type="button" class="boton boton--pequeno" (click)="trimestreAnterior()">
-        Trimestre anterior
-      </button>
-      <button type="button" class="boton boton--pequeno" (click)="anioActual()">Año actual</button>
-      <button type="button" class="boton boton--pequeno" (click)="limpiarFiltros()">Todo</button>
-      <button type="button" class="boton boton--pequeno boton--principal" (click)="cargar()">
-        Aplicar
-      </button>
-    </div>
-
-    <hr class="separador" />
-
-    <div class="fila">
+    <div class="fila acciones">
       <button
         type="button"
         class="boton boton--principal"
@@ -52,7 +49,7 @@
         [disabled]="exportando() !== null"
       >
         <app-icono nombre="descargar" [tamano]="16" />
-        Descargar CSV para la gestoría
+        CSV para la gestoría
       </button>
       <button
         type="button"
@@ -61,7 +58,7 @@
         [disabled]="exportando() !== null"
       >
         <app-icono nombre="descargar" [tamano]="16" />
-        Descargar JSON completo
+        JSON completo
       </button>
       <button type="button" class="boton" (click)="verificarCadena()" [disabled]="verificando()">
         <app-icono nombre="sello" [tamano]="16" />
@@ -69,14 +66,19 @@
       </button>
     </div>
 
-    <p class="pequeno silenciado ayuda">
-      El <strong>CSV</strong> es el que abre la gestoría en su hoja de cálculo: una fila por factura.
-      El <strong>JSON</strong> incluye las líneas y la cadena de huellas, con lo que la integridad
-      del libro se puede comprobar sin este programa. La exportación lleva el libro entero del
-      periodo, sin separar por IVA: es el documento que se entrega.
-      Las facturas de <strong>NEXTGO</strong>, el programa anterior, cuentan en las cifras y los
-      listados de abajo, pero no van en la exportación: ya las entregó aquel programa.
-    </p>
+    <details class="ayuda pequeno silenciado">
+      <summary>¿Qué lleva cada descarga?</summary>
+      <p>
+        El <strong>CSV</strong> es el que abre la gestoría en su hoja de cálculo: una fila por factura.
+        El <strong>JSON</strong> incluye las líneas y la cadena de huellas, con lo que la integridad
+        del libro se puede comprobar sin este programa. Las dos llevan el libro entero del periodo,
+        sin separar por IVA: es el documento que se entrega.
+      </p>
+      <p>
+        Las facturas de <strong>NEXTGO</strong>, el programa anterior, cuentan en las cifras y en los
+        listados de abajo, pero no van en la exportación: ya las entregó aquel programa.
+      </p>
+    </details>
 
     @if (informeVerificacion(); as inf) {
       <div class="informe" [class.informe--error]="!inf.integra">
@@ -178,13 +180,15 @@
       />
     </div>
 
-    <p class="pequeno silenciado ayuda">
-      Una factura cuenta como <strong>sin IVA</strong> cuando no lleva ninguna cuota; si una sola de
-      sus líneas lleva IVA, la factura entera va a la columna de la izquierda. El
-      <strong>gasto</strong> es el coste del material que se fue en esos trabajos, al precio que
-      tenía la pieza cuando salió del almacén. Las compras de reposición del almacén no aparecen
-      aquí, porque no cuelgan de ninguna factura de venta: esa cifra está entera en
-      <strong>Informes</strong>.
-    </p>
+    <details class="ayuda pequeno silenciado">
+      <summary>¿Cómo se reparten las cifras?</summary>
+      <p>
+        Una factura cuenta como <strong>sin IVA</strong> cuando no lleva ninguna cuota; si una sola de
+        sus líneas lleva IVA, la factura entera va a la de con IVA. El <strong>gasto</strong> es el
+        coste del material que se fue en esos trabajos, al precio que tenía la pieza cuando salió
+        del almacén. Las compras de reposición del almacén no aparecen aquí, porque no cuelgan de
+        ninguna factura de venta: esa cifra está entera en <strong>Informes</strong>.
+      </p>
+    </details>
   }
 </div>

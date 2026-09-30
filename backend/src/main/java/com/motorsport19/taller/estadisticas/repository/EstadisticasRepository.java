@@ -68,7 +68,9 @@ public class EstadisticasRepository {
                        SUM(f.base_imponible)                    AS base,
                        SUM(f.total_iva)                         AS iva,
                        SUM(f.total)                             AS total,
-                       COUNT(*)                                 AS facturas
+                       COUNT(*)                                 AS facturas,
+                       -- Las de aqui (id positivo): las unicas con coste conocido.
+                       SUM(f.base_imponible) FILTER (WHERE f.id > 0) AS base_propia
                   FROM v_factura_cifras f
                  WHERE EXTRACT(YEAR FROM f.fecha_emision) = :ejercicio
                  GROUP BY 1
@@ -126,7 +128,8 @@ public class EstadisticasRepository {
                    COALESCE(co.base, 0),
                    COALESCE(co.iva, 0),
                    COALESCE(cs.coste, 0),
-                   COALESCE(od.abiertas, 0)
+                   COALESCE(od.abiertas, 0),
+                   COALESCE(fa.base_propia, 0)
               FROM meses ms
          LEFT JOIN facturado fa ON fa.mes = ms.mes
          LEFT JOIN reparto   re ON re.mes = ms.mes
@@ -144,7 +147,8 @@ public class EstadisticasRepository {
                 dec(f[5]), dec(f[6]),
                 dec(f[7]), dec(f[8]),
                 dec(f[9]),
-                num(f[10]).intValue()
+                num(f[10]).intValue(),
+                dec(f[11])
         )).toList();
     }
 
@@ -196,7 +200,8 @@ public class EstadisticasRepository {
                        SUM(base_imponible) AS base,
                        SUM(total_iva)      AS iva,
                        SUM(total)          AS total,
-                       COUNT(*)            AS facturas
+                       COUNT(*)            AS facturas,
+                       SUM(base_imponible) FILTER (WHERE id > 0) AS base_propia
                   FROM clasificadas
                  GROUP BY 1, 2
             ),
@@ -227,7 +232,8 @@ public class EstadisticasRepository {
                    COALESCE(fa.facturas, 0),
                    COALESCE(re.mano_obra, 0),
                    COALESCE(re.piezas, 0),
-                   COALESCE(cs.coste, 0)
+                   COALESCE(cs.coste, 0),
+                   COALESCE(fa.base_propia, 0)
               FROM meses ms
              CROSS JOIN grupos g
          LEFT JOIN facturado fa ON fa.inicio = ms.inicio AND fa.con_iva = g.con_iva
@@ -247,7 +253,8 @@ public class EstadisticasRepository {
                     (Boolean) f[1],
                     dec(f[2]), dec(f[3]), dec(f[4]), num(f[5]).intValue(),
                     dec(f[6]), dec(f[7]),
-                    dec(f[8]));
+                    dec(f[8]),
+                    dec(f[9]));
         }).toList();
     }
 

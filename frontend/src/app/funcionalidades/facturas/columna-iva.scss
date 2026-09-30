@@ -12,22 +12,6 @@
   border-top-color: var(--gris-400);
 }
 
-.explicacion {
-  margin: calc(var(--e4) * -1 + 2px) 0 var(--e4);
-}
-
-.subtitulo {
-  display: flex;
-  align-items: baseline;
-  gap: var(--e2);
-  margin: var(--e5) 0 var(--e2);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--gris-500);
-}
-
 /* ---------- Acumulado del periodo ----------
 
    Una sola cifra manda. Antes había seis del mismo tamaño en una rejilla de
@@ -38,9 +22,19 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: var(--e4) 0 var(--e4);
-  border-bottom: var(--borde);
-  margin-bottom: var(--e4);
+}
+
+/* El total a la izquierda y su desglose al lado: en una fila, no en tres. */
+.resumen {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--e6);
+  align-items: center;
+  padding-top: var(--e2);
+}
+
+@media (max-width: 760px) {
+  .resumen { grid-template-columns: minmax(0, 1fr); gap: var(--e4); }
 }
 
 .total-periodo__valor {
@@ -72,8 +66,8 @@
    después del material— y mezclarlo con el desglose del total confundía las
    dos cosas. */
 .cifras--margen {
-  grid-template-columns: 1fr 2fr;
-  margin-top: var(--e3);
+  grid-template-columns: 1fr 1fr;
+  margin-top: var(--e4);
 }
 
 .cifra {
@@ -107,36 +101,65 @@
   .total-periodo__valor { font-size: 1.625rem; }
 }
 
-/* ---------- Columna sin movimiento ---------- */
+/* ---------- Columna sin facturas: una línea ---------- */
 
-.columna__vacia {
-  padding: var(--e8) var(--e4);
-  margin-top: var(--e4);
-  background: var(--gris-50);
-  border: 1px dashed var(--gris-200);
-  border-radius: var(--radio);
+.columna--vacia {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--e2) var(--e4);
+  padding-top: var(--e4);
+  padding-bottom: var(--e4);
 }
 
-.columna__vacia .pequeno {
-  max-width: 42ch;
-  line-height: 1.55;
+.columna--vacia h2 { margin: 0; }
+
+/* ---------- Bloques plegables: mes a mes y facturas ---------- */
+
+.plegable { margin-top: var(--e5); }
+
+.plegable > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--e2);
+  padding: var(--e2) 0;
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gris-500);
+  scroll-margin-top: var(--e6);
 }
+
+.plegable > summary::-webkit-details-marker { display: none; }
+
+/* La flecha: apunta a la derecha plegado y hacia abajo desplegado. */
+.plegable > summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin: 0 4px 2px 2px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+
+.plegable[open] > summary::before { transform: rotate(45deg); }
+.plegable > summary:hover { color: var(--gris-900); }
+.plegable > summary:focus-visible { outline: 2px solid var(--gris-900); outline-offset: 2px; }
+
+.ver-todas { margin-bottom: var(--e3); }
 
 /* ---------- Mes a mes ---------- */
 
-/* Un año caben doce filas; un histórico largo, no. Se limita el alto y se
-   desplaza dentro, que es preferible a una página de tres pantallas. */
-.tabla-meses {
-  max-height: 320px;
-  overflow-y: auto;
-}
+.tabla-meses tfoot th { font-variant-numeric: tabular-nums; }
+.tabla-meses tfoot th:not(.num) { text-align: left; }
 
-.tabla-meses tfoot th {
-  position: sticky;
-  bottom: 0;
-  background: var(--gris-50);
-  font-variant-numeric: tabular-nums;
-}
+/* Filas más bajas: la lista se lee de un vistazo en vez de a pantallazos. */
+.tabla-facturas td { padding-top: 8px; padding-bottom: 8px; }
 
 /* Un mes sin facturas no se oculta —desalinearía las dos columnas— pero se
    apaga para que no compita con los que sí tienen movimiento. */
@@ -152,14 +175,6 @@
   border-bottom: 1px dotted currentColor;
 }
 .mes__boton:focus-visible { outline: 2px solid var(--gris-900); outline-offset: 2px; }
-
-.lista__titulo {
-  display: flex;
-  align-items: center;
-  gap: var(--e2);
-  flex-wrap: wrap;
-  scroll-margin-top: var(--e6);
-}
 
 .total-y-base { align-items: flex-end; }
 /* La tabla va a sangre dentro de la tarjeta (margen negativo): se compensa. */
@@ -184,7 +199,6 @@
 
 .negativo { color: var(--rojo); }
 
-.truncado { max-width: 180px; }
 
 /* La nota que dice de dónde sale cada cifra. Va pegada al bloque de importes
    —no al pie de la columna— porque explica esos dos números concretos. */

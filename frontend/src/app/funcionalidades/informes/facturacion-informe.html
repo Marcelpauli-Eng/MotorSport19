@@ -58,10 +58,21 @@
 
       <div class="kpi">
         <span class="kpi__etiqueta">Margen bruto</span>
-        <span class="kpi__valor">{{ inf.totales.margenBruto | number: '1.2-2' : 'es' }} €</span>
-        <span class="kpi__pie">
-          {{ inf.totales.margenPorcentaje | number: '1.0-1' : 'es' }} % de lo facturado
-        </span>
+        <!-- Solo con las facturas de aquí: las de NEXTGO no traen lo que costó el material. -->
+        @if (inf.totales.baseConCoste > 0) {
+          <span class="kpi__valor">{{ inf.totales.margenBruto | number: '1.2-2' : 'es' }} €</span>
+          <span class="kpi__pie">
+            {{ inf.totales.margenPorcentaje | number: '1.0-1' : 'es' }} %
+            @if (inf.totales.baseConCoste < inf.totales.baseFacturada) {
+              de lo facturado aquí (sin NEXTGO)
+            } @else {
+              de lo facturado
+            }
+          </span>
+        } @else {
+          <span class="kpi__valor">—</span>
+          <span class="kpi__pie">Las facturas de NEXTGO no traen el coste del material</span>
+        }
       </div>
 
       <div class="kpi">
@@ -322,10 +333,16 @@
                   <td class="num importe" [class.negativo]="m.ivaALiquidar < 0">
                     {{ m.ivaALiquidar | number: '1.2-2' : 'es' }}
                   </td>
-                  <td class="num importe">{{ m.margenBruto | number: '1.2-2' : 'es' }}</td>
-                  <td class="num tabular silenciado col-opcional">
-                    {{ m.margenPorcentaje | number: '1.0-1' : 'es' }} %
-                  </td>
+                  @if (m.baseConCoste > 0) {
+                    <td class="num importe">{{ m.margenBruto | number: '1.2-2' : 'es' }}</td>
+                    <td class="num tabular silenciado col-opcional">
+                      {{ m.margenPorcentaje | number: '1.0-1' : 'es' }} %
+                    </td>
+                  } @else {
+                    <!-- Mes solo con facturas de NEXTGO: sin coste, no hay margen. -->
+                    <td class="num silenciado">—</td>
+                    <td class="num silenciado col-opcional">—</td>
+                  }
                 </tr>
               }
             </tbody>

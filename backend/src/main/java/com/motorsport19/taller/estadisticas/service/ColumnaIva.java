@@ -23,6 +23,8 @@ public record ColumnaIva(
         BigDecimal ingresoManoDeObra,
         BigDecimal ingresoPiezas,
         BigDecimal gastoMaterial,
+        /** Base de las facturas de este programa, sobre la que va el margen. */
+        BigDecimal baseConCoste,
         BigDecimal margenBruto,
         BigDecimal margenPorcentaje,
         BigDecimal ticketMedio,
@@ -34,10 +36,11 @@ public record ColumnaIva(
         BigDecimal iva = suma(meses, ResumenMesIva::ivaRepercutido);
         BigDecimal total = suma(meses, ResumenMesIva::totalFacturado);
         BigDecimal gasto = suma(meses, ResumenMesIva::gastoMaterial);
+        BigDecimal baseConCoste = suma(meses, ResumenMesIva::baseConCoste);
         BigDecimal manoDeObra = suma(meses, ResumenMesIva::ingresoManoDeObra);
         BigDecimal piezas = suma(meses, ResumenMesIva::ingresoPiezas);
         int facturas = meses.stream().mapToInt(ResumenMesIva::numeroFacturas).sum();
-        BigDecimal margen = base.subtract(gasto);
+        BigDecimal margen = baseConCoste.subtract(gasto);
 
         return new ColumnaIva(
                 conIva,
@@ -46,8 +49,9 @@ public record ColumnaIva(
                 base, iva, total, facturas,
                 manoDeObra, piezas,
                 gasto,
+                baseConCoste,
                 margen,
-                ResumenMesIva.porcentaje(margen, base),
+                ResumenMesIva.porcentaje(margen, baseConCoste),
                 facturas == 0 ? BigDecimal.ZERO
                         : total.divide(BigDecimal.valueOf(facturas), 2, RoundingMode.HALF_UP),
                 ResumenMesIva.porcentaje(total, totalGeneral));
