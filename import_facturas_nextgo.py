@@ -78,15 +78,15 @@ PROVINCIAS = {
 DOCUMENTO = re.compile(r"\b[A-Z]{2,5}\|[A-Z]{2,5}\|\d{6,}\b")
 CABECERA_LINEAS = re.compile(r"Código\s+Descripción\s+Cantidad")
 FIN_LINEAS = re.compile(r"^\s*IMPORTE\s+DTO\. LINEA")
-# «SERVICIOS EXTERNOS      1,000    394,37€    0,00%    394,370»
+# «SERVICIOS EXTERNOS      1,000    394,37€    0,00%    394,370», con € al final en los presupuestos
 NUMEROS = re.compile(
     r"^(?:(?P<descripcion>.*?)\s{2,})?"
     r"(?P<cantidad>-?[\d.]*\d,\d{3})\s+"
     r"(?P<precio>-?[\d.]*\d,\d{2})€"
     r"(?:\s+(?P<descuento>[\d.]*\d,\d{2})%)?"
-    r"\s+(?P<importe>-?[\d.]*\d,\d{3})\s*$")
+    r"\s+(?P<importe>-?[\d.]*\d,\d{3})€?\s*$")
 # «MANO DE OBRA        394,370»: el rotulo de un bloque con su subtotal.
-SECCION = re.compile(r"^(?P<nombre>[^\d\s][^\d]*?)\s{2,}(?P<subtotal>-?[\d.]*\d,\d{3})\s*$")
+SECCION = re.compile(r"^(?P<nombre>[^\d\s][^\d]*?)\s{2,}(?P<subtotal>-?[\d.]*\d,\d{3})€?\s*$")
 TOTAL_FACTURA = re.compile(r"TOTAL FACTURA:\s*([\d.,]+)€")
 
 

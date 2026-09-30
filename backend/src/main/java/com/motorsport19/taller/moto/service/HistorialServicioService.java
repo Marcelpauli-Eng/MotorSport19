@@ -134,7 +134,9 @@ public class HistorialServicioService {
                                 .filter(o -> TERMINADAS.contains(o.getEstado()))
                                 .sorted(Comparator.comparing(OrdenTrabajo::getFechaEntrada))
                                 .map(this::aIntervencion),
+                        // La que factura una orden ya sale con ella, que dice mas.
                         facturasAnteriores.findByMotoIdOrderByFechaDescNumeroDesc(moto.getId()).stream()
+                                .filter(f -> f.getOrdenTrabajoId() == null)
                                 .map(this::aIntervencion))
                 .sorted(Comparator.comparing(HistorialImprimible.Intervencion::fecha))
                 .toList();

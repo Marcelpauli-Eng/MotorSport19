@@ -441,6 +441,12 @@ docker compose -f docker-compose.taller.yml exec -T db \
 
 El SQL lleva datos de clientes: se genera fuera del repositorio y no se sube.
 
+Los presupuestos de NEXTGO se cargan después, como órdenes de trabajo, con
+[`import_presupuestos_nextgo.py`](import_presupuestos_nextgo.py) (el PDF de
+todos los presupuestos y el mismo registro). El que ya se facturó entra
+ENTREGADA y enlazado a su factura (migración `V26`), así que no sale como
+trabajo sin facturar ni admite otra factura; el resto queda PRESUPUESTADA.
+
 
 ### Órdenes de trabajo (fase 3)
 
