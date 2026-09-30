@@ -4,6 +4,7 @@ import com.motorsport19.taller.common.domain.EntidadAuditable;
 import com.motorsport19.taller.common.error.ConflictoException;
 import com.motorsport19.taller.common.error.ReglaNegocioException;
 import com.motorsport19.taller.usuario.domain.Usuario;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -12,6 +13,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -19,6 +22,9 @@ import lombok.NoArgsConstructor;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Una jornada de trabajo: cuando se empezo y cuando se termino.
@@ -34,6 +40,9 @@ import java.time.Instant;
  * junto con quien la hizo y por que. Un registro que se puede reescribir sin
  * dejar rastro no prueba nada, ni ante una inspeccion ni ante el propio
  * trabajador.
+ *
+ * <p>Y cada cambio deja su fila en {@link CambioFichaje}, con las horas que
+ * habia antes: si se corrige dos veces, se ven las dos.
  */
 @Entity
 @Table(name = "fichaje")
@@ -86,6 +95,10 @@ public class Fichaje extends EntidadAuditable {
     @Column(name = "observaciones", columnDefinition = "text")
     private String observaciones;
 
+    @OneToMany(mappedBy = "fichaje", cascade = CascadeType.ALL)
+    @OrderBy("fecha ASC, id ASC")
+    private List<CambioFichaje> cambios = new ArrayList<>();
+
     // ==================================================================
 
     /** Empieza la jornada de alguien, aqui y ahora. */
@@ -132,6 +145,7 @@ public class Fichaje extends EntidadAuditable {
         this.motivoCorreccion = razon;
         this.corregidoPor = administrador;
         this.corregidoEn = Instant.now();
+        cambios.add(CambioFichaje.de(this, inicioReal(), null, razon, administrador));
     }
 
     /**
@@ -157,15 +171,26 @@ public class Fichaje extends EntidadAuditable {
         if (hasta.isAfter(Instant.now())) {
             throw new ReglaNegocioException("Una jornada no puede terminar en el futuro.");
         }
+        Instant inicioAntes = inicioReal();
+        Instant finAntes = finReal();
+        if (desde.equals(inicioAntes) && hasta.equals(finAntes)) {
+            throw new ReglaNegocioException("No has cambiado ninguna hora.");
+        }
 
         this.inicioCorregido = desde;
         this.finCorregido = hasta;
         this.motivoCorreccion = razon;
         this.corregidoPor = administrador;
         this.corregidoEn = Instant.now();
+        cambios.add(CambioFichaje.de(this, inicioAntes, finAntes, razon, administrador));
     }
 
     // ==================================================================
+
+    /** Los cambios a mano, del primero al ultimo. Solo se anaden desde aqui. */
+    public List<CambioFichaje> getCambios() {
+        return Collections.unmodifiableList(cambios);
+    }
 
     public boolean estaAbierta() {
         return fin == null;

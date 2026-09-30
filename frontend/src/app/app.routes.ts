@@ -191,6 +191,13 @@ export const routes: Routes = [
         loadComponent: () => import('./funcionalidades/ajustes/ajustes').then((m) => m.Ajustes),
       },
 
+      // Las horas de uno mismo. Sin permiso: consultarlas es un derecho.
+      {
+        path: 'mis-horas',
+        title: 'Mis horas · MotorSport19',
+        loadComponent: () => import('./funcionalidades/fichajes/mis-horas').then((m) => m.MisHoras),
+      },
+
       {
         path: 'mi-cuenta',
         title: 'Mi cuenta · MotorSport19',

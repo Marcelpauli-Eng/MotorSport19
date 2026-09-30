@@ -102,6 +102,9 @@ public class FiltroJornadaAbierta extends OncePerRequestFilter {
 
     private boolean estaPermitidaSiempre(HttpServletRequest peticion) {
         String ruta = peticion.getRequestURI();
-        return SIEMPRE_PERMITIDAS.contains(ruta) || "OPTIONS".equals(peticion.getMethod());
+        return SIEMPRE_PERMITIDAS.contains(ruta)
+                // Sus horas, su historial y su descarga: consultar lo propio no exige estar fichado.
+                || ruta.startsWith("/api/fichajes/mias/")
+                || "OPTIONS".equals(peticion.getMethod());
     }
 }

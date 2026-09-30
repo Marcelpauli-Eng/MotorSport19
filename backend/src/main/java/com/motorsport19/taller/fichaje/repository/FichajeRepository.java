@@ -1,5 +1,6 @@
 package com.motorsport19.taller.fichaje.repository;
 
+import com.motorsport19.taller.fichaje.domain.CambioFichaje;
 import com.motorsport19.taller.fichaje.domain.Fichaje;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,4 +71,28 @@ public interface FichajeRepository extends JpaRepository<Fichaje, Long> {
     List<Fichaje> buscarTodas(@Param("desde") Instant desde,
                               @Param("hasta") Instant hasta,
                               @Param("usuarioId") Long usuarioId);
+
+    /**
+     * Los cambios a mano de una jornada, del primero al ultimo, con quien los hizo.
+     *
+     * <p>Con {@code usuarioId}, solo si la jornada es suya: el trabajador ve el
+     * historial de lo propio y, de lo ajeno, una lista vacia.
+     */
+    @Query("""
+            SELECT c FROM CambioFichaje c
+              LEFT JOIN FETCH c.usuario
+             WHERE c.fichaje.id = :fichajeId
+               AND (:usuarioId IS NULL OR c.fichaje.usuario.id = :usuarioId)
+             ORDER BY c.fecha, c.id
+            """)
+    List<CambioFichaje> cambiosDe(@Param("fichajeId") Long fichajeId, @Param("usuarioId") Long usuarioId);
+
+    /** Los de varias jornadas en una sola consulta, para la exportacion. */
+    @Query("""
+            SELECT c FROM CambioFichaje c
+              LEFT JOIN FETCH c.usuario
+             WHERE c.fichaje IN :jornadas
+             ORDER BY c.fecha, c.id
+            """)
+    List<CambioFichaje> cambiosDe(@Param("jornadas") Collection<Fichaje> jornadas);
 }

@@ -11,10 +11,12 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
 import { Dialogo } from '../../compartido/dialogo';
+import { HistorialJornada } from './historial-jornada';
 import { Icono } from '../../compartido/icono';
 import { RouterLink } from '@angular/router';
 import {
   ApunteActividad,
+  CambioFichaje,
   Fichaje,
   FichajesService,
   PorTrabajador,
@@ -44,16 +46,23 @@ type Rango = 'semana' | 'mes' | 'personalizado';
   selector: 'app-control-horas',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, FormsModule, RouterLink, Icono, Cargando, Dialogo],
+  imports: [CommonModule, FormsModule, RouterLink, Icono, Cargando, Dialogo, HistorialJornada],
   templateUrl: './control-horas.html',
   styles: [
     `
+      /* Los filtros apoyan en la misma linea de abajo: botones y campos a la par. */
+      .mandos { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--e3); }
+      .mandos .campo { margin-bottom: 0; }
       .resumen { display: grid; gap: var(--e2); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
       .dato { padding: var(--e3); border: 1px solid var(--borde, #e5e7eb); border-radius: var(--radio, 8px); }
       .dato__valor { font-size: 1.6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
       .dato__pie { font-size: 0.78rem; color: var(--gris-500, #6b7280); text-transform: uppercase; letter-spacing: 0.05em; }
       .fila-trabajador { cursor: pointer; }
       .fila-trabajador:hover { background: var(--gris-50, #f9fafb); }
+      /* Quien no ha fichado en el periodo sale igual, pero apagado. */
+      .fila-trabajador--vacia { cursor: default; color: var(--gris-500, #6b7280); }
+      .acciones { text-align: right; white-space: nowrap; }
+      .detalle__titulo { font-weight: 600; margin: 0 0 4px; }
       .horas { font-variant-numeric: tabular-nums; font-weight: 600; }
       /* El que esta trabajando ahora mismo, con el contador corriendo. */
       .horas--vivo { color: var(--verde); }
@@ -102,33 +111,42 @@ export class ControlHoras {
   protected readonly usuarios = signal<Usuario[]>([]);
 
   protected readonly rango = signal<Rango>('semana');
-  protected readonly desde = signal(this.lunesDeEstaSemana());
-  protected readonly hasta = signal(this.hoy());
+  protected readonly desde = signal(FichajesService.inicioDe('semana'));
+  protected readonly hasta = signal(FichajesService.dia(new Date()));
   protected readonly usuarioId = signal<number | null>(null);
 
   /** Qué jornada tiene la actividad desplegada, y lo que se hizo en ella. */
   protected readonly jornadaAbierta = signal<number | null>(null);
   protected readonly actividad = signal<ApunteActividad[]>([]);
   protected readonly cargandoActividad = signal(false);
+  /** Los cambios a mano de la jornada desplegada, con lo que había antes. */
+  protected readonly cambios = signal<CambioFichaje[]>([]);
 
   /** Qué trabajador está desplegado. Solo uno a la vez: si no, es ilegible. */
   protected readonly desplegado = signal<number | null>(null);
 
-  // --- cierre a mano de una jornada olvidada
-  protected readonly cerrando = signal<Fichaje | null>(null);
+  // --- cambio a mano de las horas: cerrar una olvidada o corregir una cerrada
+  protected readonly editando = signal<Fichaje | null>(null);
+  protected readonly inicioManual = signal('');
   protected readonly finManual = signal('');
   protected readonly motivoManual = signal('');
-  protected readonly guardandoCierre = signal(false);
+  protected readonly guardandoEdicion = signal(false);
+  /** Lo que ponían los campos al abrir, para mandar solo lo que se ha tocado. */
+  private inicioAlAbrir = '';
+  private finAlAbrir = '';
 
   /**
-   * El texto de ayuda del diálogo de cierre.
+   * El texto de ayuda del diálogo.
    *
    * <p>Se arma aquí y no en la plantilla porque lleva un formato de fecha con
    * comillas dentro, y anidarlas en un binding rompe el analizador de Angular.
    */
-  protected readonly subtituloCierre = computed(() => {
-    const f = this.cerrando();
+  protected readonly subtituloEdicion = computed(() => {
+    const f = this.editando();
     if (!f) return '';
+    if (!f.abierta) {
+      return 'Lo que se fichó no se borra: queda en el historial de la jornada, con quién lo cambió y por qué.';
+    }
     const cuando = new Date(f.inicio).toLocaleString('es-ES', {
       day: 'numeric',
       month: 'short',
@@ -136,6 +154,42 @@ export class ControlHoras {
       minute: '2-digit',
     });
     return `Empezó el ${cuando}. Pon la hora a la que se fue de verdad: queda registrado que la cerraste tú y por qué.`;
+  });
+
+  protected sinCambios(): boolean {
+    return (
+      !this.editando()?.abierta &&
+      this.inicioManual() === this.inicioAlAbrir &&
+      this.finManual() === this.finAlAbrir
+    );
+  }
+
+  /**
+   * Todos los trabajadores, hayan fichado o no.
+   *
+   * <p>El servidor solo devuelve a quien tiene jornadas en el periodo. Pero lo
+   * que se quiere ver es a cada persona del taller, y que alguien no haya
+   * fichado en toda la semana es justo lo que tiene que saltar a la vista.
+   */
+  protected readonly filas = computed<PorTrabajador[]>(() => {
+    const r = this.resumen();
+    if (!r) return [];
+    const conJornadas = new Set(r.trabajadores.map((t) => t.usuarioId));
+    const elegido = this.usuarioId();
+    const sinJornadas = this.usuarios()
+      .filter((u) => u.activo && !conJornadas.has(u.id) && (elegido === null || u.id === elegido))
+      .map((u) => ({
+        usuarioId: u.id,
+        usuarioNombre: u.nombreCompleto,
+        minutos: 0,
+        segundos: 0,
+        horasLegibles: '',
+        jornadas: 0,
+        detalle: [],
+      }));
+    return [...r.trabajadores, ...sinJornadas].sort((a, b) =>
+      a.usuarioNombre.localeCompare(b.usuarioNombre, 'es'),
+    );
   });
 
   /**
@@ -163,7 +217,7 @@ export class ControlHoras {
     this.abiertas().filter((f) => !this.esDeHoy(f.inicio)),
   );
 
-  private esDeHoy(instante: string): boolean {
+  protected esDeHoy(instante: string): boolean {
     const d = new Date(instante);
     const hoy = new Date(this.ahora());
     return (
@@ -234,6 +288,8 @@ export class ControlHoras {
       next: (r) => {
         this.resumen.set(r);
         this.cargando.set(false);
+        // Mirando a una sola persona no hay nada que elegir: se abre sola.
+        if (this.usuarioId()) this.desplegado.set(this.usuarioId());
       },
       error: () => this.cargando.set(false),
     });
@@ -242,15 +298,11 @@ export class ControlHoras {
 
   protected elegirRango(r: Rango): void {
     this.rango.set(r);
-    if (r === 'semana') {
-      this.desde.set(this.lunesDeEstaSemana());
-      this.hasta.set(this.hoy());
-    } else if (r === 'mes') {
-      const h = new Date();
-      this.desde.set(this.aTexto(new Date(h.getFullYear(), h.getMonth(), 1)));
-      this.hasta.set(this.hoy());
+    if (r !== 'personalizado') {
+      this.desde.set(FichajesService.inicioDe(r));
+      this.hasta.set(FichajesService.dia(new Date()));
     }
-    if (r !== 'personalizado') this.cargar();
+    this.cargar();
   }
 
   /** Despliega lo que se hizo en esa jornada, pidiendolo solo la primera vez. */
@@ -261,6 +313,8 @@ export class ControlHoras {
     }
     this.jornadaAbierta.set(f.id);
     this.actividad.set([]);
+    this.cambios.set([]);
+    if (f.corregida || f.cerradaPorOlvido) this.cargarCambios(f.id);
     this.cargandoActividad.set(true);
     this.fichajes.actividad(f.id).subscribe({
       next: (a) => {
@@ -295,58 +349,81 @@ export class ControlHoras {
     this.desplegado.update((actual) => (actual === usuarioId ? null : usuarioId));
   }
 
-  // --- cierre manual ---------------------------------------------------
+  private cargarCambios(fichajeId: number): void {
+    this.fichajes.cambios(fichajeId).subscribe((c) => this.cambios.set(c));
+  }
 
-  protected abrirCierre(f: Fichaje): void {
-    this.cerrando.set(f);
-    // Se propone la hora de ahora, pero se puede cambiar: lo normal es que la
-    // salida real fuera ayer por la tarde.
-    this.finManual.set(this.aTextoLocal(new Date()));
+  protected readonly tramo = FichajesService.tramo;
+
+  /**
+   * El registro del periodo en una hoja de cálculo, con el historial de cada
+   * jornada. Si hay un trabajador elegido, solo el suyo.
+   */
+  protected descargar(): void {
+    const quien = this.usuarios().find((u) => u.id === this.usuarioId())?.nombreCompleto;
+    const nombre = ['registro-jornada', quien, this.desde(), this.hasta()]
+      .filter(Boolean)
+      .join('_')
+      .replace(/\s+/g, '-');
+    this.fichajes.exportar(this.desde(), this.hasta(), this.usuarioId()).subscribe((csv) =>
+      FichajesService.guardar(csv, `${nombre}.csv`),
+    );
+  }
+
+  // --- cambio a mano de las horas ---------------------------------------
+
+  /** Abierta: se cierra poniendo la salida. Cerrada: se corrigen entrada y salida. */
+  protected abrirEdicion(f: Fichaje, evento?: Event): void {
+    evento?.stopPropagation();
+    this.editando.set(f);
+    this.inicioAlAbrir = this.aTextoLocal(new Date(f.inicio));
+    // Abierta, se propone la hora de ahora, pero se puede cambiar: lo normal
+    // es que la salida real fuera ayer por la tarde.
+    this.finAlAbrir = this.aTextoLocal(f.fin ? new Date(f.fin) : new Date());
+    this.inicioManual.set(this.inicioAlAbrir);
+    this.finManual.set(this.finAlAbrir);
     this.motivoManual.set('');
   }
 
-  protected confirmarCierre(): void {
-    const f = this.cerrando();
-    if (!f || this.guardandoCierre()) return;
+  protected guardarEdicion(): void {
+    const f = this.editando();
+    if (!f || this.guardandoEdicion()) return;
 
-    this.guardandoCierre.set(true);
-    this.fichajes
-      .cerrarPorOlvido(f.id, new Date(this.finManual()).toISOString(), this.motivoManual())
-      .subscribe({
-        next: () => {
-          this.guardandoCierre.set(false);
-          this.cerrando.set(null);
-          this.avisos.exito(`Jornada de ${f.usuarioNombre} cerrada.`);
-          this.cargar();
-        },
-        error: () => this.guardandoCierre.set(false),
-      });
+    const iso = (texto: string) => new Date(texto).toISOString();
+    // Lo que no se ha tocado va nulo y el servidor lo deja como estaba. Si se
+    // mandara, la hora fichada perdería sus segundos al pasar por el campo.
+    const peticion = f.abierta
+      ? this.fichajes.cerrarPorOlvido(f.id, iso(this.finManual()), this.motivoManual())
+      : this.fichajes.corregir(
+          f.id,
+          this.inicioManual() !== this.inicioAlAbrir ? iso(this.inicioManual()) : null,
+          this.finManual() !== this.finAlAbrir ? iso(this.finManual()) : null,
+          this.motivoManual(),
+        );
+
+    this.guardandoEdicion.set(true);
+    peticion.subscribe({
+      next: () => {
+        this.guardandoEdicion.set(false);
+        this.editando.set(null);
+        this.avisos.exito(
+          f.abierta ? `Jornada de ${f.usuarioNombre} cerrada.` : `Horas de ${f.usuarioNombre} cambiadas.`,
+        );
+        this.cargar();
+        if (this.jornadaAbierta() === f.id) this.cargarCambios(f.id);
+      },
+      error: () => this.guardandoEdicion.set(false),
+    });
   }
 
-  protected cancelarCierre(): void {
-    this.cerrando.set(null);
+  protected cancelarEdicion(): void {
+    this.editando.set(null);
   }
 
   // --- fechas ----------------------------------------------------------
 
-  private hoy(): string {
-    return this.aTexto(new Date());
-  }
-
-  private lunesDeEstaSemana(): string {
-    const d = new Date();
-    // getDay() da 0 el domingo; se quiere el lunes como primer día.
-    const diasDesdeLunes = (d.getDay() + 6) % 7;
-    d.setDate(d.getDate() - diasDesdeLunes);
-    return this.aTexto(d);
-  }
-
-  private aTexto(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
   /** Para el input datetime-local, que no admite zona horaria. */
   private aTextoLocal(d: Date): string {
-    return `${this.aTexto(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return `${FichajesService.dia(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
 }

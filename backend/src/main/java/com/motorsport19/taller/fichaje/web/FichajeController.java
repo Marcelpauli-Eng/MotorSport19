@@ -1,5 +1,6 @@
 package com.motorsport19.taller.fichaje.web;
 
+import com.motorsport19.taller.fichaje.domain.CambioFichaje;
 import com.motorsport19.taller.fichaje.domain.Fichaje;
 import com.motorsport19.taller.fichaje.service.ActividadJornadaService;
 import com.motorsport19.taller.fichaje.service.FichajeService;
@@ -8,7 +9,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -86,6 +91,21 @@ public class FichajeController {
         return ResumenResponse.de(servicio.delPeriodo(desde, hasta, usuarioActual.id()));
     }
 
+    /** El historial de una jornada propia. De una ajena devuelve una lista vacia. */
+    @GetMapping("/mias/{id}/cambios")
+    public List<CambioResponse> misCambios(@PathVariable Long id) {
+        return servicio.cambiosDe(id, usuarioActual.id()).stream().map(CambioResponse::de).toList();
+    }
+
+    /** Mi registro de jornada en una hoja de calculo, con sus cambios. */
+    @GetMapping(value = "/mias/exportacion", produces = "text/csv")
+    public ResponseEntity<Resource> exportarMias(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+
+        return csv(servicio.exportarCsv(desde, hasta, usuarioActual.id()));
+    }
+
     // ==================================================================
     // La direccion
     // ==================================================================
@@ -98,6 +118,16 @@ public class FichajeController {
             @RequestParam(required = false) Long usuarioId) {
 
         return ResumenResponse.de(servicio.delPeriodo(desde, hasta, usuarioId));
+    }
+
+    /** El registro de todos, o de una persona, en una hoja de calculo con sus cambios. */
+    @GetMapping(value = "/exportacion", produces = "text/csv")
+    public ResponseEntity<Resource> exportar(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) Long usuarioId) {
+
+        return csv(servicio.exportarCsv(desde, hasta, usuarioId));
     }
 
     /** Las que se quedaron abiertas, de cualquiera. Lo que hay que resolver. */
@@ -116,6 +146,21 @@ public class FichajeController {
     @GetMapping("/{id}/actividad")
     public List<ActividadResponse> actividad(@PathVariable Long id) {
         return actividad.de(servicio.obtener(id)).stream().map(ActividadResponse::de).toList();
+    }
+
+    /** El historial de cambios a mano de esa jornada. Tambien se pide al desplegarla. */
+    @GetMapping("/{id}/cambios")
+    public List<CambioResponse> cambios(@PathVariable Long id) {
+        return servicio.cambiosDe(id, null).stream().map(CambioResponse::de).toList();
+    }
+
+    /** El nombre bueno lo pone la pantalla, que sabe de quien y de que fechas es. */
+    private static ResponseEntity<Resource> csv(byte[] contenido) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"registro-jornada.csv\"")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .contentLength(contenido.length)
+                .body(new ByteArrayResource(contenido));
     }
 
     @PutMapping("/{id}/cierre-manual")
@@ -206,6 +251,28 @@ public class FichajeController {
                     // corregido: quien revisa horas tiene que poder comparar.
                     f.getInicio(),
                     f.getFin());
+        }
+    }
+
+    /** @param finAnterior nula si estaba abierta: se fue sin fichar la salida */
+    public record CambioResponse(
+            Instant fecha,
+            String usuarioNombre,
+            String motivo,
+            Instant inicioAnterior,
+            Instant finAnterior,
+            Instant inicioNuevo,
+            Instant finNuevo) {
+
+        static CambioResponse de(CambioFichaje c) {
+            return new CambioResponse(
+                    c.getFecha(),
+                    c.getUsuario() == null ? null : c.getUsuario().getNombreCompleto(),
+                    c.getMotivo(),
+                    c.getInicioAnterior(),
+                    c.getFinAnterior(),
+                    c.getInicioNuevo(),
+                    c.getFinNuevo());
         }
     }
 
