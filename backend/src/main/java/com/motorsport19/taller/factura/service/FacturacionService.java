@@ -608,7 +608,9 @@ public class FacturacionService {
      */
     private void exigirContadoresCuadrados(SerieFactura serie, ContadorRegistroFacturacion contador) {
         int emitidoEnSerie = facturaRepository.ultimoNumeroEmitidoEn(serie.getId());
-        if (emitidoEnSerie != serie.getUltimoNumero()) {
+        // Sin ninguna factura, el contador dice donde empieza la serie (V28): la del
+        // taller que viene de otro programa sigue por donde este lo dejo.
+        if (emitidoEnSerie != 0 && emitidoEnSerie != serie.getUltimoNumero()) {
             throw new ConflictoException(
                     ("El registro de la serie %s no cuadra: el contador dice que la ultima factura fue "
                      + "la %d, pero la ultima que hay es la %d. Falta alguna factura del registro, asi "
