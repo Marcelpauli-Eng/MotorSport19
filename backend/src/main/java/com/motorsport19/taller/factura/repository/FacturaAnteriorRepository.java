@@ -17,6 +17,9 @@ public interface FacturaAnteriorRepository extends JpaRepository<FacturaAnterior
     @EntityGraph(attributePaths = {"moto", "lineas"})
     List<FacturaAnterior> findByMotoIdOrderByFechaDescNumeroDesc(Long motoId);
 
+    @EntityGraph(attributePaths = {"moto", "lineas"})
+    List<FacturaAnterior> findAllByOrderByFechaDescNumeroDesc();
+
     /** El PDF original, que la entidad no mapea para no cargarlo en cada listado. */
     @Query(value = "SELECT pdf FROM factura_anterior WHERE id = :id", nativeQuery = true)
     Optional<byte[]> pdfDe(@Param("id") Long id);
