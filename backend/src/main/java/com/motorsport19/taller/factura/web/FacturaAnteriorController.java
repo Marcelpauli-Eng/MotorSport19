@@ -35,17 +35,27 @@ public class FacturaAnteriorController {
      *                  reconocerla en un listado; el detalle esta en el PDF
      */
     public record FacturaAnteriorResponse(Long id, String origen, String numero, LocalDate fecha,
+                                          Long clienteId, String cliente,
                                           Long motoId, String matricula, List<String> conceptos,
                                           BigDecimal total) {
 
         static FacturaAnteriorResponse de(FacturaAnterior f) {
             return new FacturaAnteriorResponse(
                     f.getId(), f.getOrigen(), f.getNumero(), f.getFecha(),
+                    f.getClienteId(), f.getReceptorNombre(),
                     f.getMoto() == null ? null : f.getMoto().getId(),
                     f.getMoto() == null ? null : f.getMoto().getMatricula(),
                     f.getLineas().stream().map(LineaFacturaAnterior::getDescripcion).toList(),
                     f.getTotal());
         }
+    }
+
+    /** Todas, para el listado de facturas. Son pocas y no crecen: se cargaron una vez. */
+    @GetMapping("/facturas-anteriores")
+    public List<FacturaAnteriorResponse> todas() {
+        return facturas.findAllByOrderByFechaDescNumeroDesc().stream()
+                .map(FacturaAnteriorResponse::de)
+                .toList();
     }
 
     @GetMapping("/clientes/{id}/facturas-anteriores")
