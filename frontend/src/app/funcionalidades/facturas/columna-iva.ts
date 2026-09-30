@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, computed, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Cargando } from '../../compartido/cargando';
 import { Icono } from '../../compartido/icono';
@@ -61,12 +61,6 @@ export class ColumnaIvaComponente {
   /** Con IVA a la izquierda, 0 % a la derecha: cambia el color y el texto. */
   protected readonly conIva = computed(() => this.resumen()?.conIva ?? true);
 
-  protected readonly explicacion = computed(() =>
-    this.conIva()
-      ? 'Facturas con cuota de IVA repercutido.'
-      : 'Facturas emitidas al 0 %: no llevan cuota de IVA.',
-  );
-
   /**
    * Qué caería en esta columna si hubiera algo.
    *
@@ -77,15 +71,30 @@ export class ColumnaIvaComponente {
    */
   protected readonly explicacionVacia = computed(() =>
     this.conIva()
-      ? 'En este periodo no se ha emitido ninguna factura con IVA.'
-      : 'Aquí van las facturas exentas o al 0 %: entregas intracomunitarias, ' +
-        'exportaciones y poco más. Lo normal en un taller es que esté vacía.',
+      ? 'Ninguna factura con IVA en este periodo.'
+      : 'Ninguna en este periodo. Aquí irían las exentas o al 0 % (entregas ' +
+        'intracomunitarias, exportaciones): lo normal en un taller es que no haya.',
   );
 
   /** Meses del periodo, del más reciente al más antiguo. */
   protected readonly meses = computed(() => [...(this.resumen()?.meses ?? [])].reverse());
 
   protected readonly hayMovimiento = computed(() => (this.resumen()?.numeroFacturas ?? 0) > 0);
+
+  /**
+   * Hay margen que enseñar si hay facturas de este programa: son las que traen
+   * lo que costó el material. Con solo las de NEXTGO salía un «100 %» que no era tal.
+   */
+  protected readonly conMargen = computed(() => (this.resumen()?.baseConCoste ?? 0) > 0);
+
+  /** Parte de lo facturado es de NEXTGO y no entra en el margen. */
+  protected readonly margenParcial = computed(() => {
+    const r = this.resumen();
+    return !!r && r.baseConCoste > 0 && r.baseConCoste < r.baseFacturada;
+  });
+
+  /** La lista de facturas empieza plegada; se abre a mano o al pulsar un mes. */
+  protected readonly listaAbierta = signal(false);
 
   protected esElegido(m: MesIva): boolean {
     const e = this.mes();
@@ -97,6 +106,7 @@ export class ColumnaIvaComponente {
     if (!m.numeroFacturas) return;
     if (this.esElegido(m)) return this.elegirMes.emit(null);
     this.elegirMes.emit({ anio: m.anio, mes: m.mes });
+    this.listaAbierta.set(true);
     this.lista()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

@@ -20,6 +20,8 @@ public record FilaMes(
         BigDecimal comprasMaterial,
         BigDecimal ivaSoportado,
         BigDecimal costeMaterialVendido,
-        int ordenesAbiertas
+        int ordenesAbiertas,
+        /** Base de las facturas de este programa: las de NEXTGO no traen coste de material. */
+        BigDecimal baseConCoste
 ) {
 }

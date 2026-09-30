@@ -21,6 +21,8 @@ public record FilaMesIva(
         int numeroFacturas,
         BigDecimal ingresoManoDeObra,
         BigDecimal ingresoPiezas,
-        BigDecimal costeMaterialVendido
+        BigDecimal costeMaterialVendido,
+        /** Base de las facturas de este programa: las de NEXTGO no traen coste de material. */
+        BigDecimal baseConCoste
 ) {
 }

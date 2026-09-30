@@ -13,6 +13,8 @@ export interface ResumenMes {
   /** Repercutido − soportado. En negativo, sale a devolver. */
   ivaALiquidar: number;
   costeMaterialVendido: number;
+  /** Base de las facturas de este programa: el margen va sobre ella (NEXTGO no trae coste). */
+  baseConCoste: number;
   margenBruto: number;
   margenPorcentaje: number;
   ordenesAbiertas: number;
@@ -31,6 +33,8 @@ export interface TotalesEjercicio {
   ivaSoportado: number;
   ivaALiquidar: number;
   costeMaterialVendido: number;
+  /** Base de las facturas de este programa: el margen va sobre ella (NEXTGO no trae coste). */
+  baseConCoste: number;
   margenBruto: number;
   margenPorcentaje: number;
   ticketMedio: number;
@@ -55,6 +59,8 @@ export interface MesIva {
   ingresoPiezas: number;
   /** Coste del material que se fue en los trabajos facturados ese mes. */
   gastoMaterial: number;
+  /** Base de las facturas de este programa: el margen va sobre ella (NEXTGO no trae coste). */
+  baseConCoste: number;
   margenBruto: number;
   margenPorcentaje: number;
 }
@@ -71,6 +77,8 @@ export interface ColumnaIva {
   ingresoManoDeObra: number;
   ingresoPiezas: number;
   gastoMaterial: number;
+  /** Base de las facturas de este programa: el margen va sobre ella (NEXTGO no trae coste). */
+  baseConCoste: number;
   margenBruto: number;
   margenPorcentaje: number;
   ticketMedio: number;

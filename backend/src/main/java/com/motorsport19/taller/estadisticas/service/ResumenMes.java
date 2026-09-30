@@ -30,6 +30,8 @@ public record ResumenMes(
         BigDecimal ivaSoportado,
         BigDecimal ivaALiquidar,
         BigDecimal costeMaterialVendido,
+        /** Sobre lo que se calcula el margen: sin coste conocido no hay margen (cero). */
+        BigDecimal baseConCoste,
         BigDecimal margenBruto,
         BigDecimal margenPorcentaje,
         int ordenesAbiertas,
@@ -43,13 +45,15 @@ public record ResumenMes(
 
     public static ResumenMes de(FilaMes f, BigDecimal diasMediosEnTaller) {
         BigDecimal ivaALiquidar = f.ivaRepercutido().subtract(f.ivaSoportado());
-        BigDecimal margen = f.baseFacturada().subtract(f.costeMaterialVendido());
+        // Solo con las facturas de este programa: las de NEXTGO no traen lo que
+        // costo el material, y contarlas daria un margen inflado.
+        BigDecimal margen = f.baseConCoste().subtract(f.costeMaterialVendido());
 
-        // Sobre la base facturada, no sobre el total: el IVA no es del taller.
-        BigDecimal porcentaje = f.baseFacturada().signum() == 0
+        // Sobre la base, no sobre el total: el IVA no es del taller.
+        BigDecimal porcentaje = f.baseConCoste().signum() == 0
                 ? BigDecimal.ZERO
                 : margen.multiply(BigDecimal.valueOf(100))
-                        .divide(f.baseFacturada(), 1, RoundingMode.HALF_UP);
+                        .divide(f.baseConCoste(), 1, RoundingMode.HALF_UP);
 
         return new ResumenMes(
                 f.mes(),
@@ -64,6 +68,7 @@ public record ResumenMes(
                 redondear(f.ivaSoportado()),
                 redondear(ivaALiquidar),
                 redondear(f.costeMaterialVendido()),
+                redondear(f.baseConCoste()),
                 redondear(margen),
                 porcentaje,
                 f.ordenesAbiertas(),

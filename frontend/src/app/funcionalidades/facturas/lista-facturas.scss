@@ -5,19 +5,42 @@
   border-color: var(--azul-borde);
 }
 
-.exportacion .rejilla { margin-bottom: var(--e3); }
+/* Los filtros en una fila; en pantallas estrechas bajan solos. */
+.periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--e3) var(--e4);
+}
 
-.separador {
-  margin: var(--e4) 0;
-  border: none;
+.periodo .campo { width: 170px; margin: 0; }
+.atajos { gap: var(--e2); flex-wrap: wrap; }
+
+.acciones {
+  gap: var(--e2);
+  flex-wrap: wrap;
+  margin-top: var(--e4);
+  padding-top: var(--e4);
   border-top: var(--borde);
 }
 
+/* Las explicaciones largas, plegadas: se despliegan si se quieren leer. */
 .ayuda {
-  margin: var(--e3) 0 0;
+  margin-top: var(--e3);
   line-height: 1.5;
   max-width: 76ch;
 }
+
+.ayuda summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--gris-600);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.ayuda summary:hover { color: var(--gris-900); }
+.ayuda p { margin: var(--e2) 0 0; }
 
 /* ---------- Informe de verificación ---------- */
 

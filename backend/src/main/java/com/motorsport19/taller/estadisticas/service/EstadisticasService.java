@@ -128,6 +128,7 @@ public class EstadisticasService {
         BigDecimal compras = suma(meses, mesTope, ResumenMes::comprasMaterial);
         BigDecimal ivaSoportado = suma(meses, mesTope, ResumenMes::ivaSoportado);
         BigDecimal coste = suma(meses, mesTope, ResumenMes::costeMaterialVendido);
+        BigDecimal baseConCoste = suma(meses, mesTope, ResumenMes::baseConCoste);
         BigDecimal manoDeObra = suma(meses, mesTope, ResumenMes::ingresoManoDeObra);
         BigDecimal piezas = suma(meses, mesTope, ResumenMes::ingresoPiezas);
         int facturas = meses.stream().limit(mesTope).mapToInt(ResumenMes::numeroFacturas).sum();
@@ -142,8 +143,9 @@ public class EstadisticasService {
                 compras, ivaSoportado,
                 iva.subtract(ivaSoportado),
                 coste,
-                base.subtract(coste),
-                porcentaje(base.subtract(coste), base),
+                baseConCoste,
+                baseConCoste.subtract(coste),
+                porcentaje(baseConCoste.subtract(coste), baseConCoste),
                 facturas == 0 ? BigDecimal.ZERO
                         : total.divide(BigDecimal.valueOf(facturas), 2, RoundingMode.HALF_UP),
                 variacion(base, baseAnterior),
