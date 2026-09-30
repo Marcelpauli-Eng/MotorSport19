@@ -459,11 +459,24 @@ Lo que piden los clientes desde el formulario de 19racingmotorsport.com (cita o
 presupuesto, con hasta tres fotos) entra en la bandeja **Solicitudes web**. No
 crea clientes, motos ni citas por su cuenta: mostrador la lee y decide.
 
-Desde la bandeja se le **manda un presupuesto** (se abre WhatsApp o el correo de
-quien lo atiende con el mensaje escrito en el idioma en que el cliente rellenó
-la web), se le **da cita**, se marca como atendida o se descarta. La
-presupuestada sigue abierta a la espera de respuesta: si el cliente acepta, se
-le da cita desde ahí.
+Desde la bandeja se le **hace un presupuesto** en la misma pantalla que el de
+una orden (mano de obra, material del almacén, plantillas, pluses y tasas, el
+mismo PDF) y se le manda: se abre WhatsApp o el correo de quien lo atiende con
+el mensaje escrito en el idioma en que el cliente rellenó la web. También se le
+**da cita**, se marca como atendida o se descarta.
+
+La presupuestada espera la respuesta del cliente:
+
+- **Acepta**: se da de alta al cliente y su moto (con lo que dejó en la web; el
+  bastidor se pide ahora) y se abre la orden con las mismas líneas, ya
+  presupuestada y aprobada. Sale al mismo precio que vio el cliente, aunque una
+  pieza haya subido desde entonces.
+- **Rechaza**: se descarta con el motivo.
+- **Reescribir**: vuelve a pendiente, con sus líneas, para corregirlo y mandarlo
+  otra vez. Mandado, el presupuesto ya no se toca sin reescribirlo.
+
+El presupuesto va aparte de la orden a propósito: quien lo pide aún no ha
+traído la moto, y abrir una orden exige darla de alta con su bastidor.
 
 | Método | Ruta | Qué hace |
 |--------|------|----------|
@@ -471,7 +484,12 @@ le da cita desde ahí.
 | `GET` | `/solicitudes-web?estado=PENDIENTE` | La bandeja: `PENDIENTE`, `PRESUPUESTADA`, `ATENDIDA` o `DESCARTADA` |
 | `GET` | `/solicitudes-web/pendientes` | El número del menú |
 | `GET` | `/solicitudes-web/{id}/fotos/{1..3}` | Una foto, tal cual llegó |
-| `POST` | `/solicitudes-web/{id}/presupuesto` | Apunta el presupuesto mandado (importe, detalle, WhatsApp o email) y la deja presupuestada |
+| `GET` | `/solicitudes-web/{id}/presupuesto` | Su presupuesto; lo empieza si no lo estaba (congela el precio de la hora) |
+| — | `/solicitudes-web/{id}/presupuesto/...` | Las mismas rutas de líneas, tarifa, IVA, descuento general, plantillas y PDF que `/ordenes/{id}/...` |
+| `POST` | `/solicitudes-web/{id}/presupuesto/envio` | Apunta por dónde se mandó (`WHATSAPP` o `EMAIL`) y la deja presupuestada |
+| `POST` | `/solicitudes-web/{id}/presupuesto/reescritura` | Vuelve a pendiente para corregirlo |
+| `POST` | `/solicitudes-web/{id}/presupuesto/rechazo` | El cliente no lo quiere: la descarta con el motivo |
+| `POST` | `/solicitudes-web/{id}/presupuesto/aceptacion` | Abre la orden de su moto con las líneas, aprobada (pide `ORDENES_ABRIR` y `ORDENES_APROBAR`) |
 | `POST` | `/solicitudes-web/{id}/cita` | Le da cita en la agenda y la cierra, todo o nada |
 | `POST` | `/solicitudes-web/{id}/atencion` · `/descarte` | La cierra con una nota opcional |
 

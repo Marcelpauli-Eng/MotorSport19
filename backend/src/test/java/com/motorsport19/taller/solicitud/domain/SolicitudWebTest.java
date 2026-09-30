@@ -198,4 +198,80 @@ class SolicitudWebTest {
             assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.PENDIENTE);
         }
     }
+
+    @Nested
+    @DisplayName("Presupuesto con lineas")
+    class PresupuestoConLineas {
+
+        private final BigDecimal veintiuno = new BigDecimal("21.00");
+
+        private SolicitudWeb empezado() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            s.empezarPresupuesto(new BigDecimal("46.00"));
+            return s;
+        }
+
+        @Test
+        @DisplayName("la mano de obra se valora al precio de la hora del presupuesto, y lo sigue si cambia")
+        void manoDeObraALaTarifa() {
+            SolicitudWeb s = empezado();
+            var linea = s.anadirManoDeObra("Cambio de ruedas", new BigDecimal("1.5"), null, "GENERAL", veintiuno);
+
+            assertThat(linea.getPrecioUnitario()).isEqualByComparingTo("46.00");
+            assertThat(linea.getNumeroLinea()).isEqualTo(1);
+
+            s.cambiarTarifaHora(new BigDecimal("50"));
+            assertThat(linea.getPrecioUnitario()).isEqualByComparingTo("50");
+        }
+
+        @Test
+        @DisplayName("empezarlo dos veces no cambia el precio de la hora que ya tenia")
+        void tarifaCongelada() {
+            SolicitudWeb s = empezado();
+            s.empezarPresupuesto(new BigDecimal("99"));
+            assertThat(s.getTarifaHora()).isEqualByComparingTo("46.00");
+        }
+
+        @Test
+        @DisplayName("sin empezar, o sin lineas, no se monta ni se manda")
+        void sinEmpezarOSinLineas() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            assertThatThrownBy(() -> s.anadirManoDeObra("X", BigDecimal.ONE, null, "GENERAL", veintiuno))
+                    .isInstanceOf(ConflictoException.class);
+            assertThatThrownBy(() -> s.enviarPresupuesto(CanalPresupuesto.WHATSAPP, null))
+                    .isInstanceOf(ReglaNegocioException.class)
+                    .hasMessageContaining("ninguna linea");
+        }
+
+        @Test
+        @DisplayName("mandado ya no se toca; reescrito vuelve a pendiente con sus lineas")
+        void reescribir() {
+            SolicitudWeb s = empezado();
+            s.anadirManoDeObra("Cambio de ruedas", BigDecimal.ONE, null, "GENERAL", veintiuno);
+            s.enviarPresupuesto(new BigDecimal("55.66"), null, CanalPresupuesto.WHATSAPP, null);
+
+            assertThat(s.permiteEditarLineas()).isFalse();
+            assertThatThrownBy(() -> s.anadirManoDeObra("Mas", BigDecimal.ONE, null, "GENERAL", veintiuno))
+                    .isInstanceOf(ConflictoException.class)
+                    .hasMessageContaining("Reescribelo");
+
+            s.reescribirPresupuesto();
+            assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.PENDIENTE);
+            assertThat(s.getLineas()).hasSize(1);
+            s.anadirManoDeObra("Mas", BigDecimal.ONE, null, "GENERAL", veintiuno);
+            assertThat(s.getLineas()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("solo se acepta lo que se ha mandado; rechazado queda descartado con el motivo")
+        void aceptarYRechazar() {
+            SolicitudWeb s = empezado();
+            assertThatThrownBy(() -> s.aceptarPresupuesto(null, null)).isInstanceOf(ConflictoException.class);
+            assertThatThrownBy(() -> s.reescribirPresupuesto()).isInstanceOf(ConflictoException.class);
+
+            s.rechazarPresupuesto("  Muy caro ", null);
+            assertThat(s.getEstado()).isEqualTo(EstadoSolicitud.DESCARTADA);
+            assertThat(s.getNota()).isEqualTo("Presupuesto rechazado: Muy caro");
+        }
+    }
 }

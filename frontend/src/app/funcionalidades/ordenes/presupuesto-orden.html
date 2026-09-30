@@ -1,9 +1,9 @@
 @if (cargando()) {
   <app-cargando mensaje="Cargando presupuesto…" />
 } @else if (orden(); as o) {
-  <a [routerLink]="['/ordenes', o.id]" class="volver">
+  <a [routerLink]="volverA()" class="volver">
     <app-icono nombre="flecha-izquierda" [tamano]="14" />
-    Volver a la orden {{ o.codigo }}
+    {{ esWeb ? 'Volver a solicitudes web' : 'Volver a la orden ' + o.codigo }}
   </a>
 
   <div class="pagina-cabecera">
@@ -27,7 +27,7 @@
                 type="number"
                 step="0.5"
                 min="0"
-                aria-label="Precio de la hora para esta orden"
+                [attr.aria-label]="'Precio de la hora para ' + (esWeb ? 'este presupuesto' : 'esta orden')"
                 [ngModel]="borradorTarifa()"
                 (ngModelChange)="borradorTarifa.set($event === '' || $event === null ? null : +$event)"
                 (keyup.enter)="guardarTarifa()"
@@ -51,7 +51,7 @@
                 type="button"
                 class="tarifa__lapiz"
                 (click)="empezarTarifa()"
-                title="Cambiar el precio de la hora solo para esta orden"
+                [title]="'Cambiar el precio de la hora solo para ' + (esWeb ? 'este presupuesto' : 'esta orden')"
               >
                 <app-icono nombre="lapiz" [tamano]="13" />
               </button>
@@ -72,7 +72,7 @@
           @if (puedeCambiarTarifa()) {
             <select
               class="tarifa__iva"
-              aria-label="Tipo de IVA de toda la orden"
+              [attr.aria-label]="esWeb ? 'Tipo de IVA de todo el presupuesto' : 'Tipo de IVA de toda la orden'"
               [ngModel]="o.tipoIva ?? ''"
               (ngModelChange)="cambiarTipoIva($event)"
               [disabled]="trabajando()"
@@ -89,7 +89,7 @@
           }
         </span>
       }
-      <span class="etiqueta etiqueta--{{ o.estado | colorEstado }}">{{ o.estadoDescripcion }}</span>
+      <span class="etiqueta etiqueta--{{ esWeb ? 'morado' : ($any(o.estado) | colorEstado) }}">{{ o.estadoDescripcion }}</span>
     </div>
   </div>
 
@@ -290,8 +290,8 @@
       </div>
       @if (vePrecios) {
         <p class="pie-alta">
-          Se cobra a {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h, el precio pactado para esta
-          orden. Se cambia arriba, en «Precio de la hora».
+          Se cobra a {{ o.tarifaHora | number: '1.2-2' : 'es' }} €/h, el precio pactado para
+          {{ esWeb ? 'este presupuesto' : 'esta orden' }}. Se cambia arriba, en «Precio de la hora».
         </p>
       } @else {
         <p class="pie-alta">Apunta las horas que has echado. De cobrarlas se encarga el mostrador.</p>
@@ -386,7 +386,7 @@
           </button>
         } @else if (pestana() === 'mano-obra') {
           <span class="vacio__titulo">Sin mano de obra todavía</span>
-          <span class="pequeno">Las horas de taller que lleve esta orden van aquí.</span>
+          <span class="pequeno">Las horas de taller que lleve {{ esWeb ? 'este presupuesto' : 'esta orden' }} van aquí.</span>
           @if (puedeEditarLineas()) {
             <button type="button" class="boton boton--pequeno boton--principal" (click)="abrirAlta('mano-obra')">
               <app-icono nombre="mas" [tamano]="14" />
@@ -643,27 +643,51 @@
             <app-icono nombre="descargar" [tamano]="16" />
             Presupuesto en PDF
           </button>
-          <button type="button" class="boton" (click)="enviarPorWhatsapp()">
-            <app-icono nombre="whatsapp" [tamano]="16" />
-            Enviar por WhatsApp
-          </button>
+          @if (!esWeb) {
+            <button type="button" class="boton" (click)="enviarPorWhatsapp()">
+              <app-icono nombre="whatsapp" [tamano]="16" />
+              Enviar por WhatsApp
+            </button>
+          }
         }
       </div>
 
       <div class="barra-acciones__der">
         <span class="pequeno silenciado">Los cambios se guardan solos</span>
-        <a [routerLink]="['/ordenes', o.id]" class="boton boton--principal">
-          Volver a la orden
-        </a>
+        @if (esWeb && o.estado === 'PENDIENTE') {
+          <a [routerLink]="volverA()" class="boton">Volver a solicitudes</a>
+          <button
+            type="button"
+            class="boton boton--principal"
+            [disabled]="!todasLasLineas().length"
+            [title]="todasLasLineas().length ? '' : 'Añade al menos una línea'"
+            (click)="enviandoWeb.set(true)"
+          >
+            <app-icono nombre="whatsapp" [tamano]="16" />
+            Enviar al cliente
+          </button>
+        } @else if (esWeb && o.estado === 'PRESUPUESTADA') {
+          <a [routerLink]="volverA()" class="boton">Volver a solicitudes</a>
+          <button type="button" class="boton boton--principal" [disabled]="trabajando()" (click)="reescribir()">
+            <app-icono nombre="lapiz" [tamano]="16" />
+            Reescribir presupuesto
+          </button>
+        } @else {
+          <a [routerLink]="volverA()" class="boton boton--principal">
+            {{ esWeb ? 'Volver a solicitudes' : 'Volver a la orden' }}
+          </a>
+        }
       </div>
     </div>
   </div>
 } @else {
   <!-- Sin esto, un enlace viejo o el servidor caído dejaban la página en blanco. -->
   <div class="vacio">
-    <span class="vacio__titulo">No se ha podido abrir esta orden</span>
+    <span class="vacio__titulo">No se ha podido abrir este presupuesto</span>
     <span class="pequeno">Puede que ya no exista o que ahora mismo no haya conexión con el servidor.</span>
-    <a routerLink="/ordenes" class="boton boton--pequeno">Volver a órdenes de trabajo</a>
+    <a [routerLink]="esWeb ? '/solicitudes' : '/ordenes'" class="boton boton--pequeno">
+      {{ esWeb ? 'Volver a solicitudes web' : 'Volver a órdenes de trabajo' }}
+    </a>
   </div>
 }
 
@@ -671,4 +695,8 @@
      almacén: la ficha que sale de aquí es una ficha normal y corriente. -->
 @if (altaPieza()) {
   <app-formulario-pieza (cerrar)="altaPieza.set(false)" (guardado)="trasAltaPieza($event)" />
+}
+
+@if (enviandoWeb() && esWeb && orden(); as o) {
+  <app-enviar-presupuesto [presupuesto]="$any(o)" (cerrar)="enviandoWeb.set(false)" (enviado)="trasEnviarWeb()" />
 }

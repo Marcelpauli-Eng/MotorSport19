@@ -1,6 +1,6 @@
 package com.motorsport19.taller.orden.web.dto;
 
-import com.motorsport19.taller.orden.domain.LineaOT;
+import com.motorsport19.taller.orden.domain.LineaImporte;
 import com.motorsport19.taller.orden.domain.TipoLinea;
 
 import java.math.BigDecimal;
@@ -35,7 +35,7 @@ public record LineaOTResponse(
         BigDecimal total
 ) {
 
-    public static LineaOTResponse de(LineaOT linea) {
+    public static LineaOTResponse de(LineaImporte linea) {
         return new LineaOTResponse(
                 linea.getId(),
                 linea.getNumeroLinea(),

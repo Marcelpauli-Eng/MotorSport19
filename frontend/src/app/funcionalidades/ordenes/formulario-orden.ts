@@ -8,6 +8,8 @@ import { ClientesService } from '../../nucleo/servicios/clientes.service';
 import { MotosService } from '../../nucleo/servicios/motos.service';
 import { NotificacionesService } from '../../nucleo/servicios/notificaciones.service';
 import { OrdenesService } from '../../nucleo/servicios/ordenes.service';
+import { PresupuestosWebService } from '../../nucleo/servicios/presupuestos-web.service';
+import { SolicitudWeb } from '../../nucleo/modelos/solicitudes';
 import { Tecnico } from '../../nucleo/modelos/configuracion';
 import { UsuariosService } from '../../nucleo/servicios/usuarios.service';
 import { SesionService } from '../../nucleo/servicios/sesion.service';
@@ -98,8 +100,28 @@ export class FormularioOrden {
    */
   readonly caminoFijo = input<'revisar' | 'preparar' | null>(null);
 
+  /**
+   * El cliente ha aceptado el presupuesto de esta solicitud web: la orden se
+   * abre con sus líneas, ya aprobada. El cliente y la moto se dan de alta aquí
+   * con lo que dejó en la web; el bastidor se pide ahora, con la moto delante.
+   */
+  readonly solicitud = input<SolicitudWeb | null>(null);
+
   readonly cerrar = output<void>();
   readonly abierta = output<OrdenTrabajo>();
+  readonly aceptada = output<{ id: number; codigo: string }>();
+
+  private readonly presupuestosWeb = inject(PresupuestosWebService);
+
+  protected readonly borradorCliente = computed(() => {
+    const s = this.solicitud();
+    return s ? { nombre: s.nombre, telefono: s.telefono, email: s.email } : null;
+  });
+
+  protected readonly borradorMoto = computed(() => {
+    const s = this.solicitud();
+    return s ? { marca: s.marca, modelo: s.modelo, matricula: s.matricula } : null;
+  });
 
   protected readonly enviando = signal(false);
   protected readonly listaClientes = signal<ClienteResumen[]>([]);
@@ -185,7 +207,14 @@ export class FormularioOrden {
   );
 
   constructor() {
-    this.clientes.buscar('', true, 0, 300).subscribe((p) => this.listaClientes.set(p.contenido));
+    this.clientes.buscar('', true, 0, 300).subscribe((p) => {
+      this.listaClientes.set(p.contenido);
+      // Si quien pidió el presupuesto ya es cliente, se le reconoce por el teléfono.
+      const s = this.solicitud();
+      const cifras = (t: string | null) => (t ?? '').replace(/\D/g, '').slice(-9);
+      const ya = s && p.contenido.find((c) => c.telefono && cifras(c.telefono) === cifras(s.telefono));
+      if (ya && !this.clienteId()) this.elegirCliente(ya.id);
+    });
 
     if (this.reparteTrabajo) {
       this.usuarios.tecnicos().subscribe((t) => this.tecnicos.set(t));
@@ -193,6 +222,8 @@ export class FormularioOrden {
 
     // Si viene con moto fijada, hay que resolver el cliente automáticamente.
     queueMicrotask(() => {
+      const s = this.solicitud();
+      if (s) this.problema.set(s.necesita);
       const fijada = this.motoFijada();
       if (fijada) {
         this.motos.obtener(fijada).subscribe((m) => {
@@ -276,6 +307,27 @@ export class FormularioOrden {
   protected guardar(): void {
     if (!this.puedeGuardar()) return;
     this.enviando.set(true);
+
+    const s = this.solicitud();
+    if (s) {
+      this.presupuestosWeb
+        .aceptar(s.id, {
+          motoId: this.motoId()!,
+          kmEntrada: this.kmEntrada()!,
+          fechaEstimadaSalida: this.fechaEstimada() || null,
+          tecnicoId: this.tecnicoId(),
+          observaciones: this.observaciones().trim() || null,
+        })
+        .subscribe({
+          next: (o) => {
+            this.enviando.set(false);
+            this.notificaciones.exito(`Orden ${o.codigo} abierta con el presupuesto aprobado por el cliente.`);
+            this.aceptada.emit(o);
+          },
+          error: () => this.enviando.set(false),
+        });
+      return;
+    }
 
     this.servicio
       .abrir({

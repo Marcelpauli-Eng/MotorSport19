@@ -32,6 +32,8 @@ export class FormularioCliente {
 
   /** Si viene un cliente, se edita; si no, se da de alta uno nuevo. */
   readonly cliente = input<Cliente | null>(null);
+  /** Datos para empezar un alta, como los que dejó en la web quien pidió presupuesto. */
+  readonly borrador = input<{ nombre: string; telefono: string; email: string | null } | null>(null);
 
   readonly cerrar = output<void>();
   readonly guardado = output<Cliente>();
@@ -98,6 +100,14 @@ export class FormularioCliente {
     // `input()` ya está resuelto al construirse el componente.
     queueMicrotask(() => {
       const c = this.cliente();
+      const b = this.borrador();
+      if (!c && b) {
+        const [nombre, ...apellidos] = b.nombre.trim().split(/\s+/);
+        this.nombre.set(nombre);
+        this.apellidos.set(apellidos.join(' '));
+        this.telefono.set(b.telefono);
+        this.email.set(b.email ?? '');
+      }
       if (!c) return;
       this.nombre.set(c.nombre);
       this.apellidos.set(c.apellidos ?? '');

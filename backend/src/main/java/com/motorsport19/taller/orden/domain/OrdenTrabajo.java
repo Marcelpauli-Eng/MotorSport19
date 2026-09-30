@@ -52,7 +52,7 @@ import java.util.Optional;
 @Table(name = "orden_trabajo")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class OrdenTrabajo extends EntidadAuditable {
+public class OrdenTrabajo extends EntidadAuditable implements ConLineas<LineaOT> {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
