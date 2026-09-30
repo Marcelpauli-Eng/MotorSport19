@@ -447,6 +447,11 @@ todos los presupuestos y el mismo registro). El que ya se facturó entra
 ENTREGADA y enlazado a su factura (migración `V26`), así que no sale como
 trabajo sin facturar ni admite otra factura; el resto queda PRESUPUESTADA.
 
+La numeración sigue la de NEXTGO: al actualizar (migración `V28`), la serie
+ordinaria de cada año que aún no ha emitido nada se pone en la última factura
+de NEXTGO de ese año, así que la primera de aquí es la siguiente (la 42 si
+NEXTGO llegó a la 41). Una serie que ya ha emitido no se renumera nunca.
+
 
 ### Órdenes de trabajo (fase 3)
 
