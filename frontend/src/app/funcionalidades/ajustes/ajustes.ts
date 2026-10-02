@@ -626,6 +626,7 @@ export class Ajustes {
         pais: b.pais,
         telefono: b.telefono,
         email: b.email,
+        numeroCuenta: b.numeroCuenta,
         tarifaHoraDefecto: b.tarifaHoraDefecto,
         tipoIvaDefecto: b.tipoIvaDefecto,
         capacidadDiariaHoras: b.capacidadDiariaHoras,

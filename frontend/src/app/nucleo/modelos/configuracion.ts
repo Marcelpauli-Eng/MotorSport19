@@ -23,6 +23,8 @@ export interface ConfiguracionTaller {
   pais: string;
   telefono: string | null;
   email: string | null;
+  /** Sale en la factura como forma de pago. Vacío, la factura dice «CONTADO». */
+  numeroCuenta: string | null;
   tarifaHoraDefecto: number;
   tipoIvaDefecto: string;
   /** Horas de taller al día. La agenda avisa cuando un día las pasa. */

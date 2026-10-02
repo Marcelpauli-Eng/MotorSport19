@@ -42,7 +42,7 @@ class ConfiguracionControllerTest {
     private static ConfiguracionController.ActualizarConfiguracion peticion() {
         return new ConfiguracionController.ActualizarConfiguracion(
                 "Taller Ejemplo S.L.", "B12345674", "Calle Mayor 1", "28001", "Madrid",
-                "Madrid", "ES", "910000000", "taller@ejemplo.example",
+                "Madrid", "ES", "910000000", "taller@ejemplo.example", " ES00 0000 0000 0000 0000 0000 ",
                 new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"),
                 new BigDecimal("3000.00"));
     }
@@ -95,7 +95,7 @@ class ConfiguracionControllerTest {
         void guardarActualiza() {
             ConfiguracionTaller existente = ConfiguracionTaller.sinRellenar();
             existente.actualizar("Antiguo S.L.", "B12345674", "Calle Vieja 2", "28002", "Madrid",
-                    "Madrid", "ES", null, null, new BigDecimal("30.00"), "GENERAL",
+                    "Madrid", "ES", null, null, null, new BigDecimal("30.00"), "GENERAL",
                     new BigDecimal("8.00"), new BigDecimal("3000.00"));
             when(repositorio.findById(ConfiguracionTaller.ID_UNICO))
                     .thenReturn(Optional.of(existente));
@@ -108,6 +108,7 @@ class ConfiguracionControllerTest {
 
             assertThat(respuesta.razonSocial()).isEqualTo("Taller Ejemplo S.L.");
             assertThat(existente.getTarifaHoraDefecto()).isEqualByComparingTo("45.00");
+            assertThat(respuesta.numeroCuenta()).isEqualTo("ES00 0000 0000 0000 0000 0000");
         }
     }
 
@@ -117,9 +118,11 @@ class ConfiguracionControllerTest {
         ConfiguracionTaller cfg = ConfiguracionTaller.sinRellenar();
 
         cfg.actualizar("Taller Ejemplo S.L.", "B12345674", "Calle Mayor 1", "28001", "Madrid",
-                null, "ES", null, null, new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"),
+                null, "ES", null, null, "  ", new BigDecimal("45.00"), "GENERAL", new BigDecimal("16.00"),
                 new BigDecimal("3000.00"));
 
         assertThat(cfg.getProvincia()).isEmpty();
+        // Cuenta en blanco = sin cuenta: la factura vuelve a decir «CONTADO».
+        assertThat(cfg.getNumeroCuenta()).isNull();
     }
 }

@@ -85,7 +85,8 @@ public class ConfiguracionController {
         cfg.actualizar(
                 peticion.razonSocial(), peticion.nif(), peticion.direccion(), peticion.codigoPostal(),
                 peticion.ciudad(), peticion.provincia(), peticion.pais(), peticion.telefono(),
-                peticion.email(), peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto(),
+                peticion.email(), peticion.numeroCuenta(),
+                peticion.tarifaHoraDefecto(), peticion.tipoIvaDefecto(),
                 peticion.capacidadDiariaHoras(),
                 peticion.limiteFacturaSimplificada());
         return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
@@ -162,6 +163,7 @@ public class ConfiguracionController {
             boolean configurado,
             String razonSocial, String nif, String direccion, String codigoPostal,
             String ciudad, String provincia, String pais, String telefono, String email,
+            String numeroCuenta,
             BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
             BigDecimal capacidadDiariaHoras,
             BigDecimal limiteFacturaSimplificada,
@@ -173,6 +175,7 @@ public class ConfiguracionController {
                     true,
                     c.getRazonSocial(), c.getNif(), c.getDireccion(), c.getCodigoPostal(),
                     c.getCiudad(), c.getProvincia(), c.getPais(), c.getTelefono(), c.getEmail(),
+                    c.getNumeroCuenta(),
                     c.getTarifaHoraDefecto(), c.getTipoIvaDefecto(), c.getCapacidadDiariaHoras(),
                     c.getLimiteFacturaSimplificada(),
                     c.getSoftwareNombre(), c.getSoftwareVersion(),
@@ -183,7 +186,7 @@ public class ConfiguracionController {
         static ConfiguracionResponse sinConfigurar(List<TipoIva> tipos) {
             return new ConfiguracionResponse(
                     false,
-                    null, null, null, null, null, null, "ES", null, null,
+                    null, null, null, null, null, null, "ES", null, null, null,
                     null, "GENERAL", null,
                     // El tope que trae la instalacion de serie; la gestoria lo confirma.
                     ConfiguracionTaller.LIMITE_SIMPLIFICADA_POR_DEFECTO,
@@ -218,6 +221,8 @@ public class ConfiguracionController {
             @Size(max = 2) String pais,
             @Size(max = 30) String telefono,
             @Size(max = 150) String email,
+            @Size(max = 60, message = "El numero de cuenta no puede superar los 60 caracteres")
+            String numeroCuenta,
 
             @NotNull(message = "La tarifa por hora es obligatoria")
             @Positive(message = "La tarifa por hora tiene que ser mayor que cero")

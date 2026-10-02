@@ -77,6 +77,10 @@ public class ConfiguracionTaller extends EntidadAuditable {
     @Column(name = "email", length = 150)
     private String email;
 
+    /** Sale en la factura como forma de pago. Vacio, la factura dice «CONTADO». */
+    @Column(name = "numero_cuenta", length = 60)
+    private String numeroCuenta;
+
     /** Tarifa/hora por defecto de mano de obra. Se congela en cada OT al abrirla. */
     @Column(name = "tarifa_hora_defecto", nullable = false, precision = 12, scale = 2)
     private BigDecimal tarifaHoraDefecto;
@@ -146,7 +150,8 @@ public class ConfiguracionTaller extends EntidadAuditable {
      */
     public void actualizar(String razonSocial, String nif, String direccion, String codigoPostal,
                            String ciudad, String provincia, String pais, String telefono,
-                           String email, BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
+                           String email, String numeroCuenta,
+                           BigDecimal tarifaHoraDefecto, String tipoIvaDefecto,
                            BigDecimal capacidadDiariaHoras,
                            BigDecimal limiteFacturaSimplificada) {
         this.razonSocial = exigir(razonSocial, "La razon social es obligatoria.");
@@ -160,6 +165,7 @@ public class ConfiguracionTaller extends EntidadAuditable {
         this.pais = pais == null || pais.isBlank() ? "ES" : pais.trim();
         this.telefono = telefono;
         this.email = email;
+        this.numeroCuenta = numeroCuenta == null || numeroCuenta.isBlank() ? null : numeroCuenta.trim();
         // Se acepta lo que diga la gestoria, pero no un numero absurdo: un limite
         // negativo dejaria el taller sin poder emitir ninguna simplificada sin
         // que nadie entendiera por que.

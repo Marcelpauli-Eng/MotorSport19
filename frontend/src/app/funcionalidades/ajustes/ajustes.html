@@ -171,6 +171,21 @@
             (ngModelChange)="campo('email', $event)"
           />
         </div>
+
+        <div class="campo">
+          <label for="numeroCuentaTaller">Número de cuenta</label>
+          <input
+            id="numeroCuentaTaller"
+            maxlength="60"
+            [disabled]="!esAdmin"
+            [ngModel]="b.numeroCuenta"
+            (ngModelChange)="campo('numeroCuenta', $event)"
+            placeholder="ES00 0000 0000 0000 0000 0000"
+          />
+          <span class="pequeno silenciado">
+            Sale en la factura como forma de pago. Si lo dejas vacío, la factura dice «CONTADO».
+          </span>
+        </div>
       </section>
 
       <section class="tarjeta">
