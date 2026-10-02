@@ -22,6 +22,8 @@ export interface SolicitudWeb {
   marca: string;
   modelo: string;
   matricula: string | null;
+  /** Año de la moto, si lo dijo. */
+  anio: number | null;
   /** Como se apunta en una cita sin ficha: «Yamaha R6 · 1234ABC». */
   descripcionMoto: string;
   necesita: string;

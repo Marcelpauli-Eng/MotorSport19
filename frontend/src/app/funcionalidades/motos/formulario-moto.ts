@@ -32,7 +32,9 @@ export class FormularioMoto {
   /** Cliente ya elegido: entonces no se pregunta de quién es. */
   readonly clienteFijado = input<number | null>(null);
   /** Datos para empezar un alta, como los que dejó en la web quien pidió presupuesto. */
-  readonly borrador = input<{ marca: string; modelo: string; matricula: string | null } | null>(null);
+  readonly borrador = input<{ marca: string; modelo: string; matricula: string | null; anio: number | null } | null>(
+    null,
+  );
 
   readonly cerrar = output<void>();
   readonly guardado = output<Moto>();
@@ -96,6 +98,7 @@ export class FormularioMoto {
         this.marca.set(b.marca);
         this.modelo.set(b.modelo);
         this.matricula.set(b.matricula ?? '');
+        this.anio.set(b.anio);
         this.cargarModelosNhtsa(b.marca);
       }
       if (!m) return;

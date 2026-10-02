@@ -25,6 +25,7 @@ public record SolicitudWebResponse(
         String marca,
         String modelo,
         String matricula,
+        Integer anio,
         /** Como se apuntaria en una cita sin ficha: marca, modelo y matricula. */
         String descripcionMoto,
         String necesita,
@@ -54,7 +55,7 @@ public record SolicitudWebResponse(
                 s.getId(), s.getReferencia(), s.getTipo(), s.getTipo().getDescripcion(),
                 s.getEstado(), s.getEstado().getDescripcion(), s.getRecibidaEn(), s.getIdioma(),
                 s.getNombre(), s.getTelefono(), s.getEmail(), s.getMarca(), s.getModelo(),
-                s.getMatricula(), s.descripcionMoto(), s.getNecesita(), s.getFechaPreferida(),
+                s.getMatricula(), s.getAnio(), s.descripcionMoto(), s.getNecesita(), s.getFechaPreferida(),
                 s.getNumFotos(),
                 s.getPresupuestoImporte(), s.getPresupuestoDetalle(), s.getPresupuestoCanal(),
                 s.getPresupuestadaEn(),
@@ -73,7 +74,7 @@ public record SolicitudWebResponse(
      */
     public SolicitudWebResponse sinImportes() {
         return new SolicitudWebResponse(id, referencia, tipo, tipoDescripcion, estado, estadoDescripcion,
-                recibidaEn, idioma, nombre, telefono, email, marca, modelo, matricula, descripcionMoto,
+                recibidaEn, idioma, nombre, telefono, email, marca, modelo, matricula, anio, descripcionMoto,
                 necesita, fechaPreferida, fotos, null, presupuestoDetalle, presupuestoCanal,
                 presupuestadaEn, presupuestadaPor, citaId, citaFechaHora, nota, atendidaEn, atendidaPor,
                 ordenTrabajoId, ordenTrabajoCodigo);

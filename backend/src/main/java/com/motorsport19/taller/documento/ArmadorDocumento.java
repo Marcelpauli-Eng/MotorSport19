@@ -67,7 +67,10 @@ public class ArmadorDocumento {
                 fecha.atZone(MADRID).toLocalDate(),
                 new DocumentoImprimible.Cliente(solicitud.getNombre(), null, null, "", solicitud.getTelefono()),
                 new DocumentoImprimible.Vehiculo(
-                        solicitud.getMatricula(), null, solicitud.getMarca() + " " + solicitud.getModelo(), null),
+                        solicitud.getMatricula(), null,
+                        solicitud.getMarca() + " " + solicitud.getModelo()
+                                + (solicitud.getAnio() == null ? "" : " (" + solicitud.getAnio() + ")"),
+                        null),
                 lineas, cfg, null);
     }
 

@@ -52,7 +52,7 @@ public class SolicitudWebService {
     public record Entrada(String referencia, TipoSolicitud tipo, String idioma, String nombre,
                           String telefono, String email, String marca, String modelo,
                           String matricula, String necesita, LocalDate fechaPreferida,
-                          List<String> fotos) {
+                          List<String> fotos, Integer anio) {
     }
 
     // ------------------------------------------------------------------
@@ -68,9 +68,12 @@ public class SolicitudWebService {
         }
 
         List<byte[]> imagenes = decodificar(e.fotos());
-        SolicitudWeb solicitud = solicitudes.save(SolicitudWeb.recibir(
+        SolicitudWeb nueva = SolicitudWeb.recibir(
                 e.referencia(), e.tipo(), e.idioma(), e.nombre(), e.telefono(), e.email(),
-                e.marca(), e.modelo(), e.matricula(), e.necesita(), e.fechaPreferida(), imagenes.size()));
+                e.marca(), e.modelo(), e.matricula(), e.necesita(), e.fechaPreferida(), imagenes.size());
+        // Antes de guardarla: el año no se cambia despues.
+        nueva.anotarAnio(e.anio());
+        SolicitudWeb solicitud = solicitudes.save(nueva);
 
         for (int i = 0; i < imagenes.size(); i++) {
             fotos.save(FotoSolicitud.de(solicitud, i + 1, imagenes.get(i)));
