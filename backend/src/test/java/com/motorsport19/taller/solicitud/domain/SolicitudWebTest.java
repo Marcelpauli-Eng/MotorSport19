@@ -50,6 +50,20 @@ class SolicitudWebTest {
         }
 
         @Test
+        @DisplayName("el año es opcional: se apunta si puede ser, y uno imposible se ignora sin rechazarla")
+        void anio() {
+            SolicitudWeb s = solicitud(TipoSolicitud.PRESUPUESTO);
+            s.anotarAnio(2019);
+            assertThat(s.getAnio()).isEqualTo(2019);
+            assertThat(s.descripcionMoto()).isEqualTo("Yamaha R6 (2019)");
+
+            s.anotarAnio(3019);
+            assertThat(s.getAnio()).isNull();
+            s.anotarAnio(null);
+            assertThat(s.descripcionMoto()).isEqualTo("Yamaha R6");
+        }
+
+        @Test
         @DisplayName("la moto se describe como se apuntaria en una cita sin ficha")
         void descripcionMoto() {
             assertThat(solicitud(TipoSolicitud.CITA).descripcionMoto()).isEqualTo("Yamaha R6");

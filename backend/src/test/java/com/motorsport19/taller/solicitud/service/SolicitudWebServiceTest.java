@@ -54,7 +54,7 @@ class SolicitudWebServiceTest {
     private static SolicitudWebService.Entrada entrada(List<String> fotos) {
         return new SolicitudWebService.Entrada("ref-1", TipoSolicitud.PRESUPUESTO, "es", "Ana Soler",
                 "600100200", "ana@example.com", "Honda", "CBR 600", null, "Carenado tras una caida",
-                null, fotos);
+                null, fotos, 2019);
     }
 
     @Test

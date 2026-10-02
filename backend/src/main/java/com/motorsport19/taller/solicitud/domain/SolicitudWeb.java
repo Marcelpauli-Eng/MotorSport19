@@ -30,6 +30,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -94,6 +95,10 @@ public class SolicitudWeb extends EntidadAuditable implements ConLineas<LineaPre
 
     @Column(name = "matricula", length = 20, updatable = false)
     private String matricula;
+
+    /** Año de la moto, si lo dijo. */
+    @Column(name = "anio", updatable = false)
+    private Integer anio;
 
     @Column(name = "necesita", nullable = false, columnDefinition = "text", updatable = false)
     private String necesita;
@@ -187,6 +192,16 @@ public class SolicitudWeb extends EntidadAuditable implements ConLineas<LineaPre
         s.estado = EstadoSolicitud.PENDIENTE;
         s.recibidaEn = Instant.now();
         return s;
+    }
+
+    /**
+     * Apunta el año que dejo en la web. Es opcional: uno que no puede ser se
+     * ignora en vez de rechazar la solicitud entera, que se perderia por un
+     * dato que no hace falta para contestarle.
+     */
+    public void anotarAnio(Integer anio) {
+        boolean posible = anio != null && anio >= 1885 && anio <= Year.now().getValue() + 1;
+        this.anio = posible ? anio : null;
     }
 
     // ------------------------------------------------------------------
@@ -469,7 +484,7 @@ public class SolicitudWeb extends EntidadAuditable implements ConLineas<LineaPre
 
     /** Como se apunta la moto en una cita sin ficha: «Yamaha R6 · 1234ABC». */
     public String descripcionMoto() {
-        String moto = marca + " " + modelo;
+        String moto = marca + " " + modelo + (anio == null ? "" : " (" + anio + ")");
         return matricula == null ? moto : moto + " · " + matricula;
     }
 

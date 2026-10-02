@@ -120,7 +120,7 @@ export class FormularioOrden {
 
   protected readonly borradorMoto = computed(() => {
     const s = this.solicitud();
-    return s ? { marca: s.marca, modelo: s.modelo, matricula: s.matricula } : null;
+    return s ? { marca: s.marca, modelo: s.modelo, matricula: s.matricula, anio: s.anio } : null;
   });
 
   protected readonly enviando = signal(false);

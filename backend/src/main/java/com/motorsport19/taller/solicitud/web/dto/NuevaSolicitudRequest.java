@@ -30,10 +30,12 @@ public record NuevaSolicitudRequest(
         @NotBlank @Size(max = 3000) String necesita,
         LocalDate fechaPreferida,
         /** En base64, como mucho tres. */
-        @Size(max = 3) List<@NotBlank String> fotos) {
+        @Size(max = 3) List<@NotBlank String> fotos,
+        /** Año de la moto, opcional. Si no tiene sentido se ignora, no se rechaza. */
+        Integer anio) {
 
     public SolicitudWebService.Entrada entrada() {
         return new SolicitudWebService.Entrada(referencia, tipo, idioma, nombre, telefono, email,
-                marca, modelo, matricula, necesita, fechaPreferida, fotos);
+                marca, modelo, matricula, necesita, fechaPreferida, fotos, anio);
     }
 }

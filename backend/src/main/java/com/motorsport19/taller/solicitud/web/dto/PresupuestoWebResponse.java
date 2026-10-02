@@ -41,7 +41,8 @@ public record PresupuestoWebResponse(
     public static PresupuestoWebResponse de(SolicitudWeb s) {
         return new PresupuestoWebResponse(
                 s.getId(), "Presupuesto web " + s.getId(), s.getEstado(), s.getEstado().getDescripcion(),
-                s.getNombre(), s.getTelefono(), s.getEmail(), s.getMarca() + " " + s.getModelo(),
+                s.getNombre(), s.getTelefono(), s.getEmail(),
+                s.getMarca() + " " + s.getModelo() + (s.getAnio() == null ? "" : " (" + s.getAnio() + ")"),
                 s.getMatricula(), s.getNecesita(), s.getIdioma(), s.getTarifaHora(), s.getTipoIva(),
                 s.permiteEditarLineas(),
                 s.getLineas().stream().map(LineaOTResponse::de).toList(),
