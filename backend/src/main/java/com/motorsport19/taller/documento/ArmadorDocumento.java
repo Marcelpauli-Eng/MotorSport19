@@ -71,6 +71,19 @@ public class ArmadorDocumento {
                 lineas, cfg, null);
     }
 
+    /**
+     * El presupuesto sin rellenar, para hacerlo a boli en el mismo papel. Solo
+     * lleva impresos los datos del taller.
+     */
+    public DocumentoImprimible plantillaPresupuesto(ConfiguracionTaller cfg) {
+        return new DocumentoImprimible(
+                "PRESUPUESTO", "TOTAL PRESUPUESTO", null, null, null, null,
+                emisor(cfg),
+                new DocumentoImprimible.Cliente(null, null, null, null, null),
+                new DocumentoImprimible.Vehiculo(null, null, null, null),
+                "", null, List.of(), null, null);
+    }
+
     private DocumentoImprimible presupuesto(String referencia, LocalDate fecha,
                                             DocumentoImprimible.Cliente cliente,
                                             DocumentoImprimible.Vehiculo vehiculo,

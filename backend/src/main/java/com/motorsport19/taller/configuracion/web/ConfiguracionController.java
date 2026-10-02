@@ -10,13 +10,21 @@ import com.motorsport19.taller.configuracion.domain.TipoIva;
 import com.motorsport19.taller.configuracion.repository.ConfiguracionTallerRepository;
 import com.motorsport19.taller.configuracion.repository.ReglaCobroRepository;
 import com.motorsport19.taller.configuracion.repository.TipoIvaRepository;
+import com.motorsport19.taller.configuracion.service.ConfiguracionTallerService;
+import com.motorsport19.taller.documento.ArmadorDocumento;
+import com.motorsport19.taller.documento.GeneradorPdfDocumento;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -47,14 +55,21 @@ public class ConfiguracionController {
     private final TipoIvaRepository tiposIva;
     private final PiezaRepository piezas;
     private final ReglaCobroRepository reglas;
+    private final ConfiguracionTallerService configuracion;
+    private final ArmadorDocumento armador;
+    private final GeneradorPdfDocumento generadorDocumento;
 
     public ConfiguracionController(ConfiguracionTallerRepository repositorio,
                                    TipoIvaRepository tiposIva, PiezaRepository piezas,
-                                   ReglaCobroRepository reglas) {
+                                   ReglaCobroRepository reglas, ConfiguracionTallerService configuracion,
+                                   ArmadorDocumento armador, GeneradorPdfDocumento generadorDocumento) {
         this.repositorio = repositorio;
         this.tiposIva = tiposIva;
         this.piezas = piezas;
         this.reglas = reglas;
+        this.configuracion = configuracion;
+        this.armador = armador;
+        this.generadorDocumento = generadorDocumento;
     }
 
     /**
@@ -90,6 +105,16 @@ public class ConfiguracionController {
                 peticion.capacidadDiariaHoras(),
                 peticion.limiteFacturaSimplificada());
         return ConfiguracionResponse.de(repositorio.save(cfg), tiposIva.findAll());
+    }
+
+    /** El presupuesto en blanco, para imprimirlo y rellenarlo a mano. */
+    @GetMapping(value = "/plantilla-presupuesto/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<Resource> plantillaPresupuesto() {
+        byte[] pdf = generadorDocumento.generar(armador.plantillaPresupuesto(configuracion.obligatoria()));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"plantilla-presupuesto.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(new ByteArrayResource(pdf));
     }
 
     // ==================================================================

@@ -87,6 +87,19 @@ class GeneradorPdfDocumentoTest {
     }
 
     @Test
+    @DisplayName("la plantilla en blanco sale sin totales ni fechas, y se deja para revisarla")
+    void plantillaEnBlanco() throws Exception {
+        byte[] pdf = generador.generar(new DocumentoImprimible(
+                "PRESUPUESTO", "TOTAL PRESUPUESTO", null, null, null, null, emisor(),
+                new DocumentoImprimible.Cliente(null, null, null, null, null),
+                new DocumentoImprimible.Vehiculo(null, null, null, null),
+                "", null, List.of(), null, null));
+
+        assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");
+        Files.write(Path.of("target", "plantilla-presupuesto.pdf"), pdf);
+    }
+
+    @Test
     @DisplayName("un documento sin lineas tambien sale: la maqueta no depende del contenido")
     void sinLineas() {
         assertThat(generador.generar(presupuesto(List.of()))).isNotEmpty();

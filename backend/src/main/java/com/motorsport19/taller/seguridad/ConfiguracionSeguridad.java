@@ -147,6 +147,8 @@ public class ConfiguracionSeguridad {
                 // Leerlos si los abre mostrador: son los datos que van impresos
                 // en cada factura, y los necesita para comprobar antes de emitir.
                 .requestMatchers(HttpMethod.GET, "/configuracion").hasAuthority(p(Permiso.AJUSTES_VER))
+                .requestMatchers(HttpMethod.GET, "/configuracion/plantilla-presupuesto/pdf")
+                        .hasAuthority(p(Permiso.AJUSTES_VER))
                 .requestMatchers("/configuracion/**").hasAuthority(p(Permiso.AJUSTES_EDITAR))
 
                 // ----- Dinero -----

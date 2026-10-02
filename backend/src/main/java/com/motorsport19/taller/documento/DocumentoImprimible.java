@@ -17,6 +17,7 @@ import java.util.List;
  * @param numeroDocumento referencia larga del documento
  * @param siniestro     numero de parte del seguro; «S/N» cuando no hay
  * @param fechaValidez  hasta cuando se mantiene el precio; nulo en facturas
+ * @param totales       nulo en la plantilla en blanco, la que se rellena a mano
  */
 public record DocumentoImprimible(
         String titulo,
@@ -37,6 +38,11 @@ public record DocumentoImprimible(
         Totales totales,
         String observaciones
 ) {
+
+    /** La plantilla para rellenar a mano: casillas vacias en vez de ceros y guiones. */
+    public boolean enBlanco() {
+        return totales == null;
+    }
 
     public record Emisor(String razonSocial, String direccion, String poblacion,
                          String nif, String telefono, String email) {
