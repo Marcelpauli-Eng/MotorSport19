@@ -565,40 +565,69 @@ class OrdenTrabajoServiceTest {
     }
 
     @Nested
-    @DisplayName("No se cierra una orden con material sin montar")
+    @DisplayName("Dar por lista una orden con material sin montar")
     class MaterialSinMontar {
 
         /**
-         * Un taller puede entregar una moto con lo que se le haya podido hacer,
-         * y la maquina de estados lo permite. Lo que no puede pasar es que las
-         * lineas sigan diciendo cinco filtros cuando solo se montaron dos: la
-         * factura se compone de las lineas y el cliente acabaria pagando piezas
-         * que la moto no lleva puestas.
+         * El inventario no siempre esta al dia: se compra una pieza para una
+         * moto y no se apunta la entrada. Eso no puede impedir terminar la
+         * orden ni facturarla, pero tiene que avisar antes.
          */
         @Test
-        @DisplayName("con piezas pendientes de servir no deja marcarla lista")
-        void noSeCierraConPiezasPendientes() {
-            Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
-            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(aceite);
+        @DisplayName("sin existencias avisa de que falta y cuanto, y no la cierra")
+        void avisaSinExistencias() {
+            Pieza espejo = PiezasDePrueba.conStock(16L, "ESP-RET-DER", "0");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(espejo);
             orden.entrarEnReparacion(null, null);
             orden.bloquearPorFaltaDePiezas("Sin existencias", null);
             dadaLaOrden(orden);
+            when(movimientoRepository.consumoNetoDeLinea(any())).thenReturn(BigDecimal.ZERO);
+            when(inventarioService.intentarConsumoEnOrden(anyLong(), any(), any(), any(), any()))
+                    .thenReturn(sinExistencias());
 
-            LineaOT linea = orden.lineasDePiezas().get(0);
-            // Nada servido: la linea pide una unidad y el almacen no dio ninguna.
-            when(movimientoRepository.consumoNetoDeLinea(linea.getId())).thenReturn(BigDecimal.ZERO);
-
-            assertThatThrownBy(() -> ordenService.marcarLista(1L, null))
-                    .isInstanceOf(ConflictoException.class)
-                    // Dice que falta y cuanto: sin eso hay que ir linea a linea.
-                    .hasMessageContaining("ACE-10W40-1L")
-                    .hasMessageContaining("faltan 1 de 1")
-                    // Y por que importa, que es lo que justifica el corte.
-                    .hasMessageContaining("cobraria piezas que la moto no lleva");
+            assertThatThrownBy(() -> ordenService.marcarLista(1L, false, null))
+                    .isInstanceOf(MaterialSinMontarException.class)
+                    .hasMessageContaining("ESP-RET-DER")
+                    .hasMessageContaining("faltan 1 de 1");
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.ESPERANDO_PIEZAS);
         }
 
         @Test
-        @DisplayName("con todo el material servido si se cierra")
+        @DisplayName("si se sigue adelante queda lista, y el historial dice que falto")
+        void sigueAdelanteSinExistencias() {
+            Pieza espejo = PiezasDePrueba.conStock(16L, "ESP-RET-DER", "0");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(espejo);
+            orden.entrarEnReparacion(null, null);
+            orden.bloquearPorFaltaDePiezas("Sin existencias", null);
+            dadaLaOrden(orden);
+            when(movimientoRepository.consumoNetoDeLinea(any())).thenReturn(BigDecimal.ZERO);
+            when(inventarioService.intentarConsumoEnOrden(anyLong(), any(), any(), any(), any()))
+                    .thenReturn(sinExistencias());
+
+            ordenService.marcarLista(1L, true, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
+            assertThat(orden.getHistorialEstados().getLast().getMotivo())
+                    .contains("sin descontar del almacén").contains("ESP-RET-DER");
+        }
+
+        @Test
+        @DisplayName("lo que si esta en el almacen se saca al cerrarla, sin preguntar")
+        void sirveLoQueHay() {
+            Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
+            OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(aceite);
+            orden.entrarEnReparacion(null, null);
+            dadaLaOrden(orden);
+            sinConsumoPrevio();
+
+            ordenService.marcarLista(1L, false, null);
+
+            assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
+            verify(inventarioService).intentarConsumoEnOrden(eq(10L), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("con todo el material servido se cierra sin tocar el almacen")
         void seCierraConTodoServido() {
             Pieza aceite = PiezasDePrueba.conStock(10L, "ACE-10W40-1L", "36");
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon(aceite);
@@ -609,9 +638,10 @@ class OrdenTrabajoServiceTest {
             when(movimientoRepository.consumoNetoDeLinea(linea.getId()))
                     .thenReturn(linea.getCantidad());
 
-            ordenService.marcarLista(1L, null);
+            ordenService.marcarLista(1L, false, null);
 
             assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
+            verify(inventarioService, never()).intentarConsumoEnOrden(anyLong(), any(), any(), any(), any());
         }
 
         @Test
@@ -621,7 +651,7 @@ class OrdenTrabajoServiceTest {
             orden.entrarEnReparacion(null, null);
             dadaLaOrden(orden);
 
-            ordenService.marcarLista(1L, null);
+            ordenService.marcarLista(1L, false, null);
 
             assertThat(orden.getEstado()).isEqualTo(EstadoOT.LISTA);
         }

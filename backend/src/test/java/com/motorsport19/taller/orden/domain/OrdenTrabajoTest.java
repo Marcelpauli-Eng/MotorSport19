@@ -280,7 +280,7 @@ class OrdenTrabajoTest {
         void tarifaNoSeTocaTrasEntregar() {
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
             orden.entrarEnReparacion(null, null);
-            orden.marcarLista(null);
+            orden.marcarLista(null, null);
             orden.entregar(null);
 
             assertThatThrownBy(() -> orden.cambiarTarifaHora(new BigDecimal("60.00")))
@@ -348,7 +348,7 @@ class OrdenTrabajoTest {
         void lineasBloqueadasEnLista() {
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
             orden.entrarEnReparacion(null, null);
-            orden.marcarLista(null);
+            orden.marcarLista(null, null);
 
             assertThatThrownBy(() -> orden.anadirManoDeObra("Extra", BigDecimal.ONE, null,
                     "GENERAL", new BigDecimal("21.00")))
@@ -375,7 +375,7 @@ class OrdenTrabajoTest {
         void cicloCompleto() {
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
             orden.entrarEnReparacion(null, null);
-            orden.marcarLista(null);
+            orden.marcarLista(null, null);
             orden.entregar(null);
 
             assertThat(orden.getEstado()).isEqualTo(EstadoOT.ENTREGADA);
@@ -392,10 +392,10 @@ class OrdenTrabajoTest {
         void entregadaEsInmutable() {
             OrdenTrabajo orden = OrdenesDePrueba.aprobadaCon();
             orden.entrarEnReparacion(null, null);
-            orden.marcarLista(null);
+            orden.marcarLista(null, null);
             orden.entregar(null);
 
-            assertThatThrownBy(() -> orden.marcarLista(null))
+            assertThatThrownBy(() -> orden.marcarLista(null, null))
                     .isInstanceOf(TransicionInvalidaException.class);
             assertThatThrownBy(() -> orden.registrarDiagnostico("Otro diagnostico"))
                     .isInstanceOf(ConflictoException.class);

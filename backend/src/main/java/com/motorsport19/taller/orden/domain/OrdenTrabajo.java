@@ -295,8 +295,8 @@ public class OrdenTrabajo extends EntidadAuditable implements ConLineas<LineaOT>
         cambiarEstado(EstadoOT.ESPERANDO_PIEZAS, usuario, motivo);
     }
 
-    public void marcarLista(Usuario usuario) {
-        cambiarEstado(EstadoOT.LISTA, usuario, null);
+    public void marcarLista(Usuario usuario, String motivo) {
+        cambiarEstado(EstadoOT.LISTA, usuario, motivo);
     }
 
     /**

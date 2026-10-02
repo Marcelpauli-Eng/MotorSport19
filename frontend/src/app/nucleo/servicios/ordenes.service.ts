@@ -219,8 +219,13 @@ export class OrdenesService {
     return this.http.post<ResultadoConsumo>(`${this.base}/${id}/reanudacion`, null);
   }
 
-  marcarLista(id: number): Observable<OrdenTrabajo> {
-    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/lista`, null);
+  /**
+   * Si falta material el servidor responde 409 «Material sin montar» y la
+   * pantalla pregunta; con el sí se repite con `aunqueFalteMaterial`.
+   */
+  marcarLista(id: number, aunqueFalteMaterial = false): Observable<OrdenTrabajo> {
+    const params = new HttpParams().set('aunqueFalteMaterial', aunqueFalteMaterial);
+    return this.http.post<OrdenTrabajo>(`${this.base}/${id}/lista`, null, { params });
   }
 
   entregar(id: number): Observable<OrdenTrabajo> {
