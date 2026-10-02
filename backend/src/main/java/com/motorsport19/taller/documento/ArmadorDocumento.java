@@ -144,7 +144,7 @@ public class ArmadorDocumento {
                         null),
                 new DocumentoImprimible.Vehiculo(
                         factura.getMatricula(), null, factura.getDescripcionVehiculo(), null),
-                "CONTADO",
+                cfg.getNumeroCuenta() == null ? "CONTADO" : cfg.getNumeroCuenta(),
                 null,
                 filas,
                 totales(bruto, descuento, tasas, factura.getBaseImponible(), factura.getTotalIva(),

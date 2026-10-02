@@ -72,6 +72,7 @@ def s1_arranque(admin: Api) -> dict:
         "direccion": "Poligono Industrial 12", "codigoPostal": "08820",
         "ciudad": "El Prat", "provincia": "Barcelona", "pais": "ES",
         "telefono": "934567890", "email": "taller@motorsport19.es",
+        "numeroCuenta": "ES00 0000 0000 0000 0000 0000",
         "tarifaHoraDefecto": "45.00", "tipoIvaDefecto": "GENERAL",
         "capacidadDiariaHoras": "16",
     })
@@ -972,6 +973,12 @@ def s10_facturacion(admin: Api, datos: dict, larga: dict, corta: dict) -> dict:
     pdf = admin.get(f"/facturas/{f1['id']}/pdf", binario=True)
     caso("el PDF de la factura se genera",
          pdf.ok and pdf.cuerpo[:4] == b"%PDF", f"{len(pdf.cuerpo) if pdf.ok else 0} bytes")
+    if pdf.ok:
+        import io
+        from pypdf import PdfReader
+        texto = PdfReader(io.BytesIO(pdf.cuerpo)).pages[0].extract_text()
+        caso("la factura lleva el numero de cuenta como forma de pago",
+             "FORMA PAGO: ES00 0000 0000 0000 0000 0000" in texto)
 
     por_numero = admin.get(f"/facturas/numero/{f1['serieCodigo']}/{f1['ejercicio']}/{f1['numero']}")
     caso("se busca una factura por su numero", por_numero.ok and por_numero["id"] == f1["id"])
