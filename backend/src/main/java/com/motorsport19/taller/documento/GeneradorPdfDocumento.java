@@ -84,6 +84,12 @@ public class GeneradorPdfDocumento {
     private static final float GROSOR = 0.75f;
     private static final float ALTO_FILA = 11.34f;
 
+    /** Renglones de la plantilla en blanco: de unos 6,7 mm, lo que pide la letra a boli. */
+    private static final int RENGLONES_A_MANO = 13;
+
+    /** Sitio que deja la plantilla para escribir a mano el total. */
+    private static final float HUECO_TOTAL_A_MANO = 90f;
+
     /** Separacion entre los renglones del bloque del taller, en la cabecera. */
     private static final float INTERLINEA_EMISOR = 8.5f;
 
@@ -199,7 +205,7 @@ public class GeneradorPdfDocumento {
             texto(l, negrita, 10.5f, IZQ, 714.27f, doc.titulo());
 
             var c = doc.cliente();
-            texto(l, negrita, 7.5f, 325.4f, 717.03f, c.nombre());
+            texto(l, negrita, 7.5f, 325.4f, 717.03f, doc.enBlanco() ? "CLIENTE:" : c.nombre());
             if (c.poblacion() != null) {
                 texto(l, normal, 7.5f, 325.4f, 708.41f, c.poblacion());
             }
@@ -219,7 +225,7 @@ public class GeneradorPdfDocumento {
 
             String[] valores = {
                     doc.numeroDocumento(), doc.serie(),
-                    doc.fecha().format(FECHA), doc.siniestro(),
+                    fecha(doc.fecha()), doc.siniestro(),
             };
             for (int i = 0; i < valores.length; i++) {
                 centrado(l, normal, 6.75f, DOC_COLS[i], DOC_COLS[i + 1], DOC_MEDIO - 7, valores[i]);
@@ -230,15 +236,17 @@ public class GeneradorPdfDocumento {
             rejilla(l, CIF_COLS, CIF_ARRIBA, CIF_ABAJO);
             var c = doc.cliente();
             float yFila = CIF_ABAJO + 4.68f;
-            etiquetaYValor(l, 7.5f, CIF_COLS[0] + 3, yFila, "CIF:", valorOGuion(c.nif()));
+            // En la plantilla el hueco se queda limpio para escribir; un guion solo dice «no hay».
+            etiquetaYValor(l, 7.5f, CIF_COLS[0] + 3, yFila, "CIF:", doc.enBlanco() ? "" : valorOGuion(c.nif()));
             centrado(l, normal, 7.5f, CIF_COLS[1], CIF_COLS[2], yFila, valorOVacio(c.numero()));
-            etiquetaYValor(l, 7.5f, CIF_COLS[2] + 2.63f, yFila, "TELEFONO:", valorOGuion(c.telefono()));
+            etiquetaYValor(l, 7.5f, CIF_COLS[2] + 2.63f, yFila, "TELEFONO:",
+                    doc.enBlanco() ? "" : valorOGuion(c.telefono()));
 
             // Forma de pago, validez y numero de pagina, sin recuadro.
             float y = 651.84f;
             texto(l, negrita, 7.5f, IZQ, y, "FORMA PAGO: " + doc.formaPago());
-            if (doc.fechaValidez() != null) {
-                etiquetaYValor(l, 7.5f, 325.98f, y, "FECHA VALIDEZ:", doc.fechaValidez().format(FECHA));
+            if (doc.fechaValidez() != null || doc.enBlanco()) {
+                etiquetaYValor(l, 7.5f, 325.98f, y, "FECHA VALIDEZ:", fecha(doc.fechaValidez()));
             }
             texto(l, normal, 7.5f, 513.06f, y, "PAGINA Nº 1/1");
         }
@@ -265,7 +273,7 @@ public class GeneradorPdfDocumento {
             var v = doc.vehiculo();
             String[] valores = {
                     valorOVacio(v.matricula()), valorOVacio(v.bastidor()), valorOVacio(v.modelo()),
-                    v.km() == null ? "0" : entero(v.km()),
+                    v.km() != null ? entero(v.km()) : doc.enBlanco() ? "" : "0",
             };
             for (int i = 0; i < valores.length; i++) {
                 centrado(l, normal, 7.5f, VEH_COLS[i], VEH_COLS[i + 1], VEH_MEDIO - 12.51f, valores[i]);
@@ -282,6 +290,15 @@ public class GeneradorPdfDocumento {
             String[] rotulos = {"Código", "Descripción", "Cantidad", "Precio", "Dto.", "Total"};
             for (int i = 0; i < rotulos.length; i++) {
                 centrado(l, negrita, 7.5f, LIN_COLS[i], LIN_COLS[i + 1], LIN_ARRIBA - 10.63f, rotulos[i]);
+            }
+
+            // Renglones para escribir a boli: mas altos que las filas impresas,
+            // que a 11 pt no cabe la letra de nadie.
+            if (doc.enBlanco()) {
+                float alto = (LIN_CABECERA - LIN_ABAJO) / RENGLONES_A_MANO;
+                for (int i = 1; i < RENGLONES_A_MANO; i++) {
+                    linea(l, LIN_COLS[0], LIN_CABECERA - i * alto, DER, LIN_CABECERA - i * alto);
+                }
             }
 
             // El primer renglon no arranca pegado a la cabecera: el documento deja
@@ -331,18 +348,20 @@ public class GeneradorPdfDocumento {
             // Esta fila lleva mas decimales que el resto del papel —tres en los
             // importes y cuatro en la base y la cuota— porque es la que cuadra la
             // gestoria: los redondeos se hacen al final, en la fila de TOTALES.
-            String[] valores = {
-                    cantidadEuros(t.importe()),
-                    t.descuentoLinea().signum() == 0 ? "" : cantidadEuros(t.descuentoLinea()),
-                    cantidadEuros(t.tasas()),
-                    t.descuentos().signum() == 0 ? "" : cantidadEuros(t.descuentos()),
-                    cantidadEuros(t.portes()),
-                    euros4(t.baseImponible()),
-                    porcentaje3(t.porcentajeIva()),
-                    euros4(t.impuestos()),
-            };
-            for (int i = 0; i < valores.length; i++) {
-                centrado(l, normal, 6.75f, TOT_COLS[i], TOT_COLS[i + 1], TOT_CABECERA - 8.14f, valores[i]);
+            if (t != null) {
+                String[] valores = {
+                        cantidadEuros(t.importe()),
+                        t.descuentoLinea().signum() == 0 ? "" : cantidadEuros(t.descuentoLinea()),
+                        cantidadEuros(t.tasas()),
+                        t.descuentos().signum() == 0 ? "" : cantidadEuros(t.descuentos()),
+                        cantidadEuros(t.portes()),
+                        euros4(t.baseImponible()),
+                        porcentaje3(t.porcentajeIva()),
+                        euros4(t.impuestos()),
+                };
+                for (int i = 0; i < valores.length; i++) {
+                    centrado(l, normal, 6.75f, TOT_COLS[i], TOT_COLS[i + 1], TOT_CABECERA - 8.14f, valores[i]);
+                }
             }
 
             // Fila de TOTALES, con el IRPF a la izquierda. No lleva todas las
@@ -355,10 +374,14 @@ public class GeneradorPdfDocumento {
                 linea(l, TOT_COLS[i], TOT_VALORES, TOT_COLS[i], TOT_TOTALES);
             }
             derecha(l, negrita, 6.75f, TOT_COLS[2] - 1.8f, yTotales, "TOTALES");
-            etiquetaYValor(l, 6.75f, TOT_COLS[2] + 41.9f, yTotales,
-                    "IRPF (" + porcentaje(t.irpfPorcentaje()) + "):", euros(t.irpf()));
-            centrado(l, negrita, 6.75f, TOT_COLS[5], TOT_COLS[6], yTotales, euros(t.baseImponible()));
-            centrado(l, negrita, 6.75f, TOT_COLS[7], TOT_COLS[8], yTotales, euros(t.impuestos()));
+            if (t == null) {
+                texto(l, negrita, 6.75f, TOT_COLS[2] + 41.9f, yTotales, "IRPF:");
+            } else {
+                etiquetaYValor(l, 6.75f, TOT_COLS[2] + 41.9f, yTotales,
+                        "IRPF (" + porcentaje(t.irpfPorcentaje()) + "):", euros(t.irpf()));
+                centrado(l, negrita, 6.75f, TOT_COLS[5], TOT_COLS[6], yTotales, euros(t.baseImponible()));
+                centrado(l, negrita, 6.75f, TOT_COLS[7], TOT_COLS[8], yTotales, euros(t.impuestos()));
+            }
 
             // Rotulos de las tres cajas de abajo, cada uno en su casilla.
             linea(l, IZQ, TOT_FIRMAS, DER, TOT_FIRMAS);
@@ -389,6 +412,14 @@ public class GeneradorPdfDocumento {
         private void dibujarPie(PDPageContentStream l, DocumentoImprimible doc) throws IOException {
             var c = doc.cliente();
             var t = doc.totales();
+
+            // En blanco solo el rotulo del total, con sitio detras para el importe.
+            // El resumen de la izquierda repetiria a mano lo que ya esta escrito arriba.
+            if (t == null) {
+                derecha(l, negrita, 10.5f, DER - 5.15f - HUECO_TOTAL_A_MANO, TOT_ABAJO - 15.3f,
+                        doc.rotuloTotal() + ":");
+                return;
+            }
 
             texto(l, negrita, 6.75f, IZQ + 1.87f, TOT_ABAJO - 15.02f,
                     "CLIENTE: %s CIF: %s TOTAL A PAGAR: %s"
@@ -535,6 +566,10 @@ public class GeneradorPdfDocumento {
 
         private String porcentaje3(BigDecimal valor) {
             return formato("#,##0.000").format(valor == null ? BigDecimal.ZERO : valor) + "%";
+        }
+
+        private String fecha(java.time.LocalDate valor) {
+            return valor == null ? "" : valor.format(FECHA);
         }
 
         private String entero(Number valor) {

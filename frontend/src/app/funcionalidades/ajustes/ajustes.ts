@@ -129,7 +129,7 @@ interface NuevaRegla {
   ],
 })
 export class Ajustes {
-  private readonly configuracion = inject(ConfiguracionService);
+  protected readonly configuracion = inject(ConfiguracionService);
   private readonly inventario = inject(InventarioService);
   private readonly usuariosServicio = inject(UsuariosService);
   private readonly notificaciones = inject(NotificacionesService);
