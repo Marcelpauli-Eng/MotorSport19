@@ -1,9 +1,12 @@
 import { alCambiarDatos } from '../../nucleo/servicios/tiempo-real.service';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Cargando } from '../../compartido/cargando';
+import { MATERIAL_SIN_MONTAR } from '../../nucleo/api/error.interceptor';
+import { RespuestaError } from '../../nucleo/modelos/comunes';
 import { Icono } from '../../compartido/icono';
 import { ColorEstadoPipe } from '../../compartido/estado-ot.pipe';
 import { EstadoOT, OrdenTrabajo, ResultadoConsumo } from '../../nucleo/modelos/taller';
@@ -611,7 +614,24 @@ export class DetalleOrden {
       }
 
       case 'LISTA':
-        this.servicio.marcarLista(o.id).subscribe({ next: terminar, error: fallo });
+        // El inventario no siempre está al día (se compra una pieza y no se
+        // apunta), así que la falta de material avisa pero no impide seguir.
+        this.servicio.marcarLista(o.id).subscribe({
+          next: terminar,
+          error: (e: HttpErrorResponse) => {
+            const cuerpo = e.error as RespuestaError | undefined;
+            if (
+              cuerpo?.error !== MATERIAL_SIN_MONTAR ||
+              !confirm(
+                `${cuerpo.mensaje}\n\n¿Seguir adelante igualmente? La orden quedará lista y se podrá ` +
+                  'facturar entera; lo que no está en el almacén no se descontará del inventario.',
+              )
+            ) {
+              return fallo();
+            }
+            this.servicio.marcarLista(o.id, true).subscribe({ next: terminar, error: fallo });
+          },
+        });
         break;
 
       case 'ENTREGADA':

@@ -45,6 +45,12 @@ export const errorInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
         return throwError(() => error);
       }
 
+      // No es un fallo sino una pregunta: la hace la pantalla que lo pidió
+      // («¿seguir aunque falte material?»). Un aviso rojo además sobraría.
+      if ((error.error as RespuestaError | undefined)?.error === MATERIAL_SIN_MONTAR) {
+        return throwError(() => error);
+      }
+
       // El propio login devuelve 401 con credenciales malas: ahi no hay sesion
       // que cerrar, y la pantalla de entrada ya ensena el mensaje.
       const esLogin = peticion.url.includes('/auth/login');
@@ -90,6 +96,9 @@ function conCuerpo(error: HttpErrorResponse, texto: string): HttpErrorResponse {
     return error;
   }
 }
+
+/** El 409 de dar por lista una orden con material que no está en el almacén. */
+export const MATERIAL_SIN_MONTAR = 'Material sin montar';
 
 export function mensajeDe(error: HttpErrorResponse, peticion?: HttpRequest<unknown>): string {
   if (error.status === 0) {

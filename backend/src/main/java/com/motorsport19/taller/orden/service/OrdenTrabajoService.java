@@ -420,61 +420,35 @@ public class OrdenTrabajoService {
         return orden;
     }
 
+    /**
+     * Da por terminado el trabajo, sacando antes del almacen lo que quede por
+     * servir y haya.
+     *
+     * <p>Si aun asi falta material se avisa con {@link MaterialSinMontarException}
+     * y la pantalla pregunta. Con {@code aunqueFalteMaterial} se sigue adelante:
+     * la orden queda lista, se puede facturar entera, y lo que no habia no se
+     * descuenta del almacen. El inventario del taller no siempre esta al dia —se
+     * compra una pieza para una moto y no se apunta la entrada— y eso no puede
+     * impedir terminar la orden ni cobrarla. Queda escrito en el historial.
+     */
     @Transactional
-    public OrdenTrabajo marcarLista(Long id, Long usuarioId) {
+    public OrdenTrabajo marcarLista(Long id, boolean aunqueFalteMaterial, Long usuarioId) {
         OrdenTrabajo orden = cargarConLineas(id);
         exigirPermisoDeTrabajo(orden);
-        exigirMaterialServido(orden);
-        orden.marcarLista(cargarUsuario(usuarioId));
+
+        String faltan = servirPendiente(orden, usuarioId).descripcionDeFaltantes();
+        if (faltan != null && !aunqueFalteMaterial) {
+            // Al lanzar se deshace tambien lo que se acaba de servir: si dicen
+            // que si, se vuelve a servir en la segunda llamada.
+            throw new MaterialSinMontarException(
+                    "La orden %s tiene material que no está en el almacén. %s."
+                            .formatted(orden.codigoVisible(), faltan));
+        }
+
+        orden.marcarLista(cargarUsuario(usuarioId),
+                faltan == null ? null : "Lista sin descontar del almacén. " + faltan);
         log.info("Orden {} lista para entregar", orden.codigoVisible());
         return orden;
-    }
-
-    /**
-     * Impide dar por terminada una orden con material sin montar.
-     *
-     * <p>La maquina de estados deja pasar de ESPERANDO_PIEZAS a LISTA, y tiene
-     * sentido: a veces el cliente se lleva la moto con lo que se le haya podido
-     * hacer. Lo que no puede pasar es que las lineas sigan diciendo cinco filtros
-     * cuando solo se montaron dos, porque la factura se compone de las lineas y
-     * el cliente acaba pagando piezas que no lleva puestas.
-     *
-     * <p>Asi que se corta aqui y se explica la salida: o llega el material, o se
-     * baja la linea a lo que de verdad se monto. Cualquiera de las dos deja la
-     * factura diciendo la verdad.
-     */
-    private void exigirMaterialServido(OrdenTrabajo orden) {
-        List<String> pendientes = new ArrayList<>();
-        boolean todoEnAlmacen = true;
-
-        for (LineaOT linea : orden.lineasDePiezas()) {
-            BigDecimal falta = linea.getCantidad().subtract(consumoDe(linea));
-            if (falta.signum() > 0) {
-                pendientes.add("%s (faltan %s de %s)".formatted(
-                        linea.skuPieza(), falta.stripTrailingZeros().toPlainString(),
-                        linea.getCantidad().stripTrailingZeros().toPlainString()));
-
-                todoEnAlmacen &= linea.getPieza().hayExistenciasPara(falta);
-            }
-        }
-
-        if (pendientes.isEmpty()) {
-            return;
-        }
-
-        // La salida no es la misma en los dos casos, y decir la que no toca hace
-        // perder el tiempo buscando en el almacen algo que ya esta: si el
-        // material esta, solo falta sacarlo; si no esta, hay que comprarlo o
-        // bajar la linea a lo que de verdad se monto.
-        String salida = todoEnAlmacen
-                ? "Hay existencias de todo: pulse «Servir material» para sacarlo del almacen"
-                : ("Registre la entrada del material y sirvalo, o baje la cantidad de esas lineas a "
-                   + "lo que de verdad se ha montado");
-
-        throw new ConflictoException(
-                ("La orden %s todavia tiene material sin montar: %s. %s; si no, la factura cobraria "
-                 + "piezas que la moto no lleva.")
-                        .formatted(orden.codigoVisible(), String.join(", ", pendientes), salida));
     }
 
     /**
@@ -780,6 +754,35 @@ public class OrdenTrabajoService {
             orden.entrarEnReparacion(usuario, null);
         }
 
+        ResultadoConsumo resultado = servirPendiente(orden, usuarioId);
+
+        if (resultado.completo()) {
+            // Al reanudar, la orden venia bloqueada y ahora si puede continuar.
+            if (orden.getEstado() == EstadoOT.ESPERANDO_PIEZAS) {
+                orden.entrarEnReparacion(usuario, "Recibido el material pendiente");
+            }
+            log.info("Orden {} en reparacion: servidas {} lineas de material",
+                    orden.codigoVisible(), resultado.consumidas());
+            return resultado;
+        }
+
+        // Si ya estaba bloqueada, sigue bloqueada: no hay transicion que registrar,
+        // pero tampoco se puede avanzar.
+        if (orden.getEstado() != EstadoOT.ESPERANDO_PIEZAS) {
+            orden.bloquearPorFaltaDePiezas(resultado.descripcionDeFaltantes(), usuario);
+        } else {
+            // Sin cambio de estado no queda en el historial, pero el intento se hizo.
+            anotar(orden, "reintentó servir material, sigue esperando piezas: "
+                          + resultado.descripcionDeFaltantes());
+        }
+
+        log.info("Orden {} en espera de piezas: {}", orden.codigoVisible(),
+                resultado.descripcionDeFaltantes());
+        return resultado;
+    }
+
+    /** Saca del almacen lo que quede por servir de cada linea de pieza y haya. */
+    private ResultadoConsumo servirPendiente(OrdenTrabajo orden, Long usuarioId) {
         List<PiezaFaltante> faltantes = new ArrayList<>();
         int servidas = 0;
 
@@ -815,31 +818,9 @@ public class OrdenTrabajoService {
             }
         }
 
-        if (faltantes.isEmpty()) {
-            // Al reanudar, la orden venia bloqueada y ahora si puede continuar.
-            if (orden.getEstado() == EstadoOT.ESPERANDO_PIEZAS) {
-                orden.entrarEnReparacion(usuario, "Recibido el material pendiente");
-            }
-            log.info("Orden {} en reparacion: servidas {} lineas de material",
-                    orden.codigoVisible(), servidas);
-            return new ResultadoConsumo(EstadoOT.EN_REPARACION, servidas, List.of());
-        }
-
-        ResultadoConsumo resultado = new ResultadoConsumo(EstadoOT.ESPERANDO_PIEZAS, servidas, faltantes);
-
-        // Si ya estaba bloqueada, sigue bloqueada: no hay transicion que registrar,
-        // pero tampoco se puede avanzar.
-        if (orden.getEstado() != EstadoOT.ESPERANDO_PIEZAS) {
-            orden.bloquearPorFaltaDePiezas(resultado.descripcionDeFaltantes(), usuario);
-        } else {
-            // Sin cambio de estado no queda en el historial, pero el intento se hizo.
-            anotar(orden, "reintentó servir material, sigue esperando piezas: "
-                          + resultado.descripcionDeFaltantes());
-        }
-
-        log.info("Orden {} en espera de piezas: {}", orden.codigoVisible(),
-                resultado.descripcionDeFaltantes());
-        return resultado;
+        return new ResultadoConsumo(
+                faltantes.isEmpty() ? EstadoOT.EN_REPARACION : EstadoOT.ESPERANDO_PIEZAS,
+                servidas, faltantes);
     }
 
     /**

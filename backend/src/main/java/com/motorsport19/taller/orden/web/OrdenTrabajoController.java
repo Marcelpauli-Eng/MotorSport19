@@ -1,8 +1,10 @@
 package com.motorsport19.taller.orden.web;
 
+import com.motorsport19.taller.common.error.RespuestaError;
 import com.motorsport19.taller.common.web.PaginaResponse;
 import com.motorsport19.taller.orden.domain.EstadoOT;
 import com.motorsport19.taller.orden.domain.OrdenTrabajo;
+import com.motorsport19.taller.orden.service.MaterialSinMontarException;
 import com.motorsport19.taller.orden.service.OrdenTrabajoService;
 import com.motorsport19.taller.orden.service.ResultadoConsumo;
 import com.motorsport19.taller.orden.web.dto.AbrirOrdenRequest;
@@ -32,6 +34,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +43,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -360,9 +364,22 @@ public class OrdenTrabajoController {
         return detalle(ordenService.bloquearPorFaltaDePiezas(id, peticion.motivo(), usuarioActual.id()));
     }
 
+    /**
+     * Da la orden por lista. Si falta material responde 409 «Material sin
+     * montar»; la pantalla lo pregunta y, si se sigue, repite con
+     * {@code aunqueFalteMaterial=true}.
+     */
     @PostMapping("/{id}/lista")
-    public OrdenTrabajoResponse marcarLista(@PathVariable Long id) {
-        return detalle(ordenService.marcarLista(id, usuarioActual.id()));
+    public OrdenTrabajoResponse marcarLista(@PathVariable Long id,
+                                            @RequestParam(defaultValue = "false") boolean aunqueFalteMaterial) {
+        return detalle(ordenService.marcarLista(id, aunqueFalteMaterial, usuarioActual.id()));
+    }
+
+    @ExceptionHandler(MaterialSinMontarException.class)
+    public ResponseEntity<RespuestaError> materialSinMontar(MaterialSinMontarException ex,
+                                                            HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(RespuestaError.de(
+                HttpStatus.CONFLICT.value(), "Material sin montar", ex.getMessage(), req.getRequestURI()));
     }
 
     /** Entrega al cliente. A partir de aqui la orden queda congelada. */
