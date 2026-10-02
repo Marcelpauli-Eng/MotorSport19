@@ -98,6 +98,10 @@ export class DetalleOrden {
   });
   /** Facturas que han salido de esta orden, para poder ir a ellas. */
   protected readonly facturasDeLaOrden = signal<FacturaResumen[]>([]);
+  /** Una orden se factura una sola vez: lo que cambie después va por rectificativa (el servidor da 409). */
+  protected readonly yaFacturada = computed(() =>
+    this.facturasDeLaOrden().some((f) => f.tipo !== 'RECTIFICATIVA'),
+  );
 
   private static readonly TEXTOS: Record<EstadoOT, string> = {
     RECIBIDA: 'Volver a recibida',

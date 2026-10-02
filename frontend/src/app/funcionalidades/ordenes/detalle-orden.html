@@ -170,7 +170,7 @@
           que no pide papel. Quien decide es el servidor, que conoce el límite y
           lo explica si el importe se pasa.
         -->
-        @if (o.facturable && puedeFacturar && !faltaSerie()) {
+        @if (o.facturable && puedeFacturar && !faltaSerie() && !yaFacturada()) {
           <button
             type="button"
             class="boton boton--principal"
@@ -211,14 +211,30 @@
     @if (o.facturable && faltaSerie()) {
       <div class="faltantes">
         <p class="negrita">No se puede facturar todavía: falta la serie de facturación.</p>
-        <p class="pequeno">
-          El número de cada factura sale de una serie, y no hay ninguna ordinaria abierta. Se abre
-          una vez y sirve para todo el ejercicio.
-        </p>
-        <a routerLink="/ajustes" class="boton boton--pequeno">
-          <app-icono nombre="ajustes" [tamano]="14" />
-          Abrir una serie en Ajustes
-        </a>
+        @if (o.clienteFacturable) {
+          <p class="pequeno">
+            El número de cada factura sale de una serie, y no hay ninguna ordinaria abierta. Se abre
+            una vez y sirve para todo el ejercicio.
+          </p>
+        } @else {
+          <p class="pequeno">
+            A {{ o.clienteNombre }} le faltan datos fiscales, así que le toca factura simplificada,
+            y no hay ninguna serie simplificada abierta. Complete su ficha para emitirle una
+            completa, o abra una serie simplificada.
+          </p>
+        }
+        <div class="fila">
+          @if (!o.clienteFacturable) {
+            <a [routerLink]="['/clientes', o.clienteId]" class="boton boton--pequeno">
+              <app-icono nombre="clientes" [tamano]="14" />
+              Completar la ficha de {{ o.clienteNombre }}
+            </a>
+          }
+          <a routerLink="/ajustes" class="boton boton--pequeno">
+            <app-icono nombre="ajustes" [tamano]="14" />
+            Abrir una serie en Ajustes
+          </a>
+        </div>
       </div>
     }
 
